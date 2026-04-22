@@ -1,0 +1,246 @@
+import GlassCard from '@/components/glass-card';
+import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Image,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+export default function LoginScreen() {
+  const [showPassword, setShowPassword] = useState(false);
+  const [user, setUser] = useState('');
+  const [password, setPassword] = useState('');
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardTranslate = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.timing(cardTranslate, { toValue: 0, duration: 350, useNativeDriver: true }),
+    ]).start();
+  }, [cardOpacity, cardTranslate]);
+
+  return (
+    <ImageBackground source={require('../assets/images/tropical-bg.jpg')} style={styles.bg} resizeMode="cover">
+      <View style={styles.overlay} />
+      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View style={styles.logoBlock}>
+            <Image source={require('../assets/images/jalemos-logo.png')} style={styles.logo} />
+            <Text style={styles.brand}>Jalemos</Text>
+          </View>
+
+          <Animated.View style={[styles.cardWrap, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
+            <GlassCard style={styles.card} intensity={48}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.title}>!Pura Vida!</Text>
+              <Text style={styles.subtitle}>Ingresa a tu cuenta</Text>
+            </View>
+
+            <View style={styles.inputWrap}>
+              <Ionicons name="person-outline" size={18} color={Brand.colors.green.normal} />
+              <TextInput
+                value={user}
+                onChangeText={setUser}
+                placeholder="Usuario"
+                placeholderTextColor={Brand.colors.black.b7}
+                style={styles.input}
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputWrap}>
+              <Ionicons name="lock-closed-outline" size={18} color={Brand.colors.green.normal} />
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Contrasena"
+                placeholderTextColor={Brand.colors.black.b7}
+                style={styles.input}
+                secureTextEntry={!showPassword}
+              />
+              <Pressable onPress={() => setShowPassword((prev) => !prev)}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={Brand.colors.green.normal} />
+              </Pressable>
+            </View>
+
+            <Pressable style={styles.forgotButton}>
+              <Text style={styles.forgotText}>Olvidaste tu contrasena?</Text>
+            </Pressable>
+
+            <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)')}>
+              <Text style={styles.ctaText}>Ingresar</Text>
+            </Pressable>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerLabel}>o continua con</Text>
+              <View style={styles.divider} />
+            </View>
+
+            <Pressable style={styles.socialBtn}>
+              <Ionicons name="logo-google" size={18} color="#0e8d75" />
+              <Text style={styles.socialText}>Google</Text>
+            </Pressable>
+
+            <Pressable style={styles.socialBtn}>
+              <Ionicons name="logo-apple" size={18} color="#0e8d75" />
+              <Text style={styles.socialText}>Apple</Text>
+            </Pressable>
+
+            <Text style={styles.registerText}>
+              No tienes cuenta? <Text style={styles.registerLink}>Registrate aqui</Text>
+            </Text>
+            </GlassCard>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  bg: {
+    flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 63, 57, 0.32)',
+  },
+  keyboard: {
+    flex: 1,
+  },
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: Brand.grid.margin,
+    paddingVertical: Brand.spacing[24],
+  },
+  logoBlock: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  logo: {
+    width: Brand.logos.lg,
+    height: Brand.logos.lg,
+    marginBottom: 6,
+  },
+  brand: {
+    fontSize: 48,
+    color: Brand.colors.green.normal,
+    fontFamily: Fonts.headingHeavy,
+  },
+  cardWrap: {
+    ...withElevation(600),
+  },
+  card: {
+    borderRadius: Brand.radius[24],
+    padding: Brand.spacing[16],
+    gap: 10,
+  },
+  cardHeader: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: Brand.typography.h4.fontSize,
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.headingBold,
+  },
+  subtitle: {
+    color: Brand.colors.black.b7,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: Brand.radius[12],
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    backgroundColor: Brand.colors.black.b1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 14,
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.sans,
+  },
+  forgotButton: {
+    alignSelf: 'flex-end',
+  },
+  forgotText: {
+    color: Brand.colors.green.normal,
+    fontFamily: Fonts.heading,
+    fontSize: 12,
+  },
+  cta: {
+    backgroundColor: Brand.colors.green.normal,
+    borderRadius: 999,
+    paddingVertical: Brand.buttonSizes.regular.height / 2 - 8,
+    alignItems: 'center',
+  },
+  ctaText: {
+    color: Brand.colors.black.b1,
+    fontSize: 15,
+    fontFamily: Fonts.headingBold,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 4,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Brand.colors.green.light,
+  },
+  dividerLabel: {
+    color: Brand.colors.black.b7,
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+  },
+  socialBtn: {
+    borderRadius: Brand.radius[12],
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    backgroundColor: Brand.colors.black.b2,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  socialText: {
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.heading,
+    fontSize: 13,
+  },
+  registerText: {
+    textAlign: 'center',
+    marginTop: 4,
+    fontSize: 13,
+    color: Brand.colors.black.b8,
+    fontFamily: Fonts.sans,
+  },
+  registerLink: {
+    textDecorationLine: 'underline',
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.heading,
+  },
+});
