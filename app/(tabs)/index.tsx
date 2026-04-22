@@ -1,98 +1,826 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useMemo, useRef, useState } from 'react';
+import {
+    Image,
+    Modal,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import GlassCard from '@/components/glass-card';
+import NotificationsModal from '@/components/NotificationsModal';
+import RideCard, { Ride } from '@/components/RideCard';
+import { Brand, Fonts, withElevation } from '@/constants/theme';
+import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
-export default function HomeScreen() {
+const rides: Ride[] = [
+  {
+    from: 'San Jose',
+    to: 'Heredia',
+    date: 'Hoy',
+    time: '5:30 PM',
+    price: 1500,
+    seats: 3,
+    driver: 'Carlos M.',
+    rating: 4.8,
+    avatar: 'CM',
+  },
+  {
+    from: 'Cartago',
+    to: 'San Jose',
+    date: 'Manana',
+    time: '7:00 AM',
+    price: 2000,
+    seats: 2,
+    driver: 'Maria R.',
+    rating: 4.9,
+    avatar: 'MR',
+  },
+  {
+    from: 'Alajuela',
+    to: 'Escazu',
+    date: 'Manana',
+    time: '8:15 AM',
+    price: 1800,
+    seats: 4,
+    driver: 'Jose L.',
+    rating: 4.7,
+    avatar: 'JL',
+  },
+  {
+    from: 'Liberia',
+    to: 'Tamarindo',
+    date: 'Vie 18',
+    time: '10:00 AM',
+    price: 3500,
+    seats: 1,
+    driver: 'Ana P.',
+    rating: 5,
+    avatar: 'AP',
+  },
+];
+
+const quickRoutes = [
+  { from: 'San Jose', to: 'Heredia' },
+  { from: 'Cartago', to: 'San Jose' },
+  { from: 'Alajuela', to: 'SJO' },
+];
+
+const PICKER_ITEM_HEIGHT = 36;
+const PICKER_VISIBLE_ROWS = 5;
+const PICKER_HEIGHT = PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ROWS;
+const hours = Array.from({ length: 24 }, (_, idx) => idx);
+const minutes = Array.from({ length: 60 }, (_, idx) => idx);
+
+function monthLabel(date: Date) {
+  return date.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
+}
+
+function dateLabel(date: Date) {
+  return date.toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function timeLabel(hour: number, minute: number) {
+  const h = String(hour).padStart(2, '0');
+  const m = String(minute).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function buildCalendarDays(cursor: Date) {
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const first = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const startIndex = (first.getDay() + 6) % 7;
+  const cells: Array<Date | null> = [];
+
+  for (let i = 0; i < startIndex; i += 1) {
+    cells.push(null);
+  }
+
+  for (let day = 1; day <= lastDay; day += 1) {
+    cells.push(new Date(year, month, day));
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+
+  return cells;
+}
+
+function isSameDay(a: Date | null, b: Date | null) {
+  if (!a || !b) {
+    return false;
+  }
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+export default function SearchScreen() {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [seats, setSeats] = useState(1);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [cursorDate, setCursorDate] = useState(() => new Date());
+  const [draftDate, setDraftDate] = useState<Date | null>(null);
+  const [draftHour, setDraftHour] = useState(7);
+  const [draftMinute, setDraftMinute] = useState(0);
+  const hourScrollRef = useRef<ScrollView>(null);
+  const minuteScrollRef = useRef<ScrollView>(null);
+
+  const hasOrigin = from.trim().length > 0;
+  const hasDestination = to.trim().length > 0;
+  const hasDate = selectedDate !== null;
+  const hasAnyInput = hasOrigin || hasDestination || hasDate || seats !== 1;
+
+  const visibleBlocks = 1 + (hasOrigin ? 1 : 0) + (hasDestination ? 1 : 0) + (hasDate ? 2 : 0);
+  const heroHeight = 280 + visibleBlocks * 62;
+
+  const calendarDays = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
+
+  const openDateModal = () => {
+    const source = selectedDate ?? new Date();
+    setCursorDate(new Date(source.getFullYear(), source.getMonth(), 1));
+    setDraftDate(new Date(source.getFullYear(), source.getMonth(), source.getDate()));
+    setDraftHour(source.getHours());
+    setDraftMinute(source.getMinutes());
+    setCalendarOpen(true);
+
+    setTimeout(() => {
+      hourScrollRef.current?.scrollTo({ y: source.getHours() * PICKER_ITEM_HEIGHT, animated: false });
+      minuteScrollRef.current?.scrollTo({ y: source.getMinutes() * PICKER_ITEM_HEIGHT, animated: false });
+    }, 0);
+  };
+
+  const onHourScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.max(0, Math.min(23, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+    setDraftHour(idx);
+    hourScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
+  };
+
+  const onMinuteScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.max(0, Math.min(59, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+    setDraftMinute(idx);
+    minuteScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
+  };
+
+  const applyDateTime = () => {
+    const base = draftDate ?? new Date();
+    const merged = new Date(base);
+    merged.setHours(draftHour, draftMinute, 0, 0);
+    setSelectedDate(merged);
+    setCalendarOpen(false);
+  };
+
+  const clearSearch = () => {
+    setFrom('');
+    setTo('');
+    setSelectedDate(null);
+    setSeats(1);
+    setCalendarOpen(false);
+  };
+
+  return (
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={[styles.heroWrap, { height: heroHeight }]}> 
+          <Image source={require('../../assets/images/hero-banner.jpg')} style={[styles.heroImage, { height: heroHeight }]} />
+          <View style={styles.heroOverlay} />
+
+          <View style={styles.heroHeader}>
+            <View>
+              <Text style={styles.heroMini}>Pura Vida</Text>
+              <Text style={styles.heroTitle}>A donde jalamos?</Text>
+            </View>
+            <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
+              <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
+              <View style={styles.bellDot} />
+            </Pressable>
+          </View>
+
+          <GlassCard style={styles.searchCard} intensity={46}>
+            <View style={styles.verticalField}>
+              <Text style={styles.fieldLabel}>Origen</Text>
+              <View style={styles.searchField}>
+                <Ionicons name="radio-button-on" size={12} color="#0e8d75" />
+                <TextInput
+                  value={from}
+                  onChangeText={setFrom}
+                  placeholder="De"
+                  placeholderTextColor="#758783"
+                  style={styles.searchInput}
+                />
+              </View>
+            </View>
+
+            {hasOrigin ? (
+              <Animated.View
+                entering={FadeInDown.duration(220)}
+                exiting={FadeOut.duration(140)}
+                layout={LinearTransition.duration(220)}
+                style={styles.verticalField}
+              >
+                <Text style={styles.fieldLabel}>Destino</Text>
+                <View style={styles.searchField}>
+                  <Ionicons name="location-outline" size={13} color="#15a88a" />
+                  <TextInput
+                    value={to}
+                    onChangeText={setTo}
+                    placeholder="A"
+                    placeholderTextColor="#758783"
+                    style={styles.searchInput}
+                  />
+                </View>
+              </Animated.View>
+            ) : null}
+
+            {hasDestination ? (
+              <Animated.View
+                entering={FadeInDown.duration(220)}
+                exiting={FadeOut.duration(140)}
+                layout={LinearTransition.duration(220)}
+                style={styles.verticalField}
+              >
+                <Text style={styles.fieldLabel}>Fecha y hora</Text>
+                <Pressable style={styles.searchField} onPress={openDateModal}>
+                  <Ionicons name="calendar-outline" size={12} color="#0e8d75" />
+                  <Text style={[styles.searchInput, !selectedDate && styles.placeholderText]}>
+                    {selectedDate ? `${dateLabel(selectedDate)} · ${timeLabel(selectedDate.getHours(), selectedDate.getMinutes())}` : 'Seleccionar fecha y hora'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color="#6d7f7b" />
+                </Pressable>
+              </Animated.View>
+            ) : null}
+
+            {hasDate ? (
+              <Animated.View
+                entering={FadeInDown.duration(220)}
+                exiting={FadeOut.duration(140)}
+                layout={LinearTransition.duration(220)}
+                style={styles.verticalField}
+              >
+                <Text style={styles.fieldLabel}>Plazas</Text>
+                <View style={styles.seatCompact}>
+                  <Pressable style={styles.seatAction} onPress={() => setSeats((prev) => Math.max(1, prev - 1))}>
+                    <Ionicons name="remove" size={15} color={Brand.colors.black.b1} />
+                  </Pressable>
+                  <Text style={styles.seatNumber}>{seats}</Text>
+                  <Pressable style={styles.seatAction} onPress={() => setSeats((prev) => Math.min(6, prev + 1))}>
+                    <Ionicons name="add" size={15} color={Brand.colors.black.b1} />
+                  </Pressable>
+                </View>
+              </Animated.View>
+            ) : null}
+
+            {hasDate ? (
+              <Animated.View
+                entering={FadeInDown.duration(220)}
+                exiting={FadeOut.duration(140)}
+                layout={LinearTransition.duration(220)}
+                style={styles.actionRow}
+              >
+                {hasAnyInput ? (
+                  <Pressable style={styles.clearBtn} onPress={clearSearch}>
+                    <Text style={styles.clearBtnText}>Limpiar</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable style={styles.searchBtn}>
+                  <Text style={styles.searchBtnText}>Buscar</Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
+          </GlassCard>
+        </View>
+
+        <View style={styles.bottomSurface}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.quickFilters}
+            contentContainerStyle={styles.quickFiltersContent}
+          >
+            <Pressable style={styles.filterBtn}>
+              <Ionicons name="locate-outline" size={14} color="#0e8d75" />
+              <Text style={styles.filterText}>Cerca de mi</Text>
+            </Pressable>
+            <Pressable style={styles.filterBtn}>
+              <Ionicons name="calendar-outline" size={14} color="#0e8d75" />
+              <Text style={styles.filterText}>Hoy</Text>
+            </Pressable>
+            <Pressable style={styles.filterBtn}>
+              <Text style={styles.filterText}>Mas baratos</Text>
+            </Pressable>
+          </ScrollView>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Rutas populares</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.routesRow}>
+              {quickRoutes.map((route) => (
+                <Pressable key={`${route.from}-${route.to}`} style={styles.routeChip}>
+                  <Text style={styles.routeChipText}>
+                    {route.from} - {route.to}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Viajes disponibles</Text>
+              <Pressable>
+                <Text style={styles.sectionLink}>Ver todos</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.rideList}>
+              {rides.map((ride, idx) => (
+                <RideCard key={`${ride.driver}-${idx}`} ride={ride} />
+              ))}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      <Modal visible={calendarOpen} transparent animationType="fade" onRequestClose={() => setCalendarOpen(false)}>
+        <View style={styles.calendarBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCalendarOpen(false)} />
+          <GlassCard style={styles.calendarCard} intensity={44}>
+            <View style={styles.calendarHeader}>
+              <Pressable onPress={() => setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
+                <Ionicons name="chevron-back" size={20} color={Brand.colors.black.b10} />
+              </Pressable>
+              <Text style={styles.calendarTitle}>{monthLabel(cursorDate)}</Text>
+              <Pressable onPress={() => setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
+                <Ionicons name="chevron-forward" size={20} color={Brand.colors.black.b10} />
+              </Pressable>
+            </View>
+
+            <View style={styles.weekHeader}>
+              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => (
+                <Text key={day} style={styles.weekDay}>{day}</Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day, idx) => {
+                const active = isSameDay(day, draftDate);
+                return (
+                  <Pressable
+                    key={`day-${idx}`}
+                    style={[styles.dayCell, active && styles.dayCellActive, !day && styles.dayCellEmpty]}
+                    disabled={!day}
+                    onPress={() => day && setDraftDate(day)}
+                  >
+                    <Text style={[styles.dayText, active && styles.dayTextActive]}>{day ? day.getDate() : ''}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.timeRow}>
+              <View style={styles.timeColumn}>
+                <Text style={styles.timeLabel}>Hora</Text>
+                <View style={styles.wheelWrap}>
+                  <ScrollView
+                    ref={hourScrollRef}
+                    style={styles.wheelScroll}
+                    contentContainerStyle={styles.wheelContent}
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={PICKER_ITEM_HEIGHT}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={onHourScrollEnd}
+                  >
+                    {hours.map((hour) => (
+                      <View key={hour} style={styles.wheelItem}>
+                        <Text style={[styles.wheelItemText, draftHour === hour && styles.wheelItemTextActive]}>
+                          {String(hour).padStart(2, '0')}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  <View pointerEvents="none" style={styles.wheelHighlight} />
+                </View>
+              </View>
+
+              <View style={styles.timeColumn}>
+                <Text style={styles.timeLabel}>Minutos</Text>
+                <View style={styles.wheelWrap}>
+                  <ScrollView
+                    ref={minuteScrollRef}
+                    style={styles.wheelScroll}
+                    contentContainerStyle={styles.wheelContent}
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={PICKER_ITEM_HEIGHT}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={onMinuteScrollEnd}
+                  >
+                    {minutes.map((minute) => (
+                      <View key={minute} style={styles.wheelItem}>
+                        <Text style={[styles.wheelItemText, draftMinute === minute && styles.wheelItemTextActive]}>
+                          {String(minute).padStart(2, '0')}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  <View pointerEvents="none" style={styles.wheelHighlight} />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.calendarActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setCalendarOpen(false)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.applyBtn} onPress={applyDateTime}>
+                <Text style={styles.applyBtnText}>Aplicar</Text>
+              </Pressable>
+            </View>
+          </GlassCard>
+        </View>
+      </Modal>
+
+      <NotificationsModal visible={notifOpen} onClose={() => setNotifOpen(false)} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: Brand.colors.black.b3,
+  },
+  content: {
+    paddingBottom: 26,
+  },
+  heroWrap: {
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 63, 57, 0.38)',
+  },
+  heroHeader: {
+    position: 'absolute',
+    top: 58,
+    left: Brand.grid.margin,
+    right: Brand.grid.margin,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heroMini: {
+    color: Brand.colors.green.light,
+    fontSize: 13,
+    fontFamily: Fonts.heading,
+  },
+  heroTitle: {
+    color: Brand.colors.black.b1,
+    fontSize: 32,
+    fontFamily: Fonts.headingHeavy,
+  },
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#ffb13e',
+  },
+  searchCard: {
+    position: 'absolute',
+    left: Brand.grid.margin,
+    right: Brand.grid.margin,
+    top: 194,
+    borderRadius: Brand.radius[16],
+    padding: Brand.spacing[12],
+    gap: 8,
+    ...withElevation(400),
+  },
+  verticalField: {
+    gap: 5,
+  },
+  fieldLabel: {
+    color: Brand.colors.black.b8,
+    fontSize: 11,
+    fontFamily: Fonts.headingBold,
+    marginLeft: 2,
+  },
+  searchField: {
+    borderRadius: Brand.radius[12],
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    backgroundColor: Brand.colors.black.b1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 12,
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.heading,
+  },
+  placeholderText: {
+    color: '#758783',
+  },
+  seatCompact: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: Brand.radius[12],
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  seatAction: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Brand.colors.green.normal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seatNumber: {
+    minWidth: 24,
+    textAlign: 'center',
+    fontSize: 16,
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.headingBold,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  clearBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Brand.colors.green.normal,
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  clearBtnText: {
+    color: Brand.colors.green.dark,
+    fontFamily: Fonts.headingBold,
+    fontSize: 12,
+  },
+  searchBtn: {
+    borderRadius: 999,
+    backgroundColor: Brand.colors.green.normal,
+    paddingHorizontal: 11,
+    paddingVertical: 12,
+    alignItems: 'center',
+    flex: 1,
+  },
+  searchBtnText: {
+    color: Brand.colors.black.b1,
+    fontSize: 12,
+    fontFamily: Fonts.headingBold,
+  },
+  bottomSurface: {
+    backgroundColor: Brand.colors.black.b1,
+    borderTopLeftRadius: Brand.radius[24],
+    borderTopRightRadius: Brand.radius[24],
+    marginTop: -4,
+    paddingTop: 18,
+    paddingBottom: 10,
+  },
+  quickFilters: {
+    marginTop: 0,
+  },
+  quickFiltersContent: {
+    paddingHorizontal: Brand.grid.margin,
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
+  filterBtn: {
+    borderRadius: Brand.radius[12],
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    backgroundColor: Brand.colors.black.b2,
+    paddingVertical: 8,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  filterText: {
+    color: Brand.colors.black.b10,
+    fontSize: 12,
+    fontFamily: Fonts.heading,
+  },
+  section: {
+    marginTop: 14,
+    paddingHorizontal: Brand.grid.margin,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  sectionTitle: {
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.headingBold,
+    fontSize: 15,
+  },
+  sectionLink: {
+    color: Brand.colors.green.normal,
+    fontFamily: Fonts.heading,
+    fontSize: 12,
+  },
+  routesRow: {
+    gap: 8,
+  },
+  routeChip: {
+    borderRadius: 999,
+    backgroundColor: Brand.colors.green.normal,
+    paddingVertical: 9,
+    paddingHorizontal: 13,
+  },
+  routeChipText: {
+    color: Brand.colors.black.b1,
+    fontSize: 12,
+    fontFamily: Fonts.heading,
+  },
+  rideList: {
+    gap: 9,
+  },
+  calendarBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(8, 24, 22, 0.62)',
+    justifyContent: 'center',
+    paddingHorizontal: Brand.grid.margin,
+  },
+  calendarCard: {
+    borderRadius: Brand.radius[16],
+    padding: 14,
+    gap: 12,
+    backgroundColor: 'rgba(245, 253, 250, 0.95)',
+    borderColor: 'rgba(186, 226, 221, 0.95)',
+    borderWidth: 1,
+    ...withElevation(400),
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  calendarTitle: {
+    color: Brand.colors.black.b10,
+    fontFamily: Fonts.headingBold,
+    fontSize: 16,
+    textTransform: 'capitalize',
+  },
+  weekHeader: {
+    flexDirection: 'row',
+  },
+  weekDay: {
+    flex: 1,
+    textAlign: 'center',
+    color: Brand.colors.black.b7,
+    fontSize: 11,
+    fontFamily: Fonts.heading,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 6,
+  },
+  dayCell: {
+    width: '14.2857%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  dayCellEmpty: {
+    opacity: 0,
+  },
+  dayCellActive: {
+    backgroundColor: Brand.colors.green.normal,
+  },
+  dayText: {
+    color: Brand.colors.black.b10,
+    fontSize: 12,
+    fontFamily: Fonts.heading,
+  },
+  dayTextActive: {
+    color: Brand.colors.black.b1,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  timeColumn: {
+    flex: 1,
+    gap: 6,
+  },
+  timeLabel: {
+    color: Brand.colors.black.b8,
+    fontSize: 11,
+    fontFamily: Fonts.headingBold,
+    textTransform: 'uppercase',
+  },
+  wheelWrap: {
+    height: PICKER_HEIGHT,
+    borderRadius: Brand.radius[12],
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    overflow: 'hidden',
+  },
+  wheelScroll: {
+    flex: 1,
+  },
+  wheelContent: {
+    paddingVertical: PICKER_ITEM_HEIGHT * 2,
+  },
+  wheelItem: {
+    height: PICKER_ITEM_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelItemText: {
+    color: Brand.colors.black.b8,
+    fontFamily: Fonts.heading,
+    fontSize: 16,
+  },
+  wheelItemTextActive: {
+    color: Brand.colors.green.dark,
+    fontFamily: Fonts.headingBold,
+  },
+  wheelHighlight: {
     position: 'absolute',
+    left: 6,
+    right: 6,
+    top: PICKER_ITEM_HEIGHT * 2,
+    height: PICKER_ITEM_HEIGHT,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    backgroundColor: 'rgba(26, 158, 143, 0.1)',
+  },
+  calendarActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  cancelBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Brand.colors.green.light,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  cancelBtnText: {
+    color: Brand.colors.black.b8,
+    fontFamily: Fonts.heading,
+    fontSize: 12,
+  },
+  applyBtn: {
+    borderRadius: 999,
+    backgroundColor: Brand.colors.green.normal,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  applyBtnText: {
+    color: Brand.colors.black.b1,
+    fontFamily: Fonts.headingBold,
+    fontSize: 12,
   },
 });
