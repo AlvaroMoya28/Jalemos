@@ -3,6 +3,12 @@
 # dependencies
 node_modules/
 
+
+**/.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
 # Expo
 .expo/
 dist/
