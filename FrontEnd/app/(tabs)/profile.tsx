@@ -181,18 +181,6 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <View style={styles.sectionDivider} />
-
-            <Pressable style={styles.sectionItem}>
-              <View style={styles.itemIconWrap}>
-                <Ionicons name="car-outline" size={16} color="#23413b" />
-              </View>
-              <View style={styles.itemTextWrap}>
-                <Text style={styles.itemLabel}>Mi vehiculo</Text>
-                <Text style={styles.itemDesc}>Gestiona tus carros guardados</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={15} color="#758783" />
-            </Pressable>
           </GlassCard>
         </View>
 

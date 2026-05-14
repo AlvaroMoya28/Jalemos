@@ -141,6 +141,8 @@ export default function SearchScreen() {
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
+  const [hasSearched, setHasSearched] = useState(false);
+
   const hasOrigin = from.trim().length > 0;
   const hasDestination = to.trim().length > 0;
   const hasDate = selectedDate !== null;
@@ -150,6 +152,15 @@ export default function SearchScreen() {
   const heroHeight = 280 + visibleBlocks * 62;
 
   const calendarDays = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
+
+  const filteredRides = useMemo(() => {
+    if (!hasSearched) return rides;
+    return rides.filter((ride) => {
+      const matchFrom = !from.trim() || ride.from.toLowerCase().includes(from.trim().toLowerCase());
+      const matchTo = !to.trim() || ride.to.toLowerCase().includes(to.trim().toLowerCase());
+      return matchFrom && matchTo;
+    });
+  }, [hasSearched, from, to]);
 
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
@@ -191,6 +202,13 @@ export default function SearchScreen() {
     setSelectedDate(null);
     setSeats(1);
     setCalendarOpen(false);
+    setHasSearched(false);
+  };
+
+  const applyQuickRoute = (routeFrom: string, routeTo: string) => {
+    setFrom(routeFrom);
+    setTo(routeTo);
+    setHasSearched(true);
   };
 
   return (
@@ -297,7 +315,7 @@ export default function SearchScreen() {
                     <Text style={styles.clearBtnText}>Limpiar</Text>
                   </Pressable>
                 ) : null}
-                <Pressable style={styles.searchBtn}>
+                <Pressable style={styles.searchBtn} onPress={() => setHasSearched(true)}>
                   <Text style={styles.searchBtnText}>Buscar</Text>
                 </Pressable>
               </Animated.View>
@@ -329,7 +347,7 @@ export default function SearchScreen() {
             <Text style={styles.sectionTitle}>Rutas populares</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.routesRow}>
               {quickRoutes.map((route) => (
-                <Pressable key={`${route.from}-${route.to}`} style={styles.routeChip}>
+                <Pressable key={`${route.from}-${route.to}`} style={styles.routeChip} onPress={() => applyQuickRoute(route.from, route.to)}>
                   <Text style={styles.routeChipText}>
                     {route.from} - {route.to}
                   </Text>
@@ -340,17 +358,30 @@ export default function SearchScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Viajes disponibles</Text>
-              <Pressable>
-                <Text style={styles.sectionLink}>Ver todos</Text>
-              </Pressable>
+              <Text style={styles.sectionTitle}>
+                {hasSearched ? `${filteredRides.length} resultado${filteredRides.length !== 1 ? 's' : ''}` : 'Viajes disponibles'}
+              </Text>
+              {hasSearched ? (
+                <Pressable onPress={clearSearch}>
+                  <Text style={styles.sectionLink}>Ver todos</Text>
+                </Pressable>
+              ) : null}
             </View>
 
-            <View style={styles.rideList}>
-              {rides.map((ride, idx) => (
-                <RideCard key={`${ride.driver}-${idx}`} ride={ride} />
-              ))}
-            </View>
+            {filteredRides.length > 0 ? (
+              <View style={styles.rideList}>
+                {filteredRides.map((ride, idx) => (
+                  <RideCard key={`${ride.driver}-${idx}`} ride={ride} />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No hay viajes para esa ruta</Text>
+                <Pressable onPress={clearSearch}>
+                  <Text style={styles.sectionLink}>Ver todos los viajes</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -677,6 +708,16 @@ const styles = StyleSheet.create({
   },
   rideList: {
     gap: 9,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 10,
+  },
+  emptyText: {
+    color: Brand.colors.black.b7,
+    fontFamily: Fonts.heading,
+    fontSize: 14,
   },
   calendarBackdrop: {
     flex: 1,
