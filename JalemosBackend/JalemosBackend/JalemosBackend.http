@@ -1,6 +1,0 @@
-@JalemosBackend_HostAddress = http://localhost:5153
-
-GET {{JalemosBackend_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
