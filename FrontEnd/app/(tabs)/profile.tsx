@@ -1,7 +1,8 @@
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useNavigation } from 'expo-router';
+import { CommonActions } from '@react-navigation/native';
 import { useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
@@ -34,6 +35,17 @@ const sections: Section[] = [
 ];
 
 export default function ProfileScreen() {
+  const navigation = useNavigation();
+
+  const handleLogout = () => {
+    navigation.getParent()?.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'index' }],
+      })
+    );
+  };
+
   const vehicles = [
     { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },
     { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
@@ -204,7 +216,7 @@ export default function ProfileScreen() {
           </View>
         ))}
 
-        <Pressable style={styles.logoutBtn} onPress={() => router.replace('/')}>
+        <Pressable style={styles.logoutBtn} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={16} color="#c6443d" />
           <Text style={styles.logoutText}>Cerrar sesion</Text>
         </Pressable>

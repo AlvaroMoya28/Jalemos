@@ -76,7 +76,7 @@ export default function LoginScreen() {
             </View>
 
             <Pressable style={styles.forgotButton}>
-              <Text style={styles.forgotText}>Olvidaste tu contrasena?</Text>
+              <Text style={styles.forgotText}>Olvidaste tu contraseña?</Text>
             </Pressable>
 
             <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)')}>
@@ -85,7 +85,7 @@ export default function LoginScreen() {
 
             <View style={styles.dividerRow}>
               <View style={styles.divider} />
-              <Text style={styles.dividerLabel}>o continua con</Text>
+              <Text style={styles.dividerLabel}>o continúa con</Text>
               <View style={styles.divider} />
             </View>
 
@@ -100,7 +100,7 @@ export default function LoginScreen() {
             </Pressable>
 
             <Text style={styles.registerText}>
-              No tienes cuenta? <Text style={styles.registerLink}>Registrate aqui</Text>
+              No tienes cuenta? <Text style={styles.registerLink}>Registrate aquí</Text>
             </Text>
             </GlassCard>
           </Animated.View>
@@ -132,8 +132,8 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   logo: {
-    width: Brand.logos.lg,
-    height: Brand.logos.lg,
+    width: 120,
+    height: 120,
     marginBottom: 6,
   },
   brand: {
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.headingBold,
   },
   subtitle: {
-    color: Brand.colors.black.b7,
+    color: '#ffffff',
     fontSize: 13,
     fontFamily: Fonts.sans,
   },
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   forgotText: {
-    color: Brand.colors.green.normal,
+    color: '#ffffff',
     fontFamily: Fonts.heading,
     fontSize: 12,
   },
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.colors.green.light,
   },
   dividerLabel: {
-    color: Brand.colors.black.b7,
+    color: '#ffffff',
     fontSize: 11,
     fontFamily: Fonts.sans,
   },
@@ -235,12 +235,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     fontSize: 13,
-    color: Brand.colors.black.b8,
+    color: '#ffffff',
     fontFamily: Fonts.sans,
   },
   registerLink: {
     textDecorationLine: 'underline',
-    color: Brand.colors.black.b10,
+    color: '#ffffff',
     fontFamily: Fonts.heading,
   },
 });
