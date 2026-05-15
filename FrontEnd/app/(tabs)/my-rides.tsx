@@ -93,7 +93,7 @@ function statusStyle(status: Status) {
     return { label: 'Completado', bg: Brand.colors.green.light, color: Brand.colors.green.dark };
   }
   if (status === 'upcoming') {
-    return { label: 'Proximo', bg: Brand.colors.blue.light, color: Brand.colors.blue.dark };
+    return { label: 'Próximo', bg: Brand.colors.blue.light, color: Brand.colors.blue.dark };
   }
   return { label: 'Cancelado', bg: '#fde6e5', color: Brand.colors.alerts.error };
 }

@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useRef, useState } from 'react';
 import {
-    Image,
-    Modal,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Image,
+  Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 import GlassCard from '@/components/glass-card';
@@ -34,7 +34,7 @@ const rides: Ride[] = [
   {
     from: 'Cartago',
     to: 'San Jose',
-    date: 'Manana',
+    date: 'Mañana',
     time: '7:00 AM',
     price: 2000,
     seats: 2,
@@ -45,7 +45,7 @@ const rides: Ride[] = [
   {
     from: 'Alajuela',
     to: 'Escazu',
-    date: 'Manana',
+    date: 'Mañana',
     time: '8:15 AM',
     price: 1800,
     seats: 4,
@@ -98,7 +98,7 @@ function buildCalendarDays(cursor: Date) {
   const first = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0).getDate();
   const startIndex = (first.getDay() + 6) % 7;
-  const cells: Array<Date | null> = [];
+  const cells: (Date | null)[] = [];
 
   for (let i = 0; i < startIndex; i += 1) {
     cells.push(null);
@@ -221,7 +221,7 @@ export default function SearchScreen() {
           <View style={styles.heroHeader}>
             <View>
               <Text style={styles.heroMini}>Pura Vida</Text>
-              <Text style={styles.heroTitle}>A donde jalamos?</Text>
+              <Text style={styles.heroTitle}>¿A dónde jalamos?</Text>
             </View>
             <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
               <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
@@ -332,14 +332,14 @@ export default function SearchScreen() {
           >
             <Pressable style={styles.filterBtn}>
               <Ionicons name="locate-outline" size={14} color="#0e8d75" />
-              <Text style={styles.filterText}>Cerca de mi</Text>
+              <Text style={styles.filterText}>Cerca de mí</Text>
             </Pressable>
             <Pressable style={styles.filterBtn}>
               <Ionicons name="calendar-outline" size={14} color="#0e8d75" />
               <Text style={styles.filterText}>Hoy</Text>
             </Pressable>
             <Pressable style={styles.filterBtn}>
-              <Text style={styles.filterText}>Mas baratos</Text>
+              <Text style={styles.filterText}>Más baratos</Text>
             </Pressable>
           </ScrollView>
 

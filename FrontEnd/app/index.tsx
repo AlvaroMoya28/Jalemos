@@ -37,14 +37,14 @@ export default function LoginScreen() {
       <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.logoBlock}>
-            <Image source={require('../assets/images/jalemos-logo.png')} style={styles.logo} />
+            <Image source={require('../assets/images/jalemos-logo2.png')} style={styles.logo} />
             <Text style={styles.brand}>Jalemos</Text>
           </View>
 
           <Animated.View style={[styles.cardWrap, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
             <GlassCard style={styles.card} intensity={48}>
             <View style={styles.cardHeader}>
-              <Text style={styles.title}>!Pura Vida!</Text>
+              <Text style={styles.title}>¡Pura Vida!</Text>
               <Text style={styles.subtitle}>Ingresa a tu cuenta</Text>
             </View>
 
@@ -65,7 +65,7 @@ export default function LoginScreen() {
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Contrasena"
+                placeholder="Contraseña"
                 placeholderTextColor={Brand.colors.black.b7}
                 style={styles.input}
                 secureTextEntry={!showPassword}
@@ -76,10 +76,10 @@ export default function LoginScreen() {
             </View>
 
             <Pressable style={styles.forgotButton}>
-              <Text style={styles.forgotText}>Olvidaste tu contraseña?</Text>
+              <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
             </Pressable>
 
-            <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)')}>
+            <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)/search')}>
               <Text style={styles.ctaText}>Ingresar</Text>
             </Pressable>
 
@@ -100,7 +100,7 @@ export default function LoginScreen() {
             </Pressable>
 
             <Text style={styles.registerText}>
-              No tienes cuenta? <Text style={styles.registerLink}>Registrate aquí</Text>
+              ¿No tienes cuenta? <Text style={styles.registerLink}>Regístrate aquí</Text>
             </Text>
             </GlassCard>
           </Animated.View>
@@ -132,9 +132,9 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 6,
+    width: 180,
+    height: 180,
+    marginBottom: -40,
   },
   brand: {
     fontSize: 48,

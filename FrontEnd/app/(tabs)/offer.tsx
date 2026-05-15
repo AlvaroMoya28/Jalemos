@@ -126,7 +126,7 @@ export default function OfferScreen() {
       Alert.alert('Campos incompletos', 'Completa origen, destino, fecha y hora.');
       return;
     }
-    Alert.alert('Listo', `Tu viaje se publico correctamente con ${selectedVehicle.name}.`);
+    Alert.alert('Listo', `Tu viaje se publicó correctamente con ${selectedVehicle.name}.`);
   };
 
   return (
@@ -155,7 +155,7 @@ export default function OfferScreen() {
                 <TextInput
                   value={from}
                   onChangeText={setFrom}
-                  placeholder="De donde sales?"
+                  placeholder="¿De dónde sales?"
                   placeholderTextColor="#758783"
                   style={styles.searchInput}
                 />
@@ -175,7 +175,7 @@ export default function OfferScreen() {
                   <TextInput
                     value={to}
                     onChangeText={setTo}
-                    placeholder="A donde vas?"
+                    placeholder="¿A dónde vas?"
                     placeholderTextColor="#758783"
                     style={styles.searchInput}
                   />
@@ -241,7 +241,7 @@ export default function OfferScreen() {
             </View>
 
             <View style={styles.vehicleSection}>
-              <Text style={styles.sectionLabel}>Vehiculo</Text>
+              <Text style={styles.sectionLabel}>Vehículo</Text>
               <Pressable style={styles.vehiclePicker} onPress={() => setVehicleModalOpen(true)}>
                 <View>
                   <Text style={styles.vehicleName}>{selectedVehicle.name}</Text>
@@ -402,7 +402,7 @@ export default function OfferScreen() {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setVehicleModalOpen(false)} />
           <GlassCard style={styles.modalCard} intensity={40}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Elegir vehiculo</Text>
+              <Text style={styles.modalTitle}>Elegir vehículo</Text>
               <Pressable onPress={() => setVehicleModalOpen(false)}>
                 <Ionicons name="close" size={20} color={Brand.colors.black.b10} />
               </Pressable>

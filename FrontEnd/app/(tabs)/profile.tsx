@@ -21,7 +21,7 @@ const sections: Section[] = [
   {
     title: 'Preferencias',
     items: [
-      { icon: 'settings-outline', label: 'Configuracion', desc: 'Idioma y notificaciones' },
+      { icon: 'settings-outline', label: 'Configuración', desc: 'Idioma y notificaciones' },
       { icon: 'shield-checkmark-outline', label: 'Privacidad y seguridad', desc: 'Datos y permisos' },
     ],
   },
@@ -29,7 +29,7 @@ const sections: Section[] = [
     title: 'Soporte',
     items: [
       { icon: 'help-circle-outline', label: 'Ayuda', desc: 'Preguntas frecuentes' },
-      { icon: 'information-circle-outline', label: 'Acerca de Jalemos', desc: 'Version 1.0.0' },
+      { icon: 'information-circle-outline', label: 'Acerca de Jalemos', desc: 'Versión 1.0.0' },
     ],
   },
 ];
@@ -54,7 +54,7 @@ export default function ProfileScreen() {
 
   const openShare = async () => {
     await Share.share({
-      message: 'Jalemos - comparte viaje y ahorra en cada ruta. Descargala y jalemos juntos.',
+      message: 'Jalemos - comparte viaje y ahorra en cada ruta. Descárgala y jalemos juntos.',
     });
   };
 
@@ -106,7 +106,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.favTextWrap}>
             <Text style={styles.favTitle}>Lugares favoritos</Text>
-            <Text style={styles.favSub}>Casa, trabajo y mas</Text>
+            <Text style={styles.favSub}>Casa, trabajo y más</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color="#758783" />
         </GlassCard>
@@ -120,8 +120,8 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Vehiculos</Text>
           <GlassCard style={styles.sectionCard}>
             <View style={styles.vehicleSectionHeader}>
-              <Text style={styles.vehicleSectionTitle}>Mis vehiculos</Text>
-              <Text style={styles.vehicleSectionSub}>Selecciona cual usar en Ofrecer viaje</Text>
+              <Text style={styles.vehicleSectionTitle}>Mis vehículos</Text>
+              <Text style={styles.vehicleSectionSub}>Selecciona cuál usar en Ofrecer viaje</Text>
             </View>
 
             <View style={styles.vehicleList}>
@@ -153,7 +153,7 @@ export default function ProfileScreen() {
                 <Ionicons name="card-outline" size={16} color="#23413b" />
               </View>
               <View style={styles.itemTextWrap}>
-                <Text style={styles.itemLabel}>Metodos de pago</Text>
+                <Text style={styles.itemLabel}>Métodos de pago</Text>
                 <Text style={styles.itemDesc}>Tarjetas y SINPE Movil</Text>
               </View>
               <Ionicons name="chevron-forward" size={15} color="#758783" />
@@ -206,7 +206,7 @@ export default function ProfileScreen() {
 
         <Pressable style={styles.logoutBtn} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={16} color="#c6443d" />
-          <Text style={styles.logoutText}>Cerrar sesion</Text>
+          <Text style={styles.logoutText}>Cerrar sesión</Text>
         </Pressable>
       </ScrollView>
     </View>
