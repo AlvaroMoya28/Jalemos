@@ -72,7 +72,7 @@ export default function RootLayout() {
           options={{ presentation: 'transparentModal', title: 'Modal', animation: 'fade_from_bottom' }}
         />
       </Stack>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }

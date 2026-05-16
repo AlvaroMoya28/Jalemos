@@ -1,24 +1,24 @@
 // Slide-up modal that displays the user's in-app notifications.
 // Currently uses a static mock list; replace with a real API call when the
 // Notifications backend module is wired up.
+// All surface and text colors adapt to the device light/dark mode setting.
 
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useMemo } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-/** Union of all notification categories — drives the icon shown on each card. */
 type NotificationType = 'ride' | 'offer' | 'message' | 'rating';
 
-/** Shape of a single notification item in the list. */
 interface NotificationItem {
   id: number;
   type: NotificationType;
   title: string;
   desc: string;
   time: string;
-  /** Whether the notification has been read by the user. */
   unread: boolean;
 }
 
@@ -29,49 +29,13 @@ interface NotificationsModalProps {
 
 // Static mock data — replace with a useFetch / SWR call to GET /api/notifications
 const notifications: NotificationItem[] = [
-  {
-    id: 1,
-    type: 'ride',
-    title: 'Tu viaje a Heredia fue confirmado',
-    desc: 'Carlos M. aceptó tu reserva.',
-    time: 'Hace 5 min',
-    unread: true,
-  },
-  {
-    id: 2,
-    type: 'offer',
-    title: 'Promo Pura Vida: 20% OFF',
-    desc: 'Usa el código JALEMOS en tu próximo viaje.',
-    time: 'Hace 1 h',
-    unread: true,
-  },
-  {
-    id: 3,
-    type: 'message',
-    title: 'Nuevo mensaje de Maria R.',
-    desc: 'Nos vemos en el punto de encuentro.',
-    time: 'Hace 3 h',
-    unread: true,
-  },
-  {
-    id: 4,
-    type: 'rating',
-    title: 'Jose L. te calificó 5 estrellas',
-    desc: 'Excelente pasajero, muy puntual.',
-    time: 'Ayer',
-    unread: false,
-  },
-  {
-    id: 5,
-    type: 'ride',
-    title: 'Recordatorio: viaje mañana',
-    desc: 'Cartago a San Jose, 7:00 AM.',
-    time: 'Ayer',
-    unread: false,
-  },
+  { id: 1, type: 'ride', title: 'Tu viaje a Heredia fue confirmado', desc: 'Carlos M. aceptó tu reserva.', time: 'Hace 5 min', unread: true },
+  { id: 2, type: 'offer', title: 'Promo Pura Vida: 20% OFF', desc: 'Usa el código JALEMOS en tu próximo viaje.', time: 'Hace 1 h', unread: true },
+  { id: 3, type: 'message', title: 'Nuevo mensaje de Maria R.', desc: 'Nos vemos en el punto de encuentro.', time: 'Hace 3 h', unread: true },
+  { id: 4, type: 'rating', title: 'Jose L. te calificó 5 estrellas', desc: 'Excelente pasajero, muy puntual.', time: 'Ayer', unread: false },
+  { id: 5, type: 'ride', title: 'Recordatorio: viaje mañana', desc: 'Cartago a San Jose, 7:00 AM.', time: 'Ayer', unread: false },
 ];
 
-// Maps each notification type to an Ionicons icon name for the category badge
 const iconMap: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   ride: 'car-outline',
   offer: 'pricetag-outline',
@@ -79,18 +43,121 @@ const iconMap: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   rating: 'star-outline',
 };
 
-/** Full-screen sheet modal listing all notifications for the current user. */
+function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.screenBg,
+    },
+    header: {
+      marginHorizontal: Brand.grid.margin,
+      marginTop: 58,
+      marginBottom: 14,
+      borderRadius: Brand.radius[16],
+      paddingHorizontal: Brand.grid.margin,
+      paddingVertical: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    headerTitleWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontFamily: Fonts.headingBold,
+      color: c.textPrimary,
+    },
+    listContent: {
+      paddingHorizontal: Brand.grid.margin,
+      paddingTop: 0,
+      paddingBottom: 120,
+      gap: 10,
+    },
+    card: {
+      borderRadius: Brand.radius[16],
+      padding: 12,
+      flexDirection: 'row',
+      gap: 10,
+      alignItems: 'flex-start',
+      ...withElevation(100),
+    },
+    cardUnread: {
+      borderColor: Brand.colors.green.lightActive,
+    },
+    iconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: Brand.colors.green.normal,
+    },
+    textWrap: {
+      flex: 1,
+    },
+    cardTitle: {
+      color: c.textPrimary,
+      fontSize: 14,
+      fontFamily: Fonts.heading,
+    },
+    cardDesc: {
+      color: c.textSecondary,
+      fontSize: 12,
+      fontFamily: Fonts.sans,
+      marginTop: 3,
+    },
+    cardTime: {
+      color: c.textMuted,
+      fontSize: 11,
+      fontFamily: Fonts.sans,
+      marginTop: 4,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginTop: 4,
+      backgroundColor: Brand.colors.green.normal,
+    },
+    footer: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      padding: Brand.spacing[16],
+      paddingTop: Brand.spacing[12],
+    },
+    footerButton: {
+      backgroundColor: Brand.colors.green.normal,
+      borderRadius: Brand.radius[12],
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    footerButtonText: {
+      color: Brand.colors.black.b1,
+      fontSize: 14,
+      fontFamily: Fonts.heading,
+    },
+  });
+}
+
 export default function NotificationsModal({ visible, onClose }: NotificationsModalProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.container}>
         <GlassCard style={styles.header} intensity={28}>
           <View style={styles.headerTitleWrap}>
-            <Ionicons name="notifications-outline" size={18} color="#0e8d75" />
+            <Ionicons name="notifications-outline" size={18} color={Brand.colors.green.normal} />
             <Text style={styles.headerTitle}>Notificaciones</Text>
           </View>
           <AnimatedPressable onPress={onClose} pressedScale={0.95}>
-            <Ionicons name="close" size={22} color="#26403b" />
+            <Ionicons name="close" size={22} color={colors.textPrimary} />
           </AnimatedPressable>
         </GlassCard>
 
@@ -119,102 +186,3 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Brand.colors.black.b3,
-  },
-  header: {
-    marginHorizontal: Brand.grid.margin,
-    marginTop: 58,
-    marginBottom: 14,
-    borderRadius: Brand.radius[16],
-    paddingHorizontal: Brand.grid.margin,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.headingBold,
-    color: Brand.colors.black.b10,
-  },
-  listContent: {
-    paddingHorizontal: Brand.grid.margin,
-    paddingTop: 0,
-    paddingBottom: 120,
-    gap: 10,
-  },
-  card: {
-    borderRadius: Brand.radius[16],
-    padding: 12,
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'flex-start',
-    ...withElevation(100),
-  },
-  cardUnread: {
-    borderColor: Brand.colors.green.lightActive,
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Brand.colors.green.normal,
-  },
-  textWrap: {
-    flex: 1,
-  },
-  cardTitle: {
-    color: Brand.colors.black.b10,
-    fontSize: 14,
-    fontFamily: Fonts.heading,
-  },
-  cardDesc: {
-    color: Brand.colors.black.b8,
-    fontSize: 12,
-    fontFamily: Fonts.sans,
-    marginTop: 3,
-  },
-  cardTime: {
-    color: Brand.colors.black.b7,
-    fontSize: 11,
-    fontFamily: Fonts.sans,
-    marginTop: 4,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 4,
-    backgroundColor: Brand.colors.green.normal,
-  },
-  footer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: Brand.spacing[16],
-    paddingTop: Brand.spacing[12],
-  },
-  footerButton: {
-    backgroundColor: Brand.colors.green.normal,
-    borderRadius: Brand.radius[12],
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  footerButtonText: {
-    color: Brand.colors.black.b1,
-    fontSize: 14,
-    fontFamily: Fonts.heading,
-  },
-});

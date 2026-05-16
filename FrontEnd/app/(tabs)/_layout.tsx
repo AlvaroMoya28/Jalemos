@@ -1,32 +1,35 @@
 // Tab navigator layout — defines the four main bottom-tab screens of the app.
 // Each tab uses HapticTab for tactile feedback on iOS and has a branded icon and label.
+// Tab bar colors adapt automatically to the device light/dark mode setting.
 
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 
 export default function TabLayout() {
+  const { colors } = useAppTheme();
+
   return (
     <Tabs
       screenOptions={{
         animation: 'fade',
-        // Active tab tint matches brand green; inactive uses medium grey
+        // Active tab tint matches brand green; inactive uses muted grey
         tabBarActiveTintColor: Brand.colors.green.normal,
-        tabBarInactiveTintColor: Brand.colors.black.b7,
+        tabBarInactiveTintColor: colors.textMuted,
         headerShown: false,
-        // Custom pressable that fires haptic feedback on each tab press
         tabBarButton: HapticTab,
         sceneStyle: {
-          backgroundColor: Brand.colors.black.b3,
+          backgroundColor: colors.screenBg,
         },
         tabBarStyle: {
           height: 74,
           paddingBottom: 10,
           paddingTop: 8,
-          backgroundColor: Brand.colors.black.b2,
-          borderTopColor: Brand.colors.green.light,
+          backgroundColor: colors.tabBarBg,
+          borderTopColor: colors.tabBarBorder,
           ...withElevation(200),
         },
         tabBarLabelStyle: {
