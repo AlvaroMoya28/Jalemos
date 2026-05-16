@@ -1,10 +1,15 @@
-// Este archivo representa la entidad de dominio del módulo Users.
-// Aquí deberían vivir las propiedades y reglas del usuario.
+// Domain entity for the Users module.
+// Represents a registered Jalemos user who can act as a driver, a passenger, or both.
 
 namespace JalemosBackend.Modules.Users.Domain;
 
+/// <summary>
+/// Represents an application user with profile data and role information.
+/// </summary>
 public sealed class User
 {
-    // TODO: agregar nombre, correo, teléfono, rol y validaciones de dominio.
+    // TODO: Add FullName, Email, PhoneNumber, Role (Driver/Passenger/Both),
+    //       AvatarUrl, AverageRating, TotalTrips, and domain validation methods
+    //       such as Verify() and UpdateProfile().
     public Guid Id { get; set; }
 }

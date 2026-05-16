@@ -1,17 +1,24 @@
+// Slide-up modal that displays the user's in-app notifications.
+// Currently uses a static mock list; replace with a real API call when the
+// Notifications backend module is wired up.
+
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+/** Union of all notification categories — drives the icon shown on each card. */
 type NotificationType = 'ride' | 'offer' | 'message' | 'rating';
 
+/** Shape of a single notification item in the list. */
 interface NotificationItem {
   id: number;
   type: NotificationType;
   title: string;
   desc: string;
   time: string;
+  /** Whether the notification has been read by the user. */
   unread: boolean;
 }
 
@@ -20,6 +27,7 @@ interface NotificationsModalProps {
   onClose: () => void;
 }
 
+// Static mock data — replace with a useFetch / SWR call to GET /api/notifications
 const notifications: NotificationItem[] = [
   {
     id: 1,
@@ -63,6 +71,7 @@ const notifications: NotificationItem[] = [
   },
 ];
 
+// Maps each notification type to an Ionicons icon name for the category badge
 const iconMap: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   ride: 'car-outline',
   offer: 'pricetag-outline',
@@ -70,6 +79,7 @@ const iconMap: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
   rating: 'star-outline',
 };
 
+/** Full-screen sheet modal listing all notifications for the current user. */
 export default function NotificationsModal({ visible, onClose }: NotificationsModalProps) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>

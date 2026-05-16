@@ -1,11 +1,17 @@
+// My Rides screen — shows the user's personal trip history.
+// Users can toggle between rides taken as a passenger and trips driven,
+// and filter the list to show only completed trips.
+
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+/** Possible lifecycle states for a trip entry. */
 type Status = 'completed' | 'upcoming' | 'cancelled';
 
+/** Data shape for a trip item shown in the history list. */
 interface Trip {
   from: string;
   to: string;
@@ -14,10 +20,13 @@ interface Trip {
   price: number;
   seats: number;
   status: Status;
+  /** Driver name (for passenger view) or passenger count (for driver view). */
   counterpart: string;
+  /** Star rating left after the trip, if any. */
   rating?: number;
 }
 
+// Static mock data for rides taken as a passenger — replace with API data
 const asPassenger: Trip[] = [
   {
     from: 'San Jose',
@@ -53,6 +62,7 @@ const asPassenger: Trip[] = [
   },
 ];
 
+// Static mock data for trips offered as a driver — replace with API data
 const asDriver: Trip[] = [
   {
     from: 'Heredia',
@@ -88,6 +98,7 @@ const asDriver: Trip[] = [
   },
 ];
 
+/** Returns label text and badge colors for each trip status. */
 function statusStyle(status: Status) {
   if (status === 'completed') {
     return { label: 'Completado', bg: Brand.colors.green.light, color: Brand.colors.green.dark };
@@ -98,6 +109,7 @@ function statusStyle(status: Status) {
   return { label: 'Cancelado', bg: '#fde6e5', color: Brand.colors.alerts.error };
 }
 
+/** Renders a single trip entry card with route, price, status badge, and optional rating. */
 function TripItem({ trip, role }: { trip: Trip; role: 'passenger' | 'driver' }) {
   const badge = statusStyle(trip.status);
 
@@ -147,10 +159,13 @@ function TripItem({ trip, role }: { trip: Trip; role: 'passenger' | 'driver' }) 
   );
 }
 
+/** My Rides screen — shows trip history with a passenger/driver toggle and a completion filter. */
 export default function MyRidesScreen() {
+  // Segment toggle: 'passenger' shows bookings, 'driver' shows offered trips
   const [tab, setTab] = useState<'passenger' | 'driver'>('passenger');
   const [onlyCompleted, setOnlyCompleted] = useState(false);
 
+  // Precomputed totals — memo avoids re-reducing on every render
   const totalSpent = useMemo(
     () => asPassenger.filter((t) => t.status === 'completed').reduce((acc, trip) => acc + trip.price, 0),
     []
@@ -161,6 +176,7 @@ export default function MyRidesScreen() {
     []
   );
 
+  // Apply the completion filter on top of whichever role's list is active
   const sourceTrips = tab === 'passenger' ? asPassenger : asDriver;
   const trips = onlyCompleted ? sourceTrips.filter((trip) => trip.status === 'completed') : sourceTrips;
 

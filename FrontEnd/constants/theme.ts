@@ -1,7 +1,13 @@
+// Central design-token file for the Jalemos brand.
+// All colors, spacing, typography, radius, elevation, and component size constants live here.
+// Import Brand, Colors, Fonts, or withElevation wherever styling is needed.
+
 import { Platform } from 'react-native';
 
+/** Master brand token object — single source of truth for all design decisions. */
 export const Brand = {
   colors: {
+    // Green palette — primary brand color family
     green: {
       light: '#bae2dd',
       lightHover: '#8dcfc7',
@@ -14,6 +20,7 @@ export const Brand = {
       darkActive: '#0d4f48',
       darker: '#0a3f39',
     },
+    // Blue palette — used for upcoming/info states
     blue: {
       light: '#e6f9ff',
       lightHover: '#d9f5ff',
@@ -26,6 +33,7 @@ export const Brand = {
       darkActive: '#005673',
       darker: '#004359',
     },
+    // Yellow palette — used for ratings, warnings
     yellow: {
       light: '#f8e9bd',
       lightHover: '#f3da91',
@@ -38,6 +46,7 @@ export const Brand = {
       darkActive: '#45360a',
       darker: '#171203',
     },
+    // Greyscale palette — b1 is white, b13 is black; intermediate steps for text and surfaces
     black: {
       b1: '#ffffff',
       b2: '#fcfcfc',
@@ -53,6 +62,7 @@ export const Brand = {
       b12: '#141414',
       b13: '#000000',
     },
+    // Semantic alert colors — used for status messages and badges
     alerts: {
       error: '#A6192A',
       warning: '#FFE711',
@@ -117,9 +127,11 @@ export const Brand = {
   },
 } as const;
 
+// Tint colors for light and dark mode (used by the React Navigation theme)
 const tintColorLight = Brand.colors.green.normal;
 const tintColorDark = Brand.colors.black.b1;
 
+/** Light/dark semantic color map consumed by useThemeColor and the navigation theme. */
 export const Colors = {
   light: {
     text: Brand.colors.black.b10,
@@ -139,6 +151,10 @@ export const Colors = {
   },
 };
 
+/**
+ * Platform-aware font family map.
+ * iOS and Android load the Poppins font by name; web falls back to a system-ui stack.
+ */
 export const Fonts = Platform.select({
   ios: {
     sans: 'Poppins_400Regular',
@@ -169,8 +185,11 @@ export const Fonts = Platform.select({
   },
 });
 
+/** Discrete elevation levels — higher numbers cast a more prominent shadow. */
 type ElevationLevel = 100 | 200 | 400 | 600 | 800;
 
+// Precomputed shadow values for each elevation level.
+// elevation prop is used on Android; shadowOffset/shadowRadius/shadowOpacity on iOS.
 const elevations: Record<
   ElevationLevel,
   {
@@ -187,6 +206,10 @@ const elevations: Record<
   800: { shadowOffset: { width: 0, height: 8 }, shadowRadius: 28, shadowOpacity: 0.12, elevation: 9 },
 };
 
+/**
+ * Returns a StyleSheet-compatible shadow object for the given elevation level.
+ * Spread the result into a style object: `{ ...withElevation(200) }`.
+ */
 export function withElevation(level: ElevationLevel) {
   return {
     shadowColor: Brand.colors.shadow,

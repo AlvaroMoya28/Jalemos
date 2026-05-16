@@ -1,3 +1,6 @@
+// Profile screen — displays the user's avatar, stats, vehicles, payment methods,
+// app settings, and a logout action.
+
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,17 +9,20 @@ import { CommonActions } from '@react-navigation/native';
 import { useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
+/** A single row inside a settings section card. */
 type SectionItem = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   desc: string;
 };
 
+/** A grouped block of settings rows with a section title. */
 type Section = {
   title: string;
   items: SectionItem[];
 };
 
+// Static settings sections — add navigation targets when the settings screens are built
 const sections: Section[] = [
   {
     title: 'Preferencias',
@@ -34,9 +40,11 @@ const sections: Section[] = [
   },
 ];
 
+/** Profile screen — user account hub with stats, vehicles, payment, and settings. */
 export default function ProfileScreen() {
   const navigation = useNavigation();
 
+  /** Logs the user out by resetting the navigation stack back to the index (login) screen. */
   const handleLogout = () => {
     navigation.getParent()?.dispatch(
       CommonActions.reset({
@@ -46,12 +54,16 @@ export default function ProfileScreen() {
     );
   };
 
+  // Static mock vehicle list — replace with data from the user's profile API endpoint
   const vehicles = [
     { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },
     { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
   ];
+
+  // Wallet balance managed locally; connect to a payment API for real top-up flow
   const [amount, setAmount] = useState(0);
 
+  /** Opens the native share sheet with a pre-written referral message. */
   const openShare = async () => {
     await Share.share({
       message: 'Jalemos - comparte viaje y ahorra en cada ruta. Descárgala y jalemos juntos.',

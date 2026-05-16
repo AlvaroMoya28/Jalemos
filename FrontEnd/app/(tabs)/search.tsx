@@ -19,6 +19,7 @@ import RideCard, { Ride } from '@/components/RideCard';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
+// Static mock rides — replace with a real API call to GET /api/rides when the backend is ready
 const rides: Ride[] = [
   {
     from: 'San Jose',
@@ -66,37 +67,49 @@ const rides: Ride[] = [
   },
 ];
 
+// Shortcut routes shown as chips below the search card for quick selection
 const quickRoutes = [
   { from: 'San Jose', to: 'Heredia' },
   { from: 'Cartago', to: 'San Jose' },
   { from: 'Alajuela', to: 'SJO' },
 ];
 
+// Scroll-wheel picker constants — each row is 36 px tall and 5 rows are visible at once
 const PICKER_ITEM_HEIGHT = 36;
 const PICKER_VISIBLE_ROWS = 5;
 const PICKER_HEIGHT = PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ROWS;
+// Pre-built arrays for the hour and minute scroll wheels
 const hours = Array.from({ length: 24 }, (_, idx) => idx);
 const minutes = Array.from({ length: 60 }, (_, idx) => idx);
 
+/** Returns a localised month + year string, e.g. "mayo 2026". */
 function monthLabel(date: Date) {
   return date.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
 }
 
+/** Returns a short date string used on the date-picker button, e.g. "lun. 12 may.". */
 function dateLabel(date: Date) {
   return date.toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+/** Formats hour and minute as a zero-padded HH:MM string. */
 function timeLabel(hour: number, minute: number) {
   const h = String(hour).padStart(2, '0');
   const m = String(minute).padStart(2, '0');
   return `${h}:${m}`;
 }
 
+/**
+ * Builds the flat array of Date | null cells for the calendar grid.
+ * Leading nulls pad the first week so days align with Mon–Sun headers.
+ * Trailing nulls fill the last row to complete the 7-column grid.
+ */
 function buildCalendarDays(cursor: Date) {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const first = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0).getDate();
+  // Convert Sunday-first (0) to Monday-first (0) index: (0+6)%7 = 6 → Sunday last
   const startIndex = (first.getDay() + 6) % 7;
   const cells: (Date | null)[] = [];
 
@@ -108,6 +121,7 @@ function buildCalendarDays(cursor: Date) {
     cells.push(new Date(year, month, day));
   }
 
+  // Fill remainder of the last week row with null placeholders
   while (cells.length % 7 !== 0) {
     cells.push(null);
   }
@@ -115,6 +129,7 @@ function buildCalendarDays(cursor: Date) {
   return cells;
 }
 
+/** Returns true when both dates represent the same calendar day. */
 function isSameDay(a: Date | null, b: Date | null) {
   if (!a || !b) {
     return false;
@@ -126,33 +141,47 @@ function isSameDay(a: Date | null, b: Date | null) {
   );
 }
 
+/**
+ * Search screen — the app's main ride-discovery view.
+ * The search card progressively reveals fields as the user fills them in:
+ * Origin → Destination → Date/Time → Seats → Search button.
+ * Results are filtered client-side until a real API is connected.
+ */
 export default function SearchScreen() {
+  // Search form state
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [seats, setSeats] = useState(1);
   const [notifOpen, setNotifOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
+  // Calendar / time-picker modal state (draft values are committed only on "Apply")
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [cursorDate, setCursorDate] = useState(() => new Date());
   const [draftDate, setDraftDate] = useState<Date | null>(null);
   const [draftHour, setDraftHour] = useState(7);
   const [draftMinute, setDraftMinute] = useState(0);
+  // Refs to the scroll-wheel ScrollViews so we can programmatically snap them
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
+  // Flag flipped when the user presses "Search" — hides default results until then
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Progressive disclosure flags — each new field unlocks after the previous one is filled
   const hasOrigin = from.trim().length > 0;
   const hasDestination = to.trim().length > 0;
   const hasDate = selectedDate !== null;
   const hasAnyInput = hasOrigin || hasDestination || hasDate || seats !== 1;
 
+  // Hero image height grows as more form fields become visible to avoid content overlap
   const visibleBlocks = 1 + (hasOrigin ? 1 : 0) + (hasDestination ? 1 : 0) + (hasDate ? 2 : 0);
   const heroHeight = 280 + visibleBlocks * 62;
 
+  // Recompute calendar grid only when the viewed month changes
   const calendarDays = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
 
+  // Filter rides by origin/destination text — case-insensitive substring match
   const filteredRides = useMemo(() => {
     if (!hasSearched) return rides;
     return rides.filter((ride) => {
@@ -162,6 +191,7 @@ export default function SearchScreen() {
     });
   }, [hasSearched, from, to]);
 
+  /** Opens the date/time picker modal, pre-populating it with the currently selected date. */
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
     setCursorDate(new Date(source.getFullYear(), source.getMonth(), 1));
@@ -170,24 +200,28 @@ export default function SearchScreen() {
     setDraftMinute(source.getMinutes());
     setCalendarOpen(true);
 
+    // Defer scroll to next frame so the ScrollView layout is ready before scrollTo fires
     setTimeout(() => {
       hourScrollRef.current?.scrollTo({ y: source.getHours() * PICKER_ITEM_HEIGHT, animated: false });
       minuteScrollRef.current?.scrollTo({ y: source.getMinutes() * PICKER_ITEM_HEIGHT, animated: false });
     }, 0);
   };
 
+  /** Snaps the hour wheel to the nearest valid index after a momentum scroll ends. */
   const onHourScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.max(0, Math.min(23, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
     setDraftHour(idx);
     hourScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
+  /** Snaps the minute wheel to the nearest valid index after a momentum scroll ends. */
   const onMinuteScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.max(0, Math.min(59, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
     setDraftMinute(idx);
     minuteScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
+  /** Merges the draft date and time into a single Date and commits it as selectedDate. */
   const applyDateTime = () => {
     const base = draftDate ?? new Date();
     const merged = new Date(base);
@@ -196,6 +230,7 @@ export default function SearchScreen() {
     setCalendarOpen(false);
   };
 
+  /** Resets all search fields back to their initial state. */
   const clearSearch = () => {
     setFrom('');
     setTo('');
@@ -205,6 +240,7 @@ export default function SearchScreen() {
     setHasSearched(false);
   };
 
+  /** Applies a quick-route chip selection and immediately triggers a search. */
   const applyQuickRoute = (routeFrom: string, routeTo: string) => {
     setFrom(routeFrom);
     setTo(routeTo);
