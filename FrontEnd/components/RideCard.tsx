@@ -1,9 +1,14 @@
+// Card component used to display a single available ride in the search results list.
+// Tapping it fires a press animation via AnimatedPressable.
+// TODO: add an onPress handler to navigate to the ride detail / booking screen.
+
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+/** Data shape for a single ride listing. */
 export interface Ride {
   from: string;
   to: string;
@@ -13,6 +18,7 @@ export interface Ride {
   seats: number;
   driver: string;
   rating: number;
+  /** Two-letter avatar initials derived from the driver's name. */
   avatar: string;
 }
 
@@ -20,8 +26,10 @@ interface RideCardProps {
   ride: Ride;
 }
 
+/** Renders a glass-morphism card showing route, schedule, price, and driver info. */
 export default function RideCard({ ride }: RideCardProps) {
   return (
+    // Subtle scale-down on press provides tactile feedback without a navigation action yet
     <AnimatedPressable pressedScale={0.992}>
       <GlassCard style={styles.card} intensity={34}>
         <View style={styles.rowTop}>

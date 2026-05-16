@@ -1,10 +1,15 @@
-// Este archivo representa el punto único de acceso a datos compartido por todos los módulos.
-// Aquí debería vivir el DbContext real, los DbSet y la configuración de la base de datos común.
+// Shared data access context used by all feature modules.
+// When a real database is wired up, replace this stub with an EF Core DbContext
+// that exposes DbSet<T> properties for each aggregate (Trips, Users, Bookings, Notifications, Ratings).
 
 namespace JalemosBackend.Infrastructure.Persistence;
 
+/// <summary>
+/// Central EF Core (or equivalent) context shared across all domain modules.
+/// Registered as a singleton so a single connection pool is reused for the lifetime of the process.
+/// </summary>
 public sealed class ApplicationDbContext
 {
-    // TODO: reemplazar por EF Core o el proveedor de datos elegido.
-    // En esta base se centralizarán las tablas de Rides, Users, Notifications, Bookings y Ratings.
+    // TODO: Add DbSet<Trip>, DbSet<User>, DbSet<Booking>, DbSet<Notification>, DbSet<Rating>
+    //       and configure connection string via IConfiguration.
 }

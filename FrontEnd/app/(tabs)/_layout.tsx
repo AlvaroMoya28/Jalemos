@@ -1,3 +1,6 @@
+// Tab navigator layout — defines the four main bottom-tab screens of the app.
+// Each tab uses HapticTab for tactile feedback on iOS and has a branded icon and label.
+
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
@@ -9,9 +12,11 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         animation: 'fade',
+        // Active tab tint matches brand green; inactive uses medium grey
         tabBarActiveTintColor: Brand.colors.green.normal,
         tabBarInactiveTintColor: Brand.colors.black.b7,
         headerShown: false,
+        // Custom pressable that fires haptic feedback on each tab press
         tabBarButton: HapticTab,
         sceneStyle: {
           backgroundColor: Brand.colors.black.b3,
@@ -29,6 +34,7 @@ export default function TabLayout() {
           fontFamily: Fonts.heading,
         },
       }}>
+      {/* Search tab — main entry point for finding available rides */}
       <Tabs.Screen
         name="search"
         options={{
@@ -36,6 +42,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons size={22} name="map-outline" color={color} />,
         }}
       />
+      {/* Offer tab — lets drivers publish new trips */}
       <Tabs.Screen
         name="offer"
         options={{
@@ -43,6 +50,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons size={22} name="car-outline" color={color} />,
         }}
       />
+      {/* My Rides tab — shows the user's trip history as passenger and driver */}
       <Tabs.Screen
         name="my-rides"
         options={{
@@ -50,6 +58,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons size={22} name="briefcase-outline" color={color} />,
         }}
       />
+      {/* Profile tab — account settings, vehicles, payment methods */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -57,6 +66,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons size={22} name="person-outline" color={color} />,
         }}
       />
+      {/* Explore screen is hidden from the tab bar (href: null) — kept for internal routing */}
       <Tabs.Screen
         name="explore"
         options={{

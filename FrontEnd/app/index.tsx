@@ -1,3 +1,7 @@
+// Login / landing screen — the first screen users see when opening the app.
+// Displays a branded hero background, a glass-morphism login card with
+// username/password fields, social auth options, and a registration link.
+
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,12 +22,16 @@ import {
 } from 'react-native';
 
 export default function LoginScreen() {
+  // Controls password field visibility toggle
   const [showPassword, setShowPassword] = useState(false);
   const [user, setUser] = useState('');
   const [password, setPassword] = useState('');
+
+  // Animated values for the card entrance animation (fade + slide up)
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const cardTranslate = useRef(new Animated.Value(16)).current;
 
+  // Run the card entrance animation once on mount
   useEffect(() => {
     Animated.parallel([
       Animated.timing(cardOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
@@ -79,6 +87,7 @@ export default function LoginScreen() {
               <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
             </Pressable>
 
+            {/* TODO: replace with real auth call before navigating */}
             <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)/search')}>
               <Text style={styles.ctaText}>Ingresar</Text>
             </Pressable>
@@ -114,6 +123,7 @@ const styles = StyleSheet.create({
   bg: {
     flex: 1,
   },
+  // Semi-transparent teal overlay darkens the hero background for readability
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(10, 63, 57, 0.32)',

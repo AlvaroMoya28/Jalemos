@@ -18,29 +18,41 @@ import {
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 
+// Offer screen — lets drivers publish a new trip with route, date/time, seats, price, and vehicle.
+// Shares the same calendar/time-picker pattern as the Search screen.
+
+// Scroll-wheel picker constants — each row is 36 px tall and 5 rows are visible at once
 const PICKER_ITEM_HEIGHT = 36;
 const PICKER_VISIBLE_ROWS = 5;
 const PICKER_HEIGHT = PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ROWS;
 const hours = Array.from({ length: 24 }, (_, idx) => idx);
 const minutes = Array.from({ length: 60 }, (_, idx) => idx);
 
+/** Returns a localised month + year string for the calendar header. */
 function monthLabel(date: Date) {
   return date.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
 }
 
+/** Returns a short readable date string for the date-picker button. */
 function dateLabel(date: Date) {
   return date.toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+/** Formats hour and minute as zero-padded HH:MM. */
 function timeLabel(hour: number, minute: number) {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+/**
+ * Builds the flat Date | null array for the calendar grid.
+ * Leading nulls align the first day of the month to the correct Mon–Sun column.
+ */
 function buildCalendarDays(cursor: Date) {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const first = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0).getDate();
+  // Shift from Sunday-first (JS default) to Monday-first calendar
   const startIndex = (first.getDay() + 6) % 7;
   const cells: (Date | null)[] = [];
   for (let i = 0; i < startIndex; i++) cells.push(null);
@@ -49,17 +61,21 @@ function buildCalendarDays(cursor: Date) {
   return cells;
 }
 
+/** Returns true when both dates fall on the same calendar day. */
 function isSameDay(a: Date | null, b: Date | null) {
   if (!a || !b) return false;
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+/** Offer screen — form that allows a driver to publish a new ride. */
 export default function OfferScreen() {
+  // Static mock vehicle list — replace with data fetched from the user's profile
   const vehicles = [
     { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },
     { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
   ];
 
+  // Trip form state
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -70,24 +86,30 @@ export default function OfferScreen() {
   const [isRecurring, setIsRecurring] = useState(true);
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
 
+  // Calendar / time-picker modal state (draft values committed only on "Apply")
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [cursorDate, setCursorDate] = useState(() => new Date());
   const [draftDate, setDraftDate] = useState<Date | null>(null);
   const [draftHour, setDraftHour] = useState(7);
   const [draftMinute, setDraftMinute] = useState(0);
+  // Refs used to programmatically snap the scroll-wheel pickers
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
   const selectedVehicle = vehicles.find((v) => v.id === vehicleId) ?? vehicles[0];
+  // Total estimated earnings = price per seat × number of seats
   const estimated = useMemo(() => seats * price, [price, seats]);
+  // Character counter for the optional notes field (max 100)
   const remaining = Math.max(0, 100 - notes.length);
   const calendarDays = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
 
+  // Progressive disclosure: hero grows as the origin / destination fields are filled
   const hasOrigin = from.trim().length > 0;
   const hasDestination = to.trim().length > 0;
   const visibleBlocks = 1 + (hasOrigin ? 1 : 0) + (hasDestination ? 1 : 0);
   const heroHeight = 280 + visibleBlocks * 62;
 
+  /** Opens the date/time picker pre-populated with the currently selected date. */
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
     setCursorDate(new Date(source.getFullYear(), source.getMonth(), 1));
@@ -95,24 +117,28 @@ export default function OfferScreen() {
     setDraftHour(source.getHours());
     setDraftMinute(source.getMinutes());
     setCalendarOpen(true);
+    // Defer scroll so the ScrollView layout exists before scrollTo fires
     setTimeout(() => {
       hourScrollRef.current?.scrollTo({ y: source.getHours() * PICKER_ITEM_HEIGHT, animated: false });
       minuteScrollRef.current?.scrollTo({ y: source.getMinutes() * PICKER_ITEM_HEIGHT, animated: false });
     }, 0);
   };
 
+  /** Snaps the hour wheel to the nearest row after momentum scrolling ends. */
   const onHourScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.max(0, Math.min(23, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
     setDraftHour(idx);
     hourScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
+  /** Snaps the minute wheel to the nearest row after momentum scrolling ends. */
   const onMinuteScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.max(0, Math.min(59, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
     setDraftMinute(idx);
     minuteScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
+  /** Commits draft date + time into selectedDate and closes the picker modal. */
   const applyDateTime = () => {
     const base = draftDate ?? new Date();
     const merged = new Date(base);
@@ -121,11 +147,13 @@ export default function OfferScreen() {
     setCalendarOpen(false);
   };
 
+  /** Validates required fields and publishes the trip. TODO: call POST /api/rides. */
   const publish = () => {
     if (!from || !to || !selectedDate) {
       Alert.alert('Campos incompletos', 'Completa origen, destino, fecha y hora.');
       return;
     }
+    // TODO: replace with an actual API call to POST /api/rides
     Alert.alert('Listo', `Tu viaje se publicó correctamente con ${selectedVehicle.name}.`);
   };
 
