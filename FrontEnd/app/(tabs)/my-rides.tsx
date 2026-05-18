@@ -1,14 +1,14 @@
 // My Rides screen — shows the user's personal trip history.
-// Users can toggle between rides taken as a passenger and trips driven,
-// and filter the list to show only completed trips.
-// All surface and text colors adapt to the device light/dark mode setting.
+// Follows the same hero-banner + rounded bottom surface visual pattern
+// as the Search and Offer screens for consistency.
 
 import GlassCard from '@/components/glass-card';
+import NotificationsModal from '@/components/NotificationsModal';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type Status = 'completed' | 'upcoming' | 'cancelled';
 
@@ -36,6 +36,8 @@ const asDriver: Trip[] = [
   { from: 'Escazu', to: 'Jaco', date: '30 Abr 2026', time: '11:00 AM', price: 4500, seats: 2, status: 'upcoming', counterpart: '2 pasajeros' },
 ];
 
+const HERO_HEIGHT = 200;
+
 function statusStyle(status: Status) {
   if (status === 'completed') return { label: 'Completado', bg: Brand.colors.green.light, color: Brand.colors.green.dark };
   if (status === 'upcoming') return { label: 'Próximo', bg: Brand.colors.blue.light, color: Brand.colors.blue.dark };
@@ -48,34 +50,69 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       flex: 1,
       backgroundColor: c.screenBg,
     },
-    header: {
-      backgroundColor: c.headerBg,
-      borderBottomLeftRadius: Brand.radius[24],
-      borderBottomRightRadius: Brand.radius[24],
-      paddingTop: 58,
-      paddingHorizontal: Brand.grid.margin,
-      paddingBottom: 26,
+    heroWrap: {
+      height: HERO_HEIGHT,
+      position: 'relative',
     },
-    headerTitle: {
-      color: Brand.colors.black.b1,
-      fontSize: 24,
-      fontFamily: Fonts.headingHeavy,
+    heroImage: {
+      width: '100%',
+      height: HERO_HEIGHT,
     },
-    headerSub: {
+    heroOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(10, 63, 57, 0.38)',
+    },
+    heroHeader: {
+      position: 'absolute',
+      top: 58,
+      left: Brand.grid.margin,
+      right: Brand.grid.margin,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    bellBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    bellDot: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: '#ffb13e',
+    },
+    heroMini: {
       color: Brand.colors.green.light,
       fontSize: 13,
-      fontFamily: Fonts.sans,
-      marginTop: 4,
+      fontFamily: Fonts.heading,
     },
-    content: {
-      paddingHorizontal: Brand.grid.margin,
-      paddingTop: 12,
+    heroTitle: {
+      color: Brand.colors.black.b1,
+      fontSize: 32,
+      fontFamily: Fonts.headingHeavy,
+    },
+    bottomSurface: {
+      backgroundColor: c.bottomSurface,
+      borderTopLeftRadius: Brand.radius[24],
+      borderTopRightRadius: Brand.radius[24],
+      marginTop: -4,
+      paddingTop: 18,
       paddingBottom: 24,
     },
     statsRow: {
       flexDirection: 'row',
       gap: 8,
-      marginBottom: 12,
+      paddingHorizontal: Brand.grid.margin,
+      marginBottom: 14,
     },
     statCard: {
       flex: 1,
@@ -105,6 +142,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       backgroundColor: c.segmentBg,
       borderRadius: Brand.radius[12],
       padding: 4,
+      marginHorizontal: Brand.grid.margin,
     },
     segmentBtn: {
       flex: 1,
@@ -125,6 +163,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     filtersRow: {
       marginTop: 12,
+      marginHorizontal: Brand.grid.margin,
       flexDirection: 'row',
       gap: 16,
       alignItems: 'center',
@@ -171,7 +210,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.heading,
     },
     tripList: {
-      marginTop: 10,
+      marginTop: 12,
+      paddingHorizontal: Brand.grid.margin,
       gap: 10,
     },
     tripCard: {
@@ -311,75 +351,98 @@ function TripItem({ trip, role, styles }: { trip: Trip; role: 'passenger' | 'dri
 }
 
 export default function MyRidesScreen() {
-  const { colors } = useAppTheme();
+  const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const [notifOpen, setNotifOpen] = useState(false);
   const [tab, setTab] = useState<'passenger' | 'driver'>('passenger');
   const [onlyCompleted, setOnlyCompleted] = useState(false);
 
   const totalSpent = useMemo(
-    () => asPassenger.filter((t) => t.status === 'completed').reduce((acc, trip) => acc + trip.price, 0),
+    () => asPassenger.filter((t) => t.status === 'completed').reduce((acc, t) => acc + t.price, 0),
     []
   );
-
   const totalEarned = useMemo(
-    () => asDriver.filter((t) => t.status === 'completed').reduce((acc, trip) => acc + trip.price, 0),
+    () => asDriver.filter((t) => t.status === 'completed').reduce((acc, t) => acc + t.price, 0),
     []
   );
 
   const sourceTrips = tab === 'passenger' ? asPassenger : asDriver;
-  const trips = onlyCompleted ? sourceTrips.filter((trip) => trip.status === 'completed') : sourceTrips;
+  const trips = onlyCompleted ? sourceTrips.filter((t) => t.status === 'completed') : sourceTrips;
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mis viajes</Text>
-        <Text style={styles.headerSub}>Tu historial Pura Vida</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.statsRow}>
-          <GlassCard style={styles.statCard} intensity={34}>
-            <Text style={styles.statLabel}>Gastado</Text>
-            <Text style={styles.statValue}>₡{totalSpent.toLocaleString()}</Text>
-          </GlassCard>
-          <GlassCard style={styles.statCard} intensity={34}>
-            <Text style={styles.statLabel}>Ganado</Text>
-            <Text style={styles.statValueGreen}>₡{totalEarned.toLocaleString()}</Text>
-          </GlassCard>
-        </View>
-
-        <View style={styles.segment}>
-          <Pressable style={[styles.segmentBtn, tab === 'passenger' && styles.segmentBtnActive]} onPress={() => setTab('passenger')}>
-            <Text style={[styles.segmentText, tab === 'passenger' && styles.segmentTextActive]}>Como pasajero</Text>
-          </Pressable>
-          <Pressable style={[styles.segmentBtn, tab === 'driver' && styles.segmentBtnActive]} onPress={() => setTab('driver')}>
-            <Text style={[styles.segmentText, tab === 'driver' && styles.segmentTextActive]}>Como chofer</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.filtersRow}>
-          <Pressable style={styles.radioRow} onPress={() => setOnlyCompleted(false)}>
-            <View style={[styles.radioOuter, !onlyCompleted && styles.radioOuterActive]}>
-              {!onlyCompleted ? <View style={styles.radioInner} /> : null}
+      <ScrollView contentContainerStyle={{ paddingBottom: 26 }}>
+        {/* Hero banner — same pattern as Search and Offer */}
+        <View style={styles.heroWrap}>
+          <Image
+            source={isDark ? require('../../assets/images/hero-banner-dark.jpg') : require('../../assets/images/hero-banner.jpg')}
+            style={styles.heroImage}
+          />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroHeader}>
+            <View>
+              <Text style={styles.heroMini}>Pura Vida</Text>
+              <Text style={styles.heroTitle}>Mis viajes</Text>
             </View>
-            <Text style={styles.radioText}>Todos</Text>
-          </Pressable>
-
-          <Pressable style={styles.radioRow} onPress={() => setOnlyCompleted(true)}>
-            <View style={[styles.checkBox, onlyCompleted && styles.checkBoxActive]}>
-              {onlyCompleted ? <Ionicons name="checkmark" size={14} color={Brand.colors.black.b1} /> : null}
-            </View>
-            <Text style={styles.radioText}>Solo completados</Text>
-          </Pressable>
+            <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
+              <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
+              <View style={styles.bellDot} />
+            </Pressable>
+          </View>
         </View>
 
-        <View style={styles.tripList}>
-          {trips.map((trip, idx) => (
-            <TripItem key={`${trip.from}-${trip.to}-${idx}`} trip={trip} role={tab} styles={styles} />
-          ))}
+        {/* Rounded bottom surface */}
+        <View style={styles.bottomSurface}>
+          {/* Stats cards */}
+          <View style={styles.statsRow}>
+            <GlassCard style={styles.statCard} intensity={34}>
+              <Text style={styles.statLabel}>Gastado</Text>
+              <Text style={styles.statValue}>₡{totalSpent.toLocaleString()}</Text>
+            </GlassCard>
+            <GlassCard style={styles.statCard} intensity={34}>
+              <Text style={styles.statLabel}>Ganado</Text>
+              <Text style={styles.statValueGreen}>₡{totalEarned.toLocaleString()}</Text>
+            </GlassCard>
+          </View>
+
+          {/* Passenger / driver toggle */}
+          <View style={styles.segment}>
+            <Pressable style={[styles.segmentBtn, tab === 'passenger' && styles.segmentBtnActive]} onPress={() => setTab('passenger')}>
+              <Text style={[styles.segmentText, tab === 'passenger' && styles.segmentTextActive]}>Como pasajero</Text>
+            </Pressable>
+            <Pressable style={[styles.segmentBtn, tab === 'driver' && styles.segmentBtnActive]} onPress={() => setTab('driver')}>
+              <Text style={[styles.segmentText, tab === 'driver' && styles.segmentTextActive]}>Como chofer</Text>
+            </Pressable>
+          </View>
+
+          {/* Filters */}
+          <View style={styles.filtersRow}>
+            <Pressable style={styles.radioRow} onPress={() => setOnlyCompleted(false)}>
+              <View style={[styles.radioOuter, !onlyCompleted && styles.radioOuterActive]}>
+                {!onlyCompleted ? <View style={styles.radioInner} /> : null}
+              </View>
+              <Text style={styles.radioText}>Todos</Text>
+            </Pressable>
+
+            <Pressable style={styles.radioRow} onPress={() => setOnlyCompleted(true)}>
+              <View style={[styles.checkBox, onlyCompleted && styles.checkBoxActive]}>
+                {onlyCompleted ? <Ionicons name="checkmark" size={14} color={Brand.colors.black.b1} /> : null}
+              </View>
+              <Text style={styles.radioText}>Solo completados</Text>
+            </Pressable>
+          </View>
+
+          {/* Trip list */}
+          <View style={styles.tripList}>
+            {trips.map((trip, idx) => (
+              <TripItem key={`${trip.from}-${trip.to}-${idx}`} trip={trip} role={tab} styles={styles} />
+            ))}
+          </View>
         </View>
       </ScrollView>
+
+      <NotificationsModal visible={notifOpen} onClose={() => setNotifOpen(false)} />
     </View>
   );
 }

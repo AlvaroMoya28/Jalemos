@@ -1,15 +1,17 @@
 // Profile screen — displays the user's avatar, stats, vehicles, payment methods,
 // app settings, and a logout action.
-// All surface and text colors adapt to the device light/dark mode setting.
+// Follows the same hero-banner + rounded bottom surface visual pattern
+// as the Search, Offer and My Rides screens for consistency.
 
 import GlassCard from '@/components/glass-card';
+import NotificationsModal from '@/components/NotificationsModal';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 type SectionItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -39,31 +41,77 @@ const sections: Section[] = [
   },
 ];
 
+const HERO_HEIGHT = 200;
+
 function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: c.screenBg,
     },
-    header: {
-      backgroundColor: c.headerBg,
-      borderBottomLeftRadius: Brand.radius[24],
-      borderBottomRightRadius: Brand.radius[24],
-      paddingTop: 54,
-      paddingHorizontal: Brand.grid.margin,
-      paddingBottom: 36,
+    // ── Hero ──────────────────────────────────────────────────────────────────
+    heroWrap: {
+      height: HERO_HEIGHT,
+      position: 'relative',
     },
-    headerTitle: {
+    heroImage: {
+      width: '100%',
+      height: HERO_HEIGHT,
+    },
+    heroOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(10, 63, 57, 0.38)',
+    },
+    heroHeader: {
+      position: 'absolute',
+      top: 58,
+      left: Brand.grid.margin,
+      right: Brand.grid.margin,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    heroMini: {
+      color: Brand.colors.green.light,
+      fontSize: 13,
+      fontFamily: Fonts.heading,
+    },
+    heroTitle: {
       color: Brand.colors.black.b1,
-      fontSize: 24,
+      fontSize: 32,
       fontFamily: Fonts.headingHeavy,
     },
-    content: {
-      paddingHorizontal: Brand.grid.margin,
-      paddingBottom: 24,
-      marginTop: 0,
+    bellBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
     },
+    bellDot: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: '#ffb13e',
+    },
+    // ── Bottom surface ────────────────────────────────────────────────────────
+    bottomSurface: {
+      backgroundColor: c.bottomSurface,
+      borderTopLeftRadius: Brand.radius[24],
+      borderTopRightRadius: Brand.radius[24],
+      marginTop: -4,
+      paddingTop: 18,
+      paddingBottom: 24,
+    },
+    // ── Profile card ──────────────────────────────────────────────────────────
     profileCard: {
+      marginHorizontal: Brand.grid.margin,
       borderRadius: Brand.radius[16],
       padding: 14,
       ...withElevation(200),
@@ -148,8 +196,10 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.sans,
       marginTop: 2,
     },
+    // ── Action buttons ────────────────────────────────────────────────────────
     favButton: {
       marginTop: 10,
+      marginHorizontal: Brand.grid.margin,
       borderRadius: Brand.radius[16],
       padding: 12,
       flexDirection: 'row',
@@ -178,71 +228,9 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 12,
       fontFamily: Fonts.sans,
     },
-    walletWrapInPayment: {
-      marginVertical: 10,
-      marginHorizontal: 12,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: 12,
-    },
-    walletCard: {
-      flex: 1,
-      borderRadius: Brand.radius[16],
-      backgroundColor: Brand.colors.green.dark,
-      padding: 14,
-      minHeight: 120,
-      justifyContent: 'space-between',
-      ...withElevation(400),
-    },
-    walletBrand: {
-      alignSelf: 'flex-end',
-      color: Brand.colors.black.b1,
-      fontSize: 10,
-      fontFamily: Fonts.sans,
-    },
-    walletNumber: {
-      color: Brand.colors.black.b1,
-      letterSpacing: 1,
-      fontSize: 12,
-      fontFamily: Fonts.sans,
-    },
-    walletDate: {
-      alignSelf: 'flex-end',
-      color: Brand.colors.black.b1,
-      fontSize: 12,
-      fontFamily: Fonts.sans,
-    },
-    walletCounter: {
-      width: 116,
-      borderRadius: Brand.radius[16],
-      borderWidth: 1,
-      borderColor: c.border,
-      backgroundColor: c.walletCounterBg,
-      padding: 10,
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...withElevation(100),
-    },
-    walletAmount: {
-      color: Brand.colors.green.normal,
-      fontSize: 28,
-      fontFamily: Fonts.headingHeavy,
-      marginBottom: 8,
-    },
-    counterButtons: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    counterCircle: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: Brand.colors.green.normal,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     shareButton: {
-      marginTop: 12,
+      marginTop: 10,
+      marginHorizontal: Brand.grid.margin,
       borderRadius: 999,
       backgroundColor: Brand.colors.green.normal,
       alignItems: 'center',
@@ -256,8 +244,10 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 14,
       fontFamily: Fonts.headingBold,
     },
+    // ── Section cards ─────────────────────────────────────────────────────────
     sectionWrap: {
       marginTop: 12,
+      marginHorizontal: Brand.grid.margin,
     },
     sectionTitle: {
       marginBottom: 6,
@@ -359,8 +349,74 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 12,
       fontFamily: Fonts.sans,
     },
+    // ── Wallet ────────────────────────────────────────────────────────────────
+    walletWrapInPayment: {
+      marginVertical: 10,
+      marginHorizontal: 12,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    walletCard: {
+      flex: 1,
+      borderRadius: Brand.radius[16],
+      backgroundColor: Brand.colors.green.dark,
+      padding: 14,
+      minHeight: 120,
+      justifyContent: 'space-between',
+      ...withElevation(400),
+    },
+    walletBrand: {
+      alignSelf: 'flex-end',
+      color: Brand.colors.black.b1,
+      fontSize: 10,
+      fontFamily: Fonts.sans,
+    },
+    walletNumber: {
+      color: Brand.colors.black.b1,
+      letterSpacing: 1,
+      fontSize: 12,
+      fontFamily: Fonts.sans,
+    },
+    walletDate: {
+      alignSelf: 'flex-end',
+      color: Brand.colors.black.b1,
+      fontSize: 12,
+      fontFamily: Fonts.sans,
+    },
+    walletCounter: {
+      width: 116,
+      borderRadius: Brand.radius[16],
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.walletCounterBg,
+      padding: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...withElevation(100),
+    },
+    walletAmount: {
+      color: Brand.colors.green.normal,
+      fontSize: 28,
+      fontFamily: Fonts.headingHeavy,
+      marginBottom: 8,
+    },
+    counterButtons: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    counterCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: Brand.colors.green.normal,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // ── Logout ────────────────────────────────────────────────────────────────
     logoutBtn: {
       marginTop: 14,
+      marginHorizontal: Brand.grid.margin,
       borderRadius: Brand.radius[12],
       borderWidth: 1,
       borderColor: Brand.colors.alerts.error,
@@ -380,22 +436,23 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
 }
 
 export default function ProfileScreen() {
-  const { colors } = useAppTheme();
+  const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
 
-  const handleLogout = () => {
-    navigation.getParent()?.dispatch(
-      CommonActions.reset({ index: 0, routes: [{ name: 'index' }] })
-    );
-  };
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [amount, setAmount] = useState(0);
 
   const vehicles = [
     { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },
     { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
   ];
 
-  const [amount, setAmount] = useState(0);
+  const handleLogout = () => {
+    navigation.getParent()?.dispatch(
+      CommonActions.reset({ index: 0, routes: [{ name: 'index' }] })
+    );
+  };
 
   const openShare = async () => {
     await Share.share({
@@ -405,157 +462,185 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mi perfil</Text>
-      </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <GlassCard style={styles.profileCard}>
-          <View style={styles.profileTop}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>AS</Text>
+        {/* Hero banner — same pattern as all other tabs */}
+        <View style={styles.heroWrap}>
+          <Image
+            source={isDark ? require('../../assets/images/hero-banner-dark.jpg') : require('../../assets/images/hero-banner.jpg')}
+            style={styles.heroImage}
+          />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroHeader}>
+            <View>
+              <Text style={styles.heroMini}>Pura Vida</Text>
+              <Text style={styles.heroTitle}>Mi perfil</Text>
             </View>
-            <View style={styles.profileMain}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name}>Andres Solano</Text>
-                <Ionicons name="checkmark-circle" size={16} color={Brand.colors.green.dark} />
-              </View>
-              <Text style={styles.email}>andres@jalemos.cr</Text>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={13} color="#f7a900" />
-                <Text style={styles.rating}>4.9</Text>
-                <Text style={styles.ratingSub}>· 38 viajes</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>38</Text>
-              <Text style={styles.statLabel}>Viajes</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>2.4k km</Text>
-              <Text style={styles.statLabel}>Recorridos</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValueGreen}>₡84k</Text>
-              <Text style={styles.statLabel}>Ahorrado</Text>
-            </View>
-          </View>
-        </GlassCard>
-
-        <GlassCard style={styles.favButton}>
-          <View style={styles.favIconWrap}>
-            <Ionicons name="location-outline" size={16} color="#ecfff9" />
-          </View>
-          <View style={styles.favTextWrap}>
-            <Text style={styles.favTitle}>Lugares favoritos</Text>
-            <Text style={styles.favSub}>Casa, trabajo y más</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </GlassCard>
-
-        <Pressable style={styles.shareButton} onPress={openShare}>
-          <Ionicons name="share-social-outline" size={16} color={Brand.colors.black.b1} />
-          <Text style={styles.shareButtonText}>Compartir Jalemos</Text>
-        </Pressable>
-
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionTitle}>Vehiculos</Text>
-          <GlassCard style={styles.sectionCard}>
-            <View style={styles.vehicleSectionHeader}>
-              <Text style={styles.vehicleSectionTitle}>Mis vehículos</Text>
-              <Text style={styles.vehicleSectionSub}>Selecciona cuál usar en Ofrecer viaje</Text>
-            </View>
-
-            <View style={styles.vehicleList}>
-              {vehicles.map((vehicle) => (
-                <View key={vehicle.id} style={styles.vehicleCard}>
-                  <View style={styles.vehicleRowTop}>
-                    <View style={styles.itemIconWrap}>
-                      <Ionicons name="car-outline" size={16} color={Brand.colors.green.darkActive} />
-                    </View>
-                    <View style={styles.vehicleTextWrap}>
-                      <View style={styles.vehicleNameRow}>
-                        <Text style={styles.itemLabel}>{vehicle.name}</Text>
-                        {vehicle.primary ? <Text style={styles.primaryBadge}>Principal</Text> : null}
-                      </View>
-                      <Text style={styles.itemDesc}>{vehicle.plate} · {vehicle.color}</Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </GlassCard>
-        </View>
-
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionTitle}>Cuenta</Text>
-          <GlassCard style={styles.sectionCard}>
-            <Pressable style={styles.sectionItem}>
-              <View style={styles.itemIconWrap}>
-                <Ionicons name="card-outline" size={16} color={Brand.colors.green.darkActive} />
-              </View>
-              <View style={styles.itemTextWrap}>
-                <Text style={styles.itemLabel}>Métodos de pago</Text>
-                <Text style={styles.itemDesc}>Tarjetas y SINPE Movil</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+            <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
+              <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
+              <View style={styles.bellDot} />
             </Pressable>
+          </View>
+        </View>
 
-            <View style={styles.sectionDivider} />
+        {/* Rounded bottom surface */}
+        <View style={styles.bottomSurface}>
 
-            <View style={styles.walletWrapInPayment}>
-              <View style={styles.walletCard}>
-                <Text style={styles.walletBrand}>mastercard</Text>
-                <Text style={styles.walletNumber}>5282 3456 7890 1289</Text>
-                <Text style={styles.walletDate}>09/25</Text>
+          {/* Profile card */}
+          <GlassCard style={styles.profileCard}>
+            <View style={styles.profileTop}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>AS</Text>
               </View>
-
-              <View style={styles.walletCounter}>
-                <Text style={styles.walletAmount}>₡ {amount.toLocaleString()}</Text>
-                <View style={styles.counterButtons}>
-                  <Pressable style={styles.counterCircle} onPress={() => setAmount((v) => Math.max(0, v - 500))}>
-                    <Ionicons name="remove" size={18} color={Brand.colors.black.b1} />
-                  </Pressable>
-                  <Pressable style={styles.counterCircle} onPress={() => setAmount((v) => v + 500)}>
-                    <Ionicons name="add" size={18} color={Brand.colors.black.b1} />
-                  </Pressable>
+              <View style={styles.profileMain}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name}>Andres Solano</Text>
+                  <Ionicons name="checkmark-circle" size={16} color={Brand.colors.green.dark} />
+                </View>
+                <Text style={styles.email}>andres@jalemos.cr</Text>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={13} color="#f7a900" />
+                  <Text style={styles.rating}>4.9</Text>
+                  <Text style={styles.ratingSub}>· 38 viajes</Text>
                 </View>
               </View>
             </View>
-          </GlassCard>
-        </View>
 
-        {sections.map((section) => (
-          <View key={section.title} style={styles.sectionWrap}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>38</Text>
+                <Text style={styles.statLabel}>Viajes</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>2.4k km</Text>
+                <Text style={styles.statLabel}>Recorridos</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValueGreen}>₡84k</Text>
+                <Text style={styles.statLabel}>Ahorrado</Text>
+              </View>
+            </View>
+          </GlassCard>
+
+          {/* Favorite places */}
+          <GlassCard style={styles.favButton}>
+            <View style={styles.favIconWrap}>
+              <Ionicons name="location-outline" size={16} color="#ecfff9" />
+            </View>
+            <View style={styles.favTextWrap}>
+              <Text style={styles.favTitle}>Lugares favoritos</Text>
+              <Text style={styles.favSub}>Casa, trabajo y más</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </GlassCard>
+
+          {/* Share */}
+          <Pressable style={styles.shareButton} onPress={openShare}>
+            <Ionicons name="share-social-outline" size={16} color={Brand.colors.black.b1} />
+            <Text style={styles.shareButtonText}>Compartir Jalemos</Text>
+          </Pressable>
+
+          {/* Vehicles */}
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionTitle}>Vehiculos</Text>
             <GlassCard style={styles.sectionCard}>
-              {section.items.map((item, index) => (
-                <Pressable
-                  key={item.label}
-                  style={[styles.sectionItem, index !== section.items.length - 1 && styles.sectionItemBorder]}
-                >
-                  <View style={styles.itemIconWrap}>
-                    <Ionicons name={item.icon} size={16} color={Brand.colors.green.darkActive} />
+              <View style={styles.vehicleSectionHeader}>
+                <Text style={styles.vehicleSectionTitle}>Mis vehículos</Text>
+                <Text style={styles.vehicleSectionSub}>Selecciona cuál usar en Ofrecer viaje</Text>
+              </View>
+              <View style={styles.vehicleList}>
+                {vehicles.map((vehicle) => (
+                  <View key={vehicle.id} style={styles.vehicleCard}>
+                    <View style={styles.vehicleRowTop}>
+                      <View style={styles.itemIconWrap}>
+                        <Ionicons name="car-outline" size={16} color={Brand.colors.green.darkActive} />
+                      </View>
+                      <View style={styles.vehicleTextWrap}>
+                        <View style={styles.vehicleNameRow}>
+                          <Text style={styles.itemLabel}>{vehicle.name}</Text>
+                          {vehicle.primary ? <Text style={styles.primaryBadge}>Principal</Text> : null}
+                        </View>
+                        <Text style={styles.itemDesc}>{vehicle.plate} · {vehicle.color}</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.itemTextWrap}>
-                    <Text style={styles.itemLabel}>{item.label}</Text>
-                    <Text style={styles.itemDesc}>{item.desc}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
-                </Pressable>
-              ))}
+                ))}
+              </View>
             </GlassCard>
           </View>
-        ))}
 
-        <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={16} color="#c6443d" />
-          <Text style={styles.logoutText}>Cerrar sesión</Text>
-        </Pressable>
+          {/* Payment methods */}
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionTitle}>Cuenta</Text>
+            <GlassCard style={styles.sectionCard}>
+              <Pressable style={styles.sectionItem}>
+                <View style={styles.itemIconWrap}>
+                  <Ionicons name="card-outline" size={16} color={Brand.colors.green.darkActive} />
+                </View>
+                <View style={styles.itemTextWrap}>
+                  <Text style={styles.itemLabel}>Métodos de pago</Text>
+                  <Text style={styles.itemDesc}>Tarjetas y SINPE Movil</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+              </Pressable>
+
+              <View style={styles.sectionDivider} />
+
+              <View style={styles.walletWrapInPayment}>
+                <View style={styles.walletCard}>
+                  <Text style={styles.walletBrand}>mastercard</Text>
+                  <Text style={styles.walletNumber}>5282 3456 7890 1289</Text>
+                  <Text style={styles.walletDate}>09/25</Text>
+                </View>
+                <View style={styles.walletCounter}>
+                  <Text style={styles.walletAmount}>₡ {amount.toLocaleString()}</Text>
+                  <View style={styles.counterButtons}>
+                    <Pressable style={styles.counterCircle} onPress={() => setAmount((v) => Math.max(0, v - 500))}>
+                      <Ionicons name="remove" size={18} color={Brand.colors.black.b1} />
+                    </Pressable>
+                    <Pressable style={styles.counterCircle} onPress={() => setAmount((v) => v + 500)}>
+                      <Ionicons name="add" size={18} color={Brand.colors.black.b1} />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            </GlassCard>
+          </View>
+
+          {/* Settings sections */}
+          {sections.map((section) => (
+            <View key={section.title} style={styles.sectionWrap}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <GlassCard style={styles.sectionCard}>
+                {section.items.map((item, index) => (
+                  <Pressable
+                    key={item.label}
+                    style={[styles.sectionItem, index !== section.items.length - 1 && styles.sectionItemBorder]}
+                  >
+                    <View style={styles.itemIconWrap}>
+                      <Ionicons name={item.icon} size={16} color={Brand.colors.green.darkActive} />
+                    </View>
+                    <View style={styles.itemTextWrap}>
+                      <Text style={styles.itemLabel}>{item.label}</Text>
+                      <Text style={styles.itemDesc}>{item.desc}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                  </Pressable>
+                ))}
+              </GlassCard>
+            </View>
+          ))}
+
+          {/* Logout */}
+          <Pressable style={styles.logoutBtn} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={16} color="#c6443d" />
+            <Text style={styles.logoutText}>Cerrar sesión</Text>
+          </Pressable>
+
+        </View>
       </ScrollView>
+
+      <NotificationsModal visible={notifOpen} onClose={() => setNotifOpen(false)} />
     </View>
   );
 }

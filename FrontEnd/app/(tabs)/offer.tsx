@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import GlassCard from '@/components/glass-card';
+import NotificationsModal from '@/components/NotificationsModal';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
@@ -82,6 +83,28 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       top: 58,
       left: Brand.grid.margin,
       right: Brand.grid.margin,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    bellBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    bellDot: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: '#ffb13e',
     },
     heroMini: {
       color: Brand.colors.green.light,
@@ -555,6 +578,7 @@ export default function OfferScreen() {
     { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
   ];
 
+  const [notifOpen, setNotifOpen] = useState(false);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -639,6 +663,10 @@ export default function OfferScreen() {
               <Text style={styles.heroMini}>Pura Vida</Text>
               <Text style={styles.heroTitle}>Ofrece tu viaje</Text>
             </View>
+            <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
+              <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
+              <View style={styles.bellDot} />
+            </Pressable>
           </View>
 
           <GlassCard style={styles.offerCard} intensity={46}>
@@ -923,6 +951,8 @@ export default function OfferScreen() {
           </GlassCard>
         </View>
       </Modal>
+
+      <NotificationsModal visible={notifOpen} onClose={() => setNotifOpen(false)} />
     </View>
   );
 }
