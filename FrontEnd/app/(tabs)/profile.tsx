@@ -10,7 +10,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 type SectionItem = {
@@ -439,6 +439,9 @@ export default function ProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({ title: 'Perfil', icon: { sf: 'person' } });
+  }, [navigation]);
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [amount, setAmount] = useState(0);

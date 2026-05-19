@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useRef, useState } from 'react';
+import { useNavigation } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import {
   Alert,
@@ -572,6 +573,10 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
 export default function OfferScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({ title: 'Ofrecer', icon: { sf: 'car' } });
+  }, [navigation]);
 
   const vehicles = [
     { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },

@@ -7,7 +7,8 @@ import NotificationsModal from '@/components/NotificationsModal';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useNavigation } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type Status = 'completed' | 'upcoming' | 'cancelled';
@@ -353,6 +354,10 @@ function TripItem({ trip, role, styles }: { trip: Trip; role: 'passenger' | 'dri
 export default function MyRidesScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({ title: 'Mis Viajes', icon: { sf: 'briefcase' } });
+  }, [navigation]);
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [tab, setTab] = useState<'passenger' | 'driver'>('passenger');

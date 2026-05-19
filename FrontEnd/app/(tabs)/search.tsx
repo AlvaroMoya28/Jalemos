@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useRef, useState } from 'react';
+import { useNavigation } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Modal,
@@ -459,6 +460,10 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
 export default function SearchScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({ title: 'Buscar', icon: { sf: 'magnifyingglass' } });
+  }, [navigation]);
 
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
