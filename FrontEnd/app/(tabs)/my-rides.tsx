@@ -377,7 +377,7 @@ export default function MyRidesScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 26 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 26 }} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: colors.bottomSurface }}>
         {/* Hero banner — same pattern as Search and Offer */}
         <View style={styles.heroWrap}>
           <Image

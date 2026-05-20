@@ -18,6 +18,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { UserModeProvider } from '@/contexts/user-mode';
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
 export const unstable_settings = {
@@ -53,6 +54,7 @@ export default function RootLayout() {
 
   return (
     // Apply light or dark navigation theme based on the device setting
+    <UserModeProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack
         screenOptions={{
@@ -66,6 +68,10 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         {/* Tab navigator group — no header, tabs manage their own titles */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* Registration screen */}
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+        {/* Driver registration */}
+        <Stack.Screen name="driver-registration" options={{ headerShown: false }} />
         {/* Transparent modal overlay that slides up from the bottom */}
         <Stack.Screen
           name="modal"
@@ -74,5 +80,6 @@ export default function RootLayout() {
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
+    </UserModeProvider>
   );
 }

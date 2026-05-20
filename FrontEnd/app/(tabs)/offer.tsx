@@ -1,3 +1,10 @@
+// Offer (Ofrecer) tab — driver's screen for publishing a new trip.
+// Lets the driver set origin, destination, date, time, available seats, price per seat,
+// and select which registered vehicle to use. Shares the same hero-banner + rounded
+// bottom surface visual pattern as the other tab screens.
+// Only visible in the tab bar when the user is in driver mode (see UserModeContext).
+// Tab icon and title are set via navigation.setOptions on mount.
+
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -655,7 +662,7 @@ export default function OfferScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: colors.bottomSurface }}>
         <View style={[styles.heroWrap, { height: heroHeight }]}>
           <Image
             source={isDark ? require('../../assets/images/hero-banner-dark.jpg') : require('../../assets/images/hero-banner.jpg')}

@@ -1,3 +1,11 @@
+// Search (Buscar) tab — passenger's main screen for finding available rides.
+// Displays a hero banner, a quick origin-input card, filter chips (nearby / today / cheapest),
+// popular-route shortcuts, and a live-filtered list of ride cards.
+// Tab icon and title are set via navigation.setOptions on mount so the NativeTabs
+// native pipeline receives the SF Symbol without the EXPO_OS guard blocking it.
+// contentInsetAdjustmentBehavior="automatic" lets iOS shift scroll content above the
+// floating NativeTabs bar without manual padding calculations.
+
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -258,14 +266,14 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.heading,
     },
     section: {
-      marginTop: 14,
+      marginTop: 20,
       paddingHorizontal: Brand.grid.margin,
+      gap: 10,
     },
     sectionHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 8,
     },
     sectionTitle: {
       color: c.textPrimary,
@@ -279,6 +287,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     routesRow: {
       gap: 8,
+      paddingHorizontal: 2,
+      paddingVertical: 2,
     },
     routeChip: {
       borderRadius: 999,
@@ -550,7 +560,7 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: colors.bottomSurface }}>
         <View style={[styles.heroWrap, { height: heroHeight }]}>
           <Image
             source={isDark ? require('../../assets/images/hero-banner-dark.jpg') : require('../../assets/images/hero-banner.jpg')}
