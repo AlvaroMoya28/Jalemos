@@ -15,8 +15,9 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useNavigation } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 const preferencesSections = [
   {
@@ -77,8 +78,15 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       width: 62, height: 62, borderRadius: 31,
       backgroundColor: Brand.colors.green.normal,
       alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden',
     },
     avatarText: { color: Brand.colors.black.b1, fontSize: 23, fontFamily: Fonts.headingHeavy },
+    avatarPhoto: { width: 62, height: 62, borderRadius: 31 },
+    // Edit badge overlaid on the avatar
+    avatarEditBadge: {
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', paddingVertical: 3,
+    },
     profileMain: { flex: 1 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     name: { fontSize: 17, color: c.textPrimary, fontFamily: Fonts.headingBold },
@@ -213,7 +221,7 @@ export default function ProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
-  const { mode, isDriverRegistered, setMode } = useUserMode();
+  const { mode, isDriverRegistered, profilePhoto, setMode, setProfilePhoto } = useUserMode();
   const isDriver = mode === 'driver';
 
   useEffect(() => {
@@ -227,6 +235,29 @@ export default function ProfileScreen() {
     { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },
     { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
   ];
+
+  /** Opens ActionSheet / Alert so the user can retake or pick a new profile photo. */
+  const handleEditPhoto = () => {
+    const takePhoto = () =>
+      ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1] })
+        .then(r => { if (!r.canceled) setProfilePhoto(r.assets[0].uri); });
+    const pickPhoto = () =>
+      ImagePicker.launchImageLibraryAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1] })
+        .then(r => { if (!r.canceled) setProfilePhoto(r.assets[0].uri); });
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancelar', 'Tomar foto', 'Elegir de galería'], cancelButtonIndex: 0 },
+        i => { if (i === 1) takePhoto(); if (i === 2) pickPhoto(); }
+      );
+    } else {
+      Alert.alert('Foto de perfil', '', [
+        { text: 'Tomar foto',        onPress: takePhoto  },
+        { text: 'Elegir de galería', onPress: pickPhoto  },
+        { text: 'Cancelar', style: 'cancel'              },
+      ]);
+    }
+  };
 
   const handleLogout = () => {
     navigation.getParent()?.dispatch(
@@ -279,9 +310,15 @@ export default function ProfileScreen() {
           {/* Profile card */}
           <GlassCard style={styles.profileCard}>
             <View style={styles.profileTop}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>AS</Text>
-              </View>
+              {/* Avatar — tappable to edit; shows photo when set, initials otherwise */}
+              <Pressable style={styles.avatar} onPress={handleEditPhoto}>
+                {profilePhoto
+                  ? <Image source={{ uri: profilePhoto }} style={styles.avatarPhoto} />
+                  : <Text style={styles.avatarText}>AS</Text>}
+                <View style={styles.avatarEditBadge}>
+                  <Ionicons name="camera-outline" size={12} color="#fff" />
+                </View>
+              </Pressable>
               <View style={styles.profileMain}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name}>Andres Solano</Text>

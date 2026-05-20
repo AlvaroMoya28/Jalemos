@@ -53,7 +53,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     cardWrap: { ...withElevation(400) },
     card: { borderRadius: Brand.radius[24], padding: Brand.spacing[16], gap: 10 },
     sectionLabel: {
-      fontSize: 11, color: c.textMuted, fontFamily: Fonts.heading,
+      fontSize: 11, color: c.textPrimary, fontFamily: Fonts.heading,
       textTransform: 'uppercase', marginBottom: 2, marginTop: 4,
     },
     row: { flexDirection: 'row', gap: 10 },
@@ -103,7 +103,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderRadius: Brand.radius[12], padding: 12,
       borderWidth: 1, borderColor: Brand.colors.green.light,
     },
-    infoText: { flex: 1, color: c.textPrimary, fontFamily: Fonts.sans, fontSize: 12, lineHeight: 18 },
+    infoText: { flex: 1, color: '#ffffff', fontFamily: Fonts.sans, fontSize: 12, lineHeight: 18 },
     cta: {
       backgroundColor: Brand.colors.green.normal,
       borderRadius: 999, paddingVertical: 14, alignItems: 'center',
@@ -167,31 +167,37 @@ async function pickFromGallery(): Promise<PhotoSlot> {
 export default function DriverRegistrationScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { setMode, setDriverRegistered } = useUserMode();
+  const { setMode, setDriverRegistered, setProfilePhoto } = useUserMode();
 
+  // ── Vehicle form fields ──────────────────────────────────────────────────
   const [marca, setMarca] = useState('');
   const [modelo, setModelo] = useState('');
   const [año, setAño] = useState('');
   const [placa, setPlaca] = useState('');
   const [vehicleColor, setVehicleColor] = useState('');
 
+  // ── Photo slots ──────────────────────────────────────────────────────────
+  const [facePhoto, setFacePhotoState] = useState<PhotoSlot>(null);
   const [licenciaFront, setLicenciaFront] = useState<PhotoSlot>(null);
   const [licenciaBack, setLicenciaBack] = useState<PhotoSlot>(null);
   const [dekraPhoto, setDekraPhoto] = useState<PhotoSlot>(null);
 
-  type CameraTarget = 'licenciaFront' | 'licenciaBack' | 'dekra';
+  // Which camera slot is currently open; null means the modal is closed
+  type CameraTarget = 'face' | 'licenciaFront' | 'licenciaBack' | 'dekra';
   const [cameraOpen, setCameraOpen] = useState<CameraTarget | null>(null);
 
-  const cameraConfig: Record<CameraTarget, { label: string; type: 'license' | 'document' }> = {
-    licenciaFront: { label: 'Licencia — Lado frontal', type: 'license' },
-    licenciaBack: { label: 'Licencia — Lado trasero', type: 'license' },
-    dekra: { label: 'Revisión técnica Dekra', type: 'document' },
+  const cameraConfig: Record<CameraTarget, { label: string; type: 'face' | 'license' | 'document' }> = {
+    face:          { label: 'Foto de perfil',          type: 'face'     },
+    licenciaFront: { label: 'Licencia — Lado frontal', type: 'license'  },
+    licenciaBack:  { label: 'Licencia — Lado trasero', type: 'license'  },
+    dekra:         { label: 'Revisión técnica Dekra',  type: 'document' },
   };
 
   const setPhoto = (target: CameraTarget, uri: string) => {
-    if (target === 'licenciaFront') setLicenciaFront({ uri });
-    else if (target === 'licenciaBack') setLicenciaBack({ uri });
-    else setDekraPhoto({ uri });
+    if (target === 'face')               setFacePhotoState({ uri });
+    else if (target === 'licenciaFront') setLicenciaFront({ uri });
+    else if (target === 'licenciaBack')  setLicenciaBack({ uri });
+    else                                 setDekraPhoto({ uri });
   };
 
   const openPhotoOptions = (target: CameraTarget) => {
@@ -220,6 +226,8 @@ export default function DriverRegistrationScreen() {
 
   const handleRegister = () => {
     // TODO: validate fields + upload photos, then call POST /api/drivers/register
+    // Persist the face photo to global context so the profile avatar shows it immediately
+    if (facePhoto) setProfilePhoto(facePhoto.uri);
     setDriverRegistered(true);
     setMode('driver');
     router.replace('/(tabs)/offer');
@@ -249,6 +257,20 @@ export default function DriverRegistrationScreen() {
             <Text style={styles.infoText}>
               Tu información es verificada para garantizar la seguridad de todos los usuarios. El proceso puede tomar hasta 24 horas.
             </Text>
+          </View>
+
+          {/* Foto de perfil — required for drivers, face must be clearly visible */}
+          <View style={styles.cardWrap}>
+            <GlassCard style={styles.card} intensity={48}>
+              <Text style={styles.sectionLabel}>Foto de perfil</Text>
+              <PhotoPickerBtn
+                photo={facePhoto}
+                label="Tu foto de perfil"
+                sublabel="Debe mostrar tu rostro claramente"
+                onPress={() => openPhotoOptions('face')}
+                style={styles.photoBtnFull}
+              />
+            </GlassCard>
           </View>
 
           {/* Vehículo */}
