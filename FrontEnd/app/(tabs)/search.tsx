@@ -18,12 +18,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
+import PlaceSearchInput from '@/components/place-search-input';
 import RideCard, { Ride } from '@/components/RideCard';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -48,7 +48,7 @@ const quickRoutes = [
 const PICKER_ITEM_HEIGHT = 36;
 const PICKER_VISIBLE_ROWS = 5;
 const PICKER_HEIGHT = PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ROWS;
-const hours = Array.from({ length: 24 }, (_, idx) => idx);
+const hours = Array.from({ length: 12 }, (_, i) => i + 1);
 const minutes = Array.from({ length: 60 }, (_, idx) => idx);
 
 function monthLabel(date: Date) {
@@ -60,7 +60,9 @@ function dateLabel(date: Date) {
 }
 
 function timeLabel(hour: number, minute: number) {
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const period = hour < 12 ? 'AM' : 'PM';
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
 function buildCalendarDays(cursor: Date) {
@@ -138,15 +140,47 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderRadius: 4,
       backgroundColor: '#ffb13e',
     },
-    searchCard: {
+    // Outer wrapper that positions the card + floating suggestions dropdown
+    searchCardArea: {
       position: 'absolute',
       left: Brand.grid.margin,
       right: Brand.grid.margin,
       top: 194,
+    },
+    searchCard: {
       borderRadius: Brand.radius[16],
       padding: Brand.spacing[12],
       gap: 8,
       ...withElevation(400),
+    },
+    // Suggestions dropdown — rendered as a sibling outside GlassCard (overflow:hidden)
+    suggestionsBox: {
+      marginTop: 6,
+      borderRadius: Brand.radius[12],
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.inputBg,
+      ...withElevation(400),
+    },
+    suggestionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 11,
+      paddingHorizontal: 12,
+    },
+    suggestionDivider: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    suggestionMain: {
+      fontFamily: Fonts.heading,
+      fontSize: 13,
+    },
+    suggestionSub: {
+      fontFamily: Fonts.sans,
+      fontSize: 11,
     },
     verticalField: {
       gap: 5,
@@ -430,6 +464,31 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderColor: c.border,
       backgroundColor: 'rgba(26, 158, 143, 0.1)',
     },
+    ampmColumn: {
+      gap: 6,
+    },
+    ampmBtn: {
+      flex: 1,
+      borderRadius: Brand.radius[12],
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.wheelBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 52,
+    },
+    ampmBtnActive: {
+      backgroundColor: Brand.colors.green.normal + '22',
+      borderColor: Brand.colors.green.normal,
+    },
+    ampmText: {
+      fontFamily: Fonts.headingBold,
+      fontSize: 14,
+      color: c.textSecondary,
+    },
+    ampmTextActive: {
+      color: Brand.colors.green.dark,
+    },
     calendarActions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -486,6 +545,7 @@ export default function SearchScreen() {
   const [draftDate, setDraftDate] = useState<Date | null>(null);
   const [draftHour, setDraftHour] = useState(7);
   const [draftMinute, setDraftMinute] = useState(0);
+  const [draftPeriod, setDraftPeriod] = useState<'AM' | 'PM'>('AM');
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
@@ -512,20 +572,24 @@ export default function SearchScreen() {
 
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
+    const rawHour = source.getHours();
+    const h12 = rawHour % 12 === 0 ? 12 : rawHour % 12;
+    const period: 'AM' | 'PM' = rawHour < 12 ? 'AM' : 'PM';
     setCursorDate(new Date(source.getFullYear(), source.getMonth(), 1));
     setDraftDate(new Date(source.getFullYear(), source.getMonth(), source.getDate()));
-    setDraftHour(source.getHours());
+    setDraftHour(h12);
     setDraftMinute(source.getMinutes());
+    setDraftPeriod(period);
     setCalendarOpen(true);
     setTimeout(() => {
-      hourScrollRef.current?.scrollTo({ y: source.getHours() * PICKER_ITEM_HEIGHT, animated: false });
+      hourScrollRef.current?.scrollTo({ y: (h12 - 1) * PICKER_ITEM_HEIGHT, animated: false });
       minuteScrollRef.current?.scrollTo({ y: source.getMinutes() * PICKER_ITEM_HEIGHT, animated: false });
     }, 0);
   };
 
   const onHourScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.max(0, Math.min(23, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
-    setDraftHour(idx);
+    const idx = Math.max(0, Math.min(11, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+    setDraftHour(idx + 1);
     hourScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
@@ -538,7 +602,10 @@ export default function SearchScreen() {
   const applyDateTime = () => {
     const base = draftDate ?? new Date();
     const merged = new Date(base);
-    merged.setHours(draftHour, draftMinute, 0, 0);
+    const hour24 = draftPeriod === 'AM'
+      ? (draftHour === 12 ? 0 : draftHour)
+      : (draftHour === 12 ? 12 : draftHour + 12);
+    merged.setHours(hour24, draftMinute, 0, 0);
     setSelectedDate(merged);
     setCalendarOpen(false);
   };
@@ -579,19 +646,19 @@ export default function SearchScreen() {
             </Pressable>
           </View>
 
-          <GlassCard style={styles.searchCard} intensity={46}>
+          <View style={styles.searchCardArea}>
+            <GlassCard style={styles.searchCard} intensity={46}>
             <View style={styles.verticalField}>
               <Text style={styles.fieldLabel}>Origen</Text>
-              <View style={styles.searchField}>
-                <Ionicons name="radio-button-on" size={12} color={Brand.colors.green.dark} />
-                <TextInput
-                  value={from}
-                  onChangeText={setFrom}
-                  placeholder="De"
-                  placeholderTextColor={colors.textPlaceholder}
-                  style={styles.searchInput}
-                />
-              </View>
+              <PlaceSearchInput
+                value={from}
+                onChangeText={setFrom}
+                onSelect={(pred) => setFrom(pred.description)}
+                leadingIcon={<Ionicons name="radio-button-on" size={12} color={Brand.colors.green.dark} />}
+                fieldStyle={styles.searchField}
+                placeholder="De"
+                placeholderTextColor={colors.textPlaceholder}
+              />
             </View>
 
             {hasOrigin ? (
@@ -602,16 +669,15 @@ export default function SearchScreen() {
                 style={styles.verticalField}
               >
                 <Text style={styles.fieldLabel}>Destino</Text>
-                <View style={styles.searchField}>
-                  <Ionicons name="location-outline" size={13} color={Brand.colors.green.normal} />
-                  <TextInput
-                    value={to}
-                    onChangeText={setTo}
-                    placeholder="A"
-                    placeholderTextColor={colors.textPlaceholder}
-                    style={styles.searchInput}
-                  />
-                </View>
+                <PlaceSearchInput
+                  value={to}
+                  onChangeText={setTo}
+                  onSelect={(pred) => setTo(pred.description)}
+                  leadingIcon={<Ionicons name="location-outline" size={13} color={Brand.colors.green.normal} />}
+                  fieldStyle={styles.searchField}
+                  placeholder="A"
+                  placeholderTextColor={colors.textPlaceholder}
+                />
               </Animated.View>
             ) : null}
 
@@ -672,7 +738,8 @@ export default function SearchScreen() {
                 </Pressable>
               </Animated.View>
             ) : null}
-          </GlassCard>
+            </GlassCard>
+          </View>
         </View>
 
         <View style={styles.bottomSurface}>
@@ -818,6 +885,25 @@ export default function SearchScreen() {
                     ))}
                   </ScrollView>
                   <View pointerEvents="none" style={styles.wheelHighlight} />
+                </View>
+              </View>
+
+              <View style={styles.ampmColumn}>
+                {/* Spacer matching the height of the 'Hora'/'Minutos' labels above the wheels */}
+                <Text style={styles.timeLabel}>{' '}</Text>
+                <View style={{ height: PICKER_HEIGHT, gap: 6 }}>
+                  <Pressable
+                    style={[styles.ampmBtn, draftPeriod === 'AM' && styles.ampmBtnActive]}
+                    onPress={() => setDraftPeriod('AM')}
+                  >
+                    <Text style={[styles.ampmText, draftPeriod === 'AM' && styles.ampmTextActive]}>AM</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.ampmBtn, draftPeriod === 'PM' && styles.ampmBtnActive]}
+                    onPress={() => setDraftPeriod('PM')}
+                  >
+                    <Text style={[styles.ampmText, draftPeriod === 'PM' && styles.ampmTextActive]}>PM</Text>
+                  </Pressable>
                 </View>
               </View>
             </View>

@@ -25,6 +25,7 @@ import {
 
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
+import PlaceSearchInput from '@/components/place-search-input';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
@@ -34,7 +35,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 const PICKER_ITEM_HEIGHT = 36;
 const PICKER_VISIBLE_ROWS = 5;
 const PICKER_HEIGHT = PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ROWS;
-const hours = Array.from({ length: 24 }, (_, idx) => idx);
+const hours = Array.from({ length: 12 }, (_, i) => i + 1);
 const minutes = Array.from({ length: 60 }, (_, idx) => idx);
 
 function monthLabel(date: Date) {
@@ -46,7 +47,9 @@ function dateLabel(date: Date) {
 }
 
 function timeLabel(hour: number, minute: number) {
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const period = hour < 12 ? 'AM' : 'PM';
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
 function buildCalendarDays(cursor: Date) {
@@ -124,15 +127,45 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 32,
       fontFamily: Fonts.headingHeavy,
     },
-    offerCard: {
+    offerCardArea: {
       position: 'absolute',
       left: Brand.grid.margin,
       right: Brand.grid.margin,
       top: 194,
+    },
+    offerCard: {
       borderRadius: Brand.radius[16],
       padding: Brand.spacing[12],
       gap: 8,
       ...withElevation(400),
+    },
+    suggestionsBox: {
+      marginTop: 6,
+      borderRadius: Brand.radius[12],
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.inputBg,
+      ...withElevation(400),
+    },
+    suggestionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 11,
+      paddingHorizontal: 12,
+    },
+    suggestionDivider: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    suggestionMain: {
+      fontFamily: Fonts.heading,
+      fontSize: 13,
+    },
+    suggestionSub: {
+      fontFamily: Fonts.sans,
+      fontSize: 11,
     },
     verticalField: {
       gap: 5,
@@ -490,6 +523,31 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderColor: c.border,
       backgroundColor: 'rgba(26, 158, 143, 0.1)',
     },
+    ampmColumn: {
+      gap: 6,
+    },
+    ampmBtn: {
+      flex: 1,
+      borderRadius: Brand.radius[12],
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.wheelBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 52,
+    },
+    ampmBtnActive: {
+      backgroundColor: Brand.colors.green.normal + '22',
+      borderColor: Brand.colors.green.normal,
+    },
+    ampmText: {
+      fontFamily: Fonts.headingBold,
+      fontSize: 14,
+      color: c.textSecondary,
+    },
+    ampmTextActive: {
+      color: Brand.colors.green.dark,
+    },
     calendarActions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -606,6 +664,7 @@ export default function OfferScreen() {
   const [draftDate, setDraftDate] = useState<Date | null>(null);
   const [draftHour, setDraftHour] = useState(7);
   const [draftMinute, setDraftMinute] = useState(0);
+  const [draftPeriod, setDraftPeriod] = useState<'AM' | 'PM'>('AM');
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
@@ -621,20 +680,24 @@ export default function OfferScreen() {
 
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
+    const rawHour = source.getHours();
+    const h12 = rawHour % 12 === 0 ? 12 : rawHour % 12;
+    const period: 'AM' | 'PM' = rawHour < 12 ? 'AM' : 'PM';
     setCursorDate(new Date(source.getFullYear(), source.getMonth(), 1));
     setDraftDate(new Date(source.getFullYear(), source.getMonth(), source.getDate()));
-    setDraftHour(source.getHours());
+    setDraftHour(h12);
     setDraftMinute(source.getMinutes());
+    setDraftPeriod(period);
     setCalendarOpen(true);
     setTimeout(() => {
-      hourScrollRef.current?.scrollTo({ y: source.getHours() * PICKER_ITEM_HEIGHT, animated: false });
+      hourScrollRef.current?.scrollTo({ y: (h12 - 1) * PICKER_ITEM_HEIGHT, animated: false });
       minuteScrollRef.current?.scrollTo({ y: source.getMinutes() * PICKER_ITEM_HEIGHT, animated: false });
     }, 0);
   };
 
   const onHourScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.max(0, Math.min(23, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
-    setDraftHour(idx);
+    const idx = Math.max(0, Math.min(11, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+    setDraftHour(idx + 1);
     hourScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
@@ -647,7 +710,10 @@ export default function OfferScreen() {
   const applyDateTime = () => {
     const base = draftDate ?? new Date();
     const merged = new Date(base);
-    merged.setHours(draftHour, draftMinute, 0, 0);
+    const hour24 = draftPeriod === 'AM'
+      ? (draftHour === 12 ? 0 : draftHour)
+      : (draftHour === 12 ? 12 : draftHour + 12);
+    merged.setHours(hour24, draftMinute, 0, 0);
     setSelectedDate(merged);
     setCalendarOpen(false);
   };
@@ -681,62 +747,62 @@ export default function OfferScreen() {
             </Pressable>
           </View>
 
-          <GlassCard style={styles.offerCard} intensity={46}>
-            <View style={styles.verticalField}>
-              <Text style={styles.fieldLabel}>Origen</Text>
-              <View style={styles.searchField}>
-                <Ionicons name="radio-button-on" size={12} color={Brand.colors.green.dark} />
-                <TextInput
+          <View style={styles.offerCardArea}>
+            <GlassCard style={styles.offerCard} intensity={46}>
+              <View style={styles.verticalField}>
+                <Text style={styles.fieldLabel}>Origen</Text>
+                <PlaceSearchInput
                   value={from}
                   onChangeText={setFrom}
+                  onSelect={(pred) => setFrom(pred.description)}
+                  leadingIcon={<Ionicons name="radio-button-on" size={12} color={Brand.colors.green.dark} />}
+                  fieldStyle={styles.searchField}
                   placeholder="¿De dónde sales?"
                   placeholderTextColor={colors.textPlaceholder}
-                  style={styles.searchInput}
                 />
               </View>
-            </View>
 
-            {hasOrigin ? (
-              <Animated.View
-                entering={FadeInDown.duration(220)}
-                exiting={FadeOut.duration(140)}
-                layout={LinearTransition.duration(220)}
-                style={styles.verticalField}
-              >
-                <Text style={styles.fieldLabel}>Destino</Text>
-                <View style={styles.searchField}>
-                  <Ionicons name="location-outline" size={13} color={Brand.colors.green.normal} />
-                  <TextInput
+              {hasOrigin ? (
+                <Animated.View
+                  entering={FadeInDown.duration(220)}
+                  exiting={FadeOut.duration(140)}
+                  layout={LinearTransition.duration(220)}
+                  style={styles.verticalField}
+                >
+                  <Text style={styles.fieldLabel}>Destino</Text>
+                  <PlaceSearchInput
                     value={to}
                     onChangeText={setTo}
+                    onSelect={(pred) => setTo(pred.description)}
+                    leadingIcon={<Ionicons name="location-outline" size={13} color={Brand.colors.green.normal} />}
+                    fieldStyle={styles.searchField}
                     placeholder="¿A dónde vas?"
                     placeholderTextColor={colors.textPlaceholder}
-                    style={styles.searchInput}
                   />
-                </View>
-              </Animated.View>
-            ) : null}
+                </Animated.View>
+              ) : null}
 
-            {hasDestination ? (
-              <Animated.View
-                entering={FadeInDown.duration(220)}
-                exiting={FadeOut.duration(140)}
-                layout={LinearTransition.duration(220)}
-                style={styles.verticalField}
-              >
-                <Text style={styles.fieldLabel}>Fecha y hora</Text>
-                <Pressable style={styles.searchField} onPress={openDateModal}>
-                  <Ionicons name="calendar-outline" size={12} color={Brand.colors.green.dark} />
-                  <Text style={[styles.searchInput, !selectedDate && styles.placeholderText]}>
-                    {selectedDate
-                      ? `${dateLabel(selectedDate)} · ${timeLabel(selectedDate.getHours(), selectedDate.getMinutes())}`
-                      : 'Seleccionar fecha y hora'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
-                </Pressable>
-              </Animated.View>
-            ) : null}
-          </GlassCard>
+              {hasDestination ? (
+                <Animated.View
+                  entering={FadeInDown.duration(220)}
+                  exiting={FadeOut.duration(140)}
+                  layout={LinearTransition.duration(220)}
+                  style={styles.verticalField}
+                >
+                  <Text style={styles.fieldLabel}>Fecha y hora</Text>
+                  <Pressable style={styles.searchField} onPress={openDateModal}>
+                    <Ionicons name="calendar-outline" size={12} color={Brand.colors.green.dark} />
+                    <Text style={[styles.searchInput, !selectedDate && styles.placeholderText]}>
+                      {selectedDate
+                        ? `${dateLabel(selectedDate)} · ${timeLabel(selectedDate.getHours(), selectedDate.getMinutes())}`
+                        : 'Seleccionar fecha y hora'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                  </Pressable>
+                </Animated.View>
+              ) : null}
+            </GlassCard>
+          </View>
         </View>
 
         <View style={styles.bottomSurface}>
@@ -912,6 +978,24 @@ export default function OfferScreen() {
                     ))}
                   </ScrollView>
                   <View pointerEvents="none" style={styles.wheelHighlight} />
+                </View>
+              </View>
+
+              <View style={styles.ampmColumn}>
+                <Text style={styles.timeLabel}>{' '}</Text>
+                <View style={{ height: PICKER_HEIGHT, gap: 6 }}>
+                  <Pressable
+                    style={[styles.ampmBtn, draftPeriod === 'AM' && styles.ampmBtnActive]}
+                    onPress={() => setDraftPeriod('AM')}
+                  >
+                    <Text style={[styles.ampmText, draftPeriod === 'AM' && styles.ampmTextActive]}>AM</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.ampmBtn, draftPeriod === 'PM' && styles.ampmBtnActive]}
+                    onPress={() => setDraftPeriod('PM')}
+                  >
+                    <Text style={[styles.ampmText, draftPeriod === 'PM' && styles.ampmTextActive]}>PM</Text>
+                  </Pressable>
                 </View>
               </View>
             </View>

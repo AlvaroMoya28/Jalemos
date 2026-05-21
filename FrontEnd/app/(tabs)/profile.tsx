@@ -272,11 +272,12 @@ export default function ProfileScreen() {
         router.push('/driver-registration');
       } else {
         setMode('driver');
-        router.replace('/(tabs)/offer');
+        // Defer navigation so the tab layout finishes updating before the route changes
+        setTimeout(() => router.replace('/(tabs)/offer'), 0);
       }
     } else {
       setMode('passenger');
-      router.replace('/(tabs)/search');
+      setTimeout(() => router.replace('/(tabs)/search'), 0);
     }
   };
 
