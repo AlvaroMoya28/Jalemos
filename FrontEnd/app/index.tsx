@@ -5,6 +5,8 @@
 
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth';
+import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -161,16 +163,54 @@ function makeStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       color: '#ffffff',
       fontFamily: Fonts.heading,
     },
+    errorBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: 'rgba(166, 25, 42, 0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(166, 25, 42, 0.4)',
+      borderRadius: Brand.radius[8],
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    errorText: {
+      flex: 1,
+      color: Brand.colors.alerts.error,
+      fontFamily: Fonts.sans,
+      fontSize: 13,
+    },
   });
 }
 
 export default function LoginScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { login } = useAuth();
+  const { setDriverRegistered } = useUserMode();
 
   const [showPassword, setShowPassword] = useState(false);
   const [user, setUser] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = () => {
+    if (!user.trim() || !password) {
+      setError('Completá usuario y contraseña');
+      return;
+    }
+    const result = login(user.trim(), password);
+    if (!result.success) {
+      setError(result.error ?? 'Error al iniciar sesión');
+      return;
+    }
+    setError('');
+    // Restore driver capability if the user already completed driver registration
+    if (result.user?.role === 'passenger+driver') {
+      setDriverRegistered(true);
+    }
+    router.replace('/(tabs)/search');
+  };
 
   // Animated values for the card entrance animation (fade + slide up)
   const cardOpacity = useRef(new Animated.Value(0)).current;
@@ -261,8 +301,14 @@ export default function LoginScreen() {
                 <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
               </Pressable>
 
-              {/* TODO: replace with real auth call before navigating */}
-              <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)/search')}>
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color={Brand.colors.alerts.error} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <Pressable style={styles.cta} onPress={handleLogin}>
                 <Text style={styles.ctaText}>Ingresar</Text>
               </Pressable>
 

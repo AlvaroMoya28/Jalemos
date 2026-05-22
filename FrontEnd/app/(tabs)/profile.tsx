@@ -9,6 +9,7 @@
 
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
+import { useAuth } from '@/contexts/auth';
 import { useUserMode } from '@/contexts/user-mode';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -221,6 +222,7 @@ export default function ProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
+  const { user, logout } = useAuth();
   const { mode, isDriverRegistered, profilePhoto, setMode, setProfilePhoto } = useUserMode();
   const isDriver = mode === 'driver';
 
@@ -260,6 +262,7 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
+    logout();
     navigation.getParent()?.dispatch(
       CommonActions.reset({ index: 0, routes: [{ name: 'index' }] })
     );
@@ -315,24 +318,24 @@ export default function ProfileScreen() {
               <Pressable style={styles.avatar} onPress={handleEditPhoto}>
                 {profilePhoto
                   ? <Image source={{ uri: profilePhoto }} style={styles.avatarPhoto} />
-                  : <Text style={styles.avatarText}>AS</Text>}
+                  : <Text style={styles.avatarText}>{user?.avatar ?? '?'}</Text>}
                 <View style={styles.avatarEditBadge}>
                   <Ionicons name="camera-outline" size={12} color="#fff" />
                 </View>
               </Pressable>
               <View style={styles.profileMain}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.name}>Andres Solano</Text>
+                  <Text style={styles.name}>{user ? `${user.firstName} ${user.lastName}` : '—'}</Text>
                   <Ionicons name="checkmark-circle" size={16} color={Brand.colors.green.dark} />
                   {isDriver && (
                     <Ionicons name="car" size={16} color={Brand.colors.green.normal} />
                   )}
                 </View>
-                <Text style={styles.email}>andres@jalemos.cr</Text>
+                <Text style={styles.email}>{user?.email ?? ''}</Text>
                 <View style={styles.ratingRow}>
                   <Ionicons name="star" size={13} color="#f7a900" />
-                  <Text style={styles.rating}>4.9</Text>
-                  <Text style={styles.ratingSub}>· {isDriver ? '12 viajes ofrecidos' : '38 viajes'}</Text>
+                  <Text style={styles.rating}>{user?.rating?.toFixed(1) ?? '—'}</Text>
+                  <Text style={styles.ratingSub}>· {isDriver ? `${user?.tripsCount ?? 0} viajes ofrecidos` : `${user?.tripsCount ?? 0} viajes`}</Text>
                 </View>
               </View>
             </View>
@@ -340,31 +343,31 @@ export default function ProfileScreen() {
               {isDriver ? (
                 <>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>12</Text>
+                    <Text style={styles.statValue}>{user?.tripsCount ?? 0}</Text>
                     <Text style={styles.statLabel}>Ofrecidos</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>840 km</Text>
-                    <Text style={styles.statLabel}>Manejados</Text>
+                    <Text style={styles.statValue}>{user?.memberSince ?? '—'}</Text>
+                    <Text style={styles.statLabel}>Miembro desde</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValueGreen}>₡36k</Text>
-                    <Text style={styles.statLabel}>Ganado</Text>
+                    <Text style={styles.statValueGreen}>{user?.rating?.toFixed(1) ?? '—'}</Text>
+                    <Text style={styles.statLabel}>Calificación</Text>
                   </View>
                 </>
               ) : (
                 <>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>38</Text>
+                    <Text style={styles.statValue}>{user?.tripsCount ?? 0}</Text>
                     <Text style={styles.statLabel}>Viajes</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>2.4k km</Text>
-                    <Text style={styles.statLabel}>Recorridos</Text>
+                    <Text style={styles.statValue}>{user?.memberSince ?? '—'}</Text>
+                    <Text style={styles.statLabel}>Miembro desde</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValueGreen}>₡84k</Text>
-                    <Text style={styles.statLabel}>Ahorrado</Text>
+                    <Text style={styles.statValueGreen}>{user?.rating?.toFixed(1) ?? '—'}</Text>
+                    <Text style={styles.statLabel}>Calificación</Text>
                   </View>
                 </>
               )}

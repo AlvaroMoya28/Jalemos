@@ -5,6 +5,7 @@
 
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -166,20 +167,66 @@ function makeStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       color: '#ffffff',
       fontFamily: Fonts.heading,
     },
+    errorBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: 'rgba(166, 25, 42, 0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(166, 25, 42, 0.4)',
+      borderRadius: Brand.radius[8],
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    errorText: {
+      flex: 1,
+      color: Brand.colors.alerts.error,
+      fontFamily: Fonts.sans,
+      fontSize: 13,
+    },
   });
 }
 
 export default function RegisterScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { register } = useAuth();
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleRegister = () => {
+    if (!nombre.trim() || !apellido.trim() || !username.trim() || !email.trim() || !password) {
+      setError('Completá todos los campos');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Ingresá un correo válido');
+      return;
+    }
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    if (password !== confirm) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+    const result = register({ username, email, firstName: nombre, lastName: apellido, password });
+    if (!result.success) {
+      setError(result.error ?? 'Error al crear la cuenta');
+      return;
+    }
+    setError('');
+    router.replace('/(tabs)/search');
+  };
 
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const cardTranslate = useRef(new Animated.Value(16)).current;
@@ -250,6 +297,18 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputWrap}>
+                <Ionicons name="at-outline" size={18} color={Brand.colors.green.normal} />
+                <TextInput
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="Nombre de usuario"
+                  placeholderTextColor={colors.textPlaceholder}
+                  style={styles.input}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.inputWrap}>
                 <Ionicons name="mail-outline" size={18} color={Brand.colors.green.normal} />
                 <TextInput
                   value={email}
@@ -292,8 +351,14 @@ export default function RegisterScreen() {
                 </Pressable>
               </View>
 
-              {/* TODO: validate fields and call POST /api/auth/register before navigating */}
-              <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)/search')}>
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color={Brand.colors.alerts.error} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <Pressable style={styles.cta} onPress={handleRegister}>
                 <Text style={styles.ctaText}>Crear cuenta</Text>
               </Pressable>
 

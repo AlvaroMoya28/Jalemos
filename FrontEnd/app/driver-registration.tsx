@@ -9,6 +9,7 @@
 import DocumentCameraModal from '@/components/document-camera-modal';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -167,6 +168,7 @@ async function pickFromGallery(): Promise<PhotoSlot> {
 export default function DriverRegistrationScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { upgradeToDriver } = useAuth();
   const { setMode, setDriverRegistered, setProfilePhoto } = useUserMode();
 
   // ── Vehicle form fields ──────────────────────────────────────────────────
@@ -228,6 +230,7 @@ export default function DriverRegistrationScreen() {
     // TODO: validate fields + upload photos, then call POST /api/drivers/register
     // Persist the face photo to global context so the profile avatar shows it immediately
     if (facePhoto) setProfilePhoto(facePhoto.uri);
+    upgradeToDriver();
     setDriverRegistered(true);
     setMode('driver');
     router.replace('/(tabs)/offer');
