@@ -10,6 +10,7 @@ import DocumentCameraModal from '@/components/document-camera-modal';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
+import { useApplications } from '@/contexts/applications';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -168,8 +169,9 @@ async function pickFromGallery(): Promise<PhotoSlot> {
 export default function DriverRegistrationScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { upgradeToDriver } = useAuth();
-  const { setMode, setDriverRegistered, setProfilePhoto } = useUserMode();
+  const { user } = useAuth();
+  const { submitApplication } = useApplications();
+  const { setProfilePhoto } = useUserMode();
 
   // ── Vehicle form fields ──────────────────────────────────────────────────
   const [marca, setMarca] = useState('');
@@ -227,13 +229,19 @@ export default function DriverRegistrationScreen() {
   };
 
   const handleRegister = () => {
-    // TODO: validate fields + upload photos, then call POST /api/drivers/register
-    // Persist the face photo to global context so the profile avatar shows it immediately
     if (facePhoto) setProfilePhoto(facePhoto.uri);
-    upgradeToDriver();
-    setDriverRegistered(true);
-    setMode('driver');
-    router.replace('/(tabs)/offer');
+    // Submit to the verification pipeline — driver mode activates only after admin approves.
+    submitApplication({
+      userId: user?.id ?? 'unknown',
+      applicantName: user ? `${user.firstName} ${user.lastName}` : 'Desconocido',
+      applicantEmail: user?.email ?? '',
+      applicantAvatar: user?.avatar ?? '?',
+      vehicle: { brand: marca, model: modelo, year: año, plate: placa, color: vehicleColor },
+      licensePhotoFront: licenciaFront?.uri ?? null,
+      licensePhotoBack: licenciaBack?.uri ?? null,
+      dekraPhoto: dekraPhoto?.uri ?? null,
+    });
+    router.replace('/driver-status');
   };
 
   return (

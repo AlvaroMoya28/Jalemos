@@ -20,6 +20,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/auth';
+import { ApplicationsProvider } from '@/contexts/applications';
 import { UserModeProvider } from '@/contexts/user-mode';
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
@@ -57,6 +58,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
+    <ApplicationsProvider>
     <UserModeProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack
@@ -76,10 +78,11 @@ export default function RootLayout() {
         {/* Driver registration */}
         <Stack.Screen name="driver-registration" options={{ headerShown: false }} />
         {/* Ride detail — drill-down from search results */}
-        <Stack.Screen
-          name="ride-detail"
-          options={{ headerShown: false, animation: 'slide_from_right' }}
-        />
+        <Stack.Screen name="ride-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        {/* Driver application status — shown after submitting driver registration */}
+        <Stack.Screen name="driver-status" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        {/* Admin: full application review */}
+        <Stack.Screen name="application-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
         {/* Transparent modal overlay that slides up from the bottom */}
         <Stack.Screen
           name="modal"
@@ -89,6 +92,7 @@ export default function RootLayout() {
       <StatusBar style="auto" />
     </ThemeProvider>
     </UserModeProvider>
+    </ApplicationsProvider>
     </AuthProvider>
     </GestureHandlerRootView>
   );
