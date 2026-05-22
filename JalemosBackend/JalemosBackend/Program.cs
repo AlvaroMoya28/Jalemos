@@ -12,6 +12,7 @@ using JalemosBackend.Modules.Rides.Application;
 using JalemosBackend.Modules.Rides.Infrastructure;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +22,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Shared database context used by all modules
-builder.Services.AddSingleton<ApplicationDbContext>();
+// builder.Services.AddSingleton<ApplicationDbContext>();
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Trips module — scoped per request so each request gets its own service and repository
 builder.Services.AddScoped<ITripsService, TripsService>();

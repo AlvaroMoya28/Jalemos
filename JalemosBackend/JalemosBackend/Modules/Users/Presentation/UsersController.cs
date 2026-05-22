@@ -7,30 +7,36 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace JalemosBackend.Modules.Users.Presentation;
 
-/// <summary>
-/// Exposes CRUD endpoints for users under the /api/users route.
-/// </summary>
+// Controller for user-related endpoints, e.g. to manage user profiles and retrieve user information. 
 [ApiController]
 [Route("api/users")]
 public sealed class UsersController : ControllerBase
 {
     private readonly IUsersService _usersService;
 
-    /// <summary>Injects the users application service.</summary>
     public UsersController(IUsersService usersService)
     {
         _usersService = usersService;
     }
 
-    /// <summary>GET /api/users — returns all users. Should be protected by an admin policy.</summary>
+    // Get that returns a list of all users.
+    // TODO: Should be protected by an admin policy so only admins can access the full list of users.
     [HttpGet]
     public async Task<ActionResult<IEnumerable<User>>> GetAll(CancellationToken cancellationToken)
     {
-        var users = await _usersService.GetAllAsync(cancellationToken);
-        return Ok(users);
+        try
+        {
+            var users = await _usersService.GetAllAsync(cancellationToken);
+            return Ok(users);
+        }
+        catch (Exception ex)
+        {
+            return Problem(detail: ex.ToString(), statusCode: 500);
+        }
     }
 
-    /// <summary>GET /api/users/{id} — returns a single user, or 404 if not found.</summary>
+    // Get that returns a single user by id, or 404 if not found.
+    // TODO: Should be protected by an auth policy so users can only access their own profile (or admins can access any profile).
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<User>> GetById(Guid id, CancellationToken cancellationToken)
     {
@@ -38,7 +44,8 @@ public sealed class UsersController : ControllerBase
         return user is null ? NotFound() : Ok(user);
     }
 
-    /// <summary>POST /api/users — registers a new user account.</summary>
+    // Post that creates a new user. The request body should contain the user profile data, including a plaintext password that will be hashed in the service layer.
+    // TODO: this endpoint should be protected by an admin policy, or we need to implement a public registration flow with email verification and password hashing here in the controller instead of the service layer.
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] User user, CancellationToken cancellationToken)
     {
@@ -46,7 +53,8 @@ public sealed class UsersController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>PUT /api/users/{id} — updates user profile. Route id overrides body id.</summary>
+    // Put that updates an existing user. 
+    // TODO: Should be protected by an auth policy so users can only update their own profile (or admins can update any profile).
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] User user, CancellationToken cancellationToken)
     {
@@ -56,7 +64,9 @@ public sealed class UsersController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>DELETE /api/users/{id} — removes the specified user account.</summary>
+    // Delete that removes a user by id.
+    // TODO: Should be protected by an auth policy so users can only delete their own account (or admins can delete any account).
+    // TODO: We should also consider whether to implement soft deletes here instead of hard deletes in the repository layer.
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
