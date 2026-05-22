@@ -4465,7 +4465,7 @@ index 0000000..949f2fe
 +  ];
 +};
 diff --git a/node_modules/react-native-reanimated/src/common/style/processors/font.ts b/node_modules/react-native-reanimated/src/common/style/processors/font.ts
-index 2d97fb0..c910e02 100644
+index 2d97fb0..2e2be99 100644
 --- a/node_modules/react-native-reanimated/src/common/style/processors/font.ts
 +++ b/node_modules/react-native-reanimated/src/common/style/processors/font.ts
 @@ -1,5 +1,5 @@
@@ -4475,15 +4475,6 @@ index 2d97fb0..c910e02 100644
  import { ReanimatedError } from '../../errors';
  import type { ValueProcessor } from '../../types';
  
-@@ -8,7 +8,7 @@ export const ERROR_MESSAGES = {
-     `Invalid font weight value: ${weight}`,
- };
- 
--const VALID_FONT_WEIGHTS = new Set<string>(Object.values(FONT_WEIGHT_MAPPINGS));
-+const VALID_FONT_WEIGHTS = new Set<string>(Object.values(FONT_WEIGHT_MAPPINGS ?? {}));
- 
- export const processFontWeight: ValueProcessor<string | number, string> = (
-   value
 diff --git a/node_modules/react-native-reanimated/src/common/types.ts b/node_modules/react-native-reanimated/src/common/types.ts
 new file mode 100644
 index 0000000..6961e5d
