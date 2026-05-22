@@ -16,8 +16,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider } from '@/contexts/auth';
 import { UserModeProvider } from '@/contexts/user-mode';
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
@@ -53,7 +55,8 @@ export default function RootLayout() {
   }
 
   return (
-    // Apply light or dark navigation theme based on the device setting
+    <GestureHandlerRootView style={{ flex: 1 }}>
+    <AuthProvider>
     <UserModeProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack
@@ -72,6 +75,11 @@ export default function RootLayout() {
         <Stack.Screen name="register" options={{ headerShown: false }} />
         {/* Driver registration */}
         <Stack.Screen name="driver-registration" options={{ headerShown: false }} />
+        {/* Ride detail — drill-down from search results */}
+        <Stack.Screen
+          name="ride-detail"
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
         {/* Transparent modal overlay that slides up from the bottom */}
         <Stack.Screen
           name="modal"
@@ -81,5 +89,7 @@ export default function RootLayout() {
       <StatusBar style="auto" />
     </ThemeProvider>
     </UserModeProvider>
+    </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

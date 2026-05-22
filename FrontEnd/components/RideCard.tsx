@@ -1,7 +1,6 @@
 // Card component used to display a single available ride in the search results list.
-// Tapping it fires a press animation via AnimatedPressable.
+// Tapping it fires a press animation and calls the onPress prop to open the ride detail screen.
 // Text and border colors adapt automatically to the device light/dark mode setting.
-// TODO: add an onPress handler to navigate to the ride detail / booking screen.
 
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
@@ -12,6 +11,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 export interface Ride {
+  id: string;
   from: string;
   to: string;
   date: string;
@@ -26,6 +26,7 @@ export interface Ride {
 
 interface RideCardProps {
   ride: Ride;
+  onPress?: () => void;
 }
 
 function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
@@ -136,12 +137,12 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
   });
 }
 
-export default function RideCard({ ride }: RideCardProps) {
+export default function RideCard({ ride, onPress }: RideCardProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
-    <AnimatedPressable pressedScale={0.992}>
+    <AnimatedPressable pressedScale={0.992} onPress={onPress}>
       <GlassCard style={styles.card} intensity={34}>
         <View style={styles.rowTop}>
           <View style={styles.routeBlock}>

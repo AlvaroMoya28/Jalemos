@@ -7,7 +7,7 @@
 // floating NativeTabs bar without manual padding calculations.
 
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
@@ -26,16 +26,27 @@ import NotificationsModal from '@/components/NotificationsModal';
 import PlaceSearchInput from '@/components/place-search-input';
 import RideCard, { Ride } from '@/components/RideCard';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { DETAILED_RIDES } from '@/constants/mock-rides';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
-// Static mock rides — replace with a real API call to GET /api/rides when the backend is ready
-const rides: Ride[] = [
-  { from: 'San Jose', to: 'Heredia', date: 'Hoy', time: '5:30 PM', price: 1500, seats: 3, driver: 'Carlos M.', rating: 4.8, avatar: 'CM' },
-  { from: 'Cartago', to: 'San Jose', date: 'Mañana', time: '7:00 AM', price: 2000, seats: 2, driver: 'Maria R.', rating: 4.9, avatar: 'MR' },
-  { from: 'Alajuela', to: 'Escazu', date: 'Mañana', time: '8:15 AM', price: 1800, seats: 4, driver: 'Jose L.', rating: 4.7, avatar: 'JL' },
-  { from: 'Liberia', to: 'Tamarindo', date: 'Vie 18', time: '10:00 AM', price: 3500, seats: 1, driver: 'Ana P.', rating: 5, avatar: 'AP' },
-];
+// Derive the simple Ride shape from the detailed mock data so both screens share one source of truth
+const rides: Ride[] = DETAILED_RIDES.map((r) => {
+  const [firstName, ...rest] = r.driver.fullName.split(' ');
+  const lastInitial = rest[0]?.[0] ?? '';
+  return {
+    id: r.id,
+    from: r.from,
+    to: r.to,
+    date: r.date,
+    time: r.time,
+    price: r.price,
+    seats: r.availableSeats,
+    driver: `${firstName} ${lastInitial}.`,
+    rating: r.driver.rating,
+    avatar: r.driver.avatar,
+  };
+});
 
 // Shortcut routes shown as chips below the search card for quick selection
 const quickRoutes = [
@@ -530,6 +541,7 @@ export default function SearchScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
+  const router = useRouter();
   useEffect(() => {
     navigation.setOptions({ title: 'Buscar', icon: { sf: 'magnifyingglass' } });
   }, [navigation]);
@@ -787,8 +799,12 @@ export default function SearchScreen() {
 
             {filteredRides.length > 0 ? (
               <View style={styles.rideList}>
-                {filteredRides.map((ride, idx) => (
-                  <RideCard key={`${ride.driver}-${idx}`} ride={ride} />
+                {filteredRides.map((ride) => (
+                  <RideCard
+                    key={ride.id}
+                    ride={ride}
+                    onPress={() => router.push({ pathname: '/ride-detail', params: { id: ride.id } })}
+                  />
                 ))}
               </View>
             ) : (
