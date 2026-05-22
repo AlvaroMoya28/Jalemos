@@ -4130,6 +4130,20 @@ index 0000000..3dbca37
 +export const IS_WINDOW_AVAILABLE: boolean = isWindowAvailable();
 +
 +export const SHOULD_BE_USE_WEB = IS_JEST || IS_WEB || IS_WINDOWS;
+diff --git a/node_modules/react-native-reanimated/src/common/index.ts b/node_modules/react-native-reanimated/src/common/index.ts
+index 328b4cc..a4e1eaf 100644
+--- a/node_modules/react-native-reanimated/src/common/index.ts
++++ b/node_modules/react-native-reanimated/src/common/index.ts
+@@ -1,7 +1,7 @@
+ 'use strict';
+-export * from './constants';
++export * from './constants/index';
+ export * from './errors';
+ export * from './logger';
+ export * from './style';
+-export * from './types';
++export * from './types/index';
+ export * from './utils';
 diff --git a/node_modules/react-native-reanimated/src/common/processors/colors.ts b/node_modules/react-native-reanimated/src/common/processors/colors.ts
 new file mode 100644
 index 0000000..c47ac78
@@ -4450,6 +4464,26 @@ index 0000000..949f2fe
 +    ),
 +  ];
 +};
+diff --git a/node_modules/react-native-reanimated/src/common/style/processors/font.ts b/node_modules/react-native-reanimated/src/common/style/processors/font.ts
+index 2d97fb0..c910e02 100644
+--- a/node_modules/react-native-reanimated/src/common/style/processors/font.ts
++++ b/node_modules/react-native-reanimated/src/common/style/processors/font.ts
+@@ -1,5 +1,5 @@
+ 'use strict';
+-import { FONT_WEIGHT_MAPPINGS } from '../../constants';
++import { FONT_WEIGHT_MAPPINGS } from '../../constants/font';
+ import { ReanimatedError } from '../../errors';
+ import type { ValueProcessor } from '../../types';
+ 
+@@ -8,7 +8,7 @@ export const ERROR_MESSAGES = {
+     `Invalid font weight value: ${weight}`,
+ };
+ 
+-const VALID_FONT_WEIGHTS = new Set<string>(Object.values(FONT_WEIGHT_MAPPINGS));
++const VALID_FONT_WEIGHTS = new Set<string>(Object.values(FONT_WEIGHT_MAPPINGS ?? {}));
+ 
+ export const processFontWeight: ValueProcessor<string | number, string> = (
+   value
 diff --git a/node_modules/react-native-reanimated/src/common/types.ts b/node_modules/react-native-reanimated/src/common/types.ts
 new file mode 100644
 index 0000000..6961e5d
