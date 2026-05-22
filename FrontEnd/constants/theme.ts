@@ -185,51 +185,51 @@ export const Colors = {
   dark: {
     // React Navigation tokens
     text: Brand.colors.black.b2,
-    background: Brand.colors.black.b12,
+    background: '#060e0d',
     tint: tintColorDark,
     icon: Brand.colors.black.b6,
     tabIconDefault: Brand.colors.black.b6,
     tabIconSelected: tintColorDark,
-    // Screen & surface backgrounds
-    screenBg: Brand.colors.black.b12,
-    surface: Brand.colors.black.b11,
-    surfaceAlt: '#1a1a1a',
-    bottomSurface: Brand.colors.black.b11,
+    // Screen & surface backgrounds — deep dark teal, significantly darker than before
+    screenBg: '#060e0d',
+    surface: '#0a1916',
+    surfaceAlt: '#081412',
+    bottomSurface: '#0a1916',
     // Text
     textPrimary: Brand.colors.black.b2,
     textSecondary: Brand.colors.black.b5,
     textMuted: Brand.colors.black.b6,
-    textPlaceholder: '#4a5c58',
+    textPlaceholder: '#3d5c58',
     // Borders
     border: 'rgba(26, 158, 143, 0.4)',
     borderSubtle: 'rgba(26, 158, 143, 0.22)',
     // Inputs
-    inputBg: '#1c1c1c',
+    inputBg: '#091513',
     inputText: Brand.colors.black.b2,
     // Tab bar
-    tabBarBg: Brand.colors.black.b11,
-    tabBarBorder: 'rgba(26, 158, 143, 0.25)',
+    tabBarBg: '#091412',
+    tabBarBorder: 'rgba(26, 158, 143, 0.28)',
     // Header banner
     headerBg: Brand.colors.green.darkActive,
     // Calendar / modal cards
-    calendarBg: 'rgba(22, 22, 22, 0.98)',
+    calendarBg: 'rgba(6, 16, 14, 0.98)',
     calendarBorder: 'rgba(26, 158, 143, 0.4)',
     // GlassCard layers
-    glassBg: 'rgba(255, 255, 255, 0.06)',
+    glassBg: 'rgba(10, 38, 34, 0.32)',
     glassBorder: 'rgba(26, 158, 143, 0.3)',
-    glassSurface: 'rgba(255, 255, 255, 0.04)',
-    glassHighlight: 'rgba(255, 255, 255, 0.07)',
+    glassSurface: 'rgba(10, 38, 34, 0.2)',
+    glassHighlight: 'rgba(255, 255, 255, 0.06)',
     // Component-specific
-    clearBtnBg: 'rgba(30, 30, 30, 0.92)',
-    seatCompactBg: 'rgba(28, 28, 28, 0.92)',
-    wheelBg: 'rgba(22, 22, 22, 0.96)',
-    vehicleCardBg: 'rgba(30, 30, 30, 0.88)',
-    vehicleCardActiveBg: 'rgba(42, 42, 42, 0.95)',
-    walletCounterBg: 'rgba(22, 22, 22, 0.9)',
+    clearBtnBg: 'rgba(8, 20, 18, 0.92)',
+    seatCompactBg: 'rgba(8, 20, 18, 0.92)',
+    wheelBg: 'rgba(7, 17, 15, 0.96)',
+    vehicleCardBg: 'rgba(9, 25, 22, 0.88)',
+    vehicleCardActiveBg: 'rgba(12, 34, 30, 0.95)',
+    walletCounterBg: 'rgba(7, 17, 15, 0.9)',
     logoutBg: 'rgba(60, 15, 15, 0.6)',
-    segmentBg: 'rgba(26, 158, 143, 0.2)',
-    segmentActiveBg: Brand.colors.black.b11,
-    radioOuterBg: Brand.colors.black.b11,
+    segmentBg: 'rgba(26, 158, 143, 0.18)',
+    segmentActiveBg: '#0a1916',
+    radioOuterBg: '#0a1916',
   },
 };
 
