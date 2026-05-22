@@ -16,8 +16,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider } from '@/contexts/auth';
+import { ApplicationsProvider } from '@/contexts/applications';
+import { UserModeProvider } from '@/contexts/user-mode';
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
 export const unstable_settings = {
@@ -52,7 +56,10 @@ export default function RootLayout() {
   }
 
   return (
-    // Apply light or dark navigation theme based on the device setting
+    <GestureHandlerRootView style={{ flex: 1 }}>
+    <AuthProvider>
+    <ApplicationsProvider>
+    <UserModeProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack
         screenOptions={{
@@ -66,13 +73,27 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         {/* Tab navigator group — no header, tabs manage their own titles */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* Registration screen */}
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+        {/* Driver registration */}
+        <Stack.Screen name="driver-registration" options={{ headerShown: false }} />
+        {/* Ride detail — drill-down from search results */}
+        <Stack.Screen name="ride-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        {/* Driver application status — shown after submitting driver registration */}
+        <Stack.Screen name="driver-status" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        {/* Admin: full application review */}
+        <Stack.Screen name="application-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
         {/* Transparent modal overlay that slides up from the bottom */}
         <Stack.Screen
           name="modal"
           options={{ presentation: 'transparentModal', title: 'Modal', animation: 'fade_from_bottom' }}
         />
       </Stack>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
     </ThemeProvider>
+    </UserModeProvider>
+    </ApplicationsProvider>
+    </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
