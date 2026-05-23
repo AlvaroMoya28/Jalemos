@@ -3,17 +3,21 @@
 -- ============================================================
 
 -- Extensiones necesarias
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- Provee gen_random_uuid() para los UUIDs
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- Provee gen_random_uuid() y crypt() para bcrypt
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";  -- Alternativa: uuid_generate_v4()
 
 -- ============================================================
--- 1. TABLA: users
+-- 2. TABLA: users
 -- ============================================================
 CREATE TABLE users (
     user_id       UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    name          VARCHAR(100)    NOT NULL,
+    username      VARCHAR(50)     NOT NULL UNIQUE,
     email         VARCHAR(150)    NOT NULL UNIQUE,
-    password      VARCHAR(255)    NOT NULL,
+    password_hash VARCHAR(255)    NOT NULL,
+    first_name    VARCHAR(100)    NOT NULL,
+    last_name     VARCHAR(100)    NOT NULL,
+    role          VARCHAR(20)     NOT NULL DEFAULT 'passenger'
+                                  CHECK (role IN ('admin', 'passenger', 'driver')),
     mean_rating   NUMERIC(3, 2)   NOT NULL DEFAULT 0.00
                                   CHECK (mean_rating >= 0 AND mean_rating <= 5),
     total_trips   INTEGER         NOT NULL DEFAULT 0  CHECK (total_trips >= 0),
@@ -22,11 +26,13 @@ CREATE TABLE users (
     updated_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  users             IS 'Usuarios registrados en la plataforma Jalemos';
-COMMENT ON COLUMN users.user_id     IS 'UUID generado automáticamente por gen_random_uuid()';
-COMMENT ON COLUMN users.password    IS 'Hash bcrypt de la contraseña. NUNCA almacenar texto plano.';
-COMMENT ON COLUMN users.mean_rating IS 'Promedio de calificaciones recibidas (0.00 - 5.00)';
-COMMENT ON COLUMN users.kms         IS 'Kilómetros totales recorridos como conductor';
+COMMENT ON TABLE  users                  IS 'Usuarios registrados en la plataforma Jalemos';
+COMMENT ON COLUMN users.user_id          IS 'UUID generado automáticamente por gen_random_uuid()';
+COMMENT ON COLUMN users.username         IS 'Nombre de usuario único (login alternativo al email)';
+COMMENT ON COLUMN users.password_hash    IS 'Hash bcrypt de la contraseña. NUNCA almacenar texto plano.';
+COMMENT ON COLUMN users.role             IS 'admin: panel de administración; passenger: pasajero; driver: conductor habilitado';
+COMMENT ON COLUMN users.mean_rating      IS 'Promedio de calificaciones recibidas (0.00 - 5.00)';
+COMMENT ON COLUMN users.kms             IS 'Kilómetros totales recorridos como conductor';
 
 
 -- ============================================================
@@ -277,51 +283,55 @@ CREATE TRIGGER trg_ratings_mean
 
 -- ============================================================
 -- DATOS DE PRUEBA
--- Los UUIDs se generan automáticamente con gen_random_uuid()
--- No se pasan IDs manuales en los INSERT
+-- Usuarios del mock del frontend con contraseñas hasheadas con bcrypt
 -- ============================================================
-
--- Insertar usuarios y capturar sus UUIDs en variables para usarlos luego
 DO $$
 DECLARE
-    v_alvaro_id     UUID;
-    v_sebastian_id  UUID;
-	v_vehicle_id 	UUID;
+    v_pasajero_id  UUID;
+    v_carlos_id    UUID;
+    v_vehicle_id   UUID;
 BEGIN
-    INSERT INTO users (name, email, password)
-    VALUES ('Álvaro Moya', 'alvaro@jalemos.com', '$2b$10$exemplo_hash_alvaro')
-    RETURNING user_id INTO v_alvaro_id;
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
+    VALUES ('admin', 'admin@jalemos.cr', crypt('admin123', gen_salt('bf', 10)), 'Admin', 'Jalemos', 'admin', 5.00, 120);
 
-    INSERT INTO users (name, email, password)
-    VALUES ('Sebastián Blanco', 'sebastian@jalemos.com', '$2b$10$exemplo_hash_sebastian')
-    RETURNING user_id INTO v_sebastian_id;
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
+    VALUES ('pasajero', 'pasajero@jalemos.cr', crypt('pass123', gen_salt('bf', 10)), 'Álvaro', 'Moya', 'passenger', 4.80, 38)
+    RETURNING user_id INTO v_pasajero_id;
 
-    INSERT INTO users (name, email, password)
-    VALUES ('Emanuel García', 'emanuel@jalemos.com', '$2b$10$exemplo_hash_emanuel');
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
+    VALUES ('carlos.m', 'carlos@jalemos.cr', crypt('carlos123', gen_salt('bf', 10)), 'Carlos', 'Monestel', 'driver', 4.80, 52)
+    RETURNING user_id INTO v_carlos_id;
+
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
+    VALUES ('maria.r', 'maria@jalemos.cr', crypt('maria123', gen_salt('bf', 10)), 'María', 'Rodríguez', 'driver', 4.90, 91);
+
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
+    VALUES ('jose.l', 'jose@jalemos.cr', crypt('jose123', gen_salt('bf', 10)), 'José', 'Ledezma', 'driver', 4.70, 38);
+
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
+    VALUES ('ana.p', 'ana@jalemos.cr', crypt('ana123', gen_salt('bf', 10)), 'Ana', 'Picado', 'driver', 5.00, 30);
 
     INSERT INTO vehicles (user_id, model, year, num_plate, color)
-    VALUES (v_sebastian_id, 'Toyota Corolla', 2020, 'ABC-123', 'Blanco')
+    VALUES (v_carlos_id, 'Toyota Corolla', 2020, 'ABC-123', 'Blanco')
     RETURNING vehicle_id INTO v_vehicle_id;
 
     INSERT INTO favorite_places (user_id, type, name, address) VALUES
-        (v_alvaro_id, 'home', 'Mi casa',     'Barrio Los Yoses, San José'),
-        (v_alvaro_id, 'work', 'Universidad', 'UCR, San Pedro, San José');
+        (v_pasajero_id, 'home', 'Mi casa',     'Barrio Los Yoses, San José'),
+        (v_pasajero_id, 'work', 'Universidad', 'UCR, San Pedro, San José');
 
     INSERT INTO payment_methods (user_id, type, alias) VALUES
-        (v_alvaro_id,    'sinpe', 'Mi SINPE personal'),
-        (v_sebastian_id, 'cash',  'Efectivo');
+        (v_pasajero_id, 'sinpe', 'Mi SINPE personal'),
+        (v_carlos_id,   'cash',  'Efectivo');
 
     INSERT INTO trips (driver_user_id, vehicle_id, rate, from_location, to_location,
                        start_date_time, total_seats, available_seats, notes)
-    VALUES (v_sebastian_id, v_vehicle_id, 1500.00, 'Cartago Centro', 'UCR San Pedro',
+    VALUES (v_carlos_id, v_vehicle_id, 1500.00, 'Cartago Centro', 'UCR San Pedro',
             NOW() + INTERVAL '1 day', 3, 3, 'Salgo puntual. No fumar.');
 END;
 $$;
 
 -- ============================================================
--- VERIFICACIÓN DE DATOS
--- Se hace una consulta sencilla para revisar los nombres y 
--- correos de los usuarios ingresados
+-- VERIFICACIÓN
 -- ============================================================
-SELECT name, email FROM users;
+SELECT username, email, role FROM users;
 

@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Users.Domain;
@@ -14,83 +9,82 @@ namespace JalemosBackend.Modules.Users.Infrastructure
     {
         private readonly ApplicationDbContext _dbContext;
         public UsersRepository(ApplicationDbContext dbContext) => _dbContext = dbContext;
-        
-        // Maps between UserEntity (the EF Core entity) and User (the domain model).
+
         private static User MapToDomain(UserEntity e) => new User
         {
-            Id = e.UserId,
-            Name = e.Name,
-            Email = e.Email,
-            PasswordHash = e.Password,
-            MeanRating = e.MeanRating,
-            TotalTrips = e.TotalTrips,
-            Kms = e.Kms,
-            CreatedAt = e.CreatedAt,
-            UpdatedAt = e.UpdatedAt
+            Id          = e.UserId,
+            Username    = e.Username,
+            Email       = e.Email,
+            PasswordHash = e.PasswordHash,
+            FirstName   = e.FirstName,
+            LastName    = e.LastName,
+            Role        = e.Role,
+            MeanRating  = e.MeanRating,
+            TotalTrips  = e.TotalTrips,
+            Kms         = e.Kms,
+            CreatedAt   = e.CreatedAt,
+            UpdatedAt   = e.UpdatedAt,
         };
 
-        // Maps from the domain model to the EF Core entity.
         private static void MapToEntity(UserEntity e, User u)
         {
-            e.Name = u.Name;
-            e.Email = u.Email;
-            if (!string.IsNullOrWhiteSpace(u.PasswordHash)) e.Password = u.PasswordHash;
+            e.Username  = u.Username;
+            e.Email     = u.Email;
+            e.FirstName = u.FirstName;
+            e.LastName  = u.LastName;
+            e.Role      = u.Role;
+            if (!string.IsNullOrWhiteSpace(u.PasswordHash)) e.PasswordHash = u.PasswordHash;
             e.MeanRating = u.MeanRating;
             e.TotalTrips = u.TotalTrips;
-            e.Kms = u.Kms;
+            e.Kms        = u.Kms;
         }
 
-        // Repository methods for CRUD operations on users.
-        // These are called by the service layer, which contains the business logic and validation.
-        public async Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default)
-        {
-            return await _dbContext.Users.AsNoTracking()
-                .Select(e => MapToDomain(e))
-                .ToListAsync(cancellationToken);
-        }
+        public async Task<IEnumerable<User>> GetAllAsync(CancellationToken ct = default) =>
+            await _dbContext.Users.AsNoTracking().Select(e => MapToDomain(e)).ToListAsync(ct);
 
-        public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default)
         {
-            var e = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == id, cancellationToken);
+            var e = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == id, ct);
             return e is null ? null : MapToDomain(e);
         }
 
-        public async Task CreateAsync(User user, CancellationToken cancellationToken = default)
+        public async Task CreateAsync(User user, CancellationToken ct = default)
         {
             var entity = new UserEntity
             {
-                UserId = user.Id == Guid.Empty ? Guid.NewGuid() : user.Id,
-                Name = user.Name,
-                Email = user.Email,
-                Password = user.PasswordHash ?? string.Empty,
-                MeanRating = user.MeanRating,
-                TotalTrips = user.TotalTrips,
-                Kms = user.Kms,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UserId       = user.Id == Guid.Empty ? Guid.NewGuid() : user.Id,
+                Username     = user.Username,
+                Email        = user.Email,
+                PasswordHash = user.PasswordHash ?? string.Empty,
+                FirstName    = user.FirstName,
+                LastName     = user.LastName,
+                Role         = user.Role,
+                MeanRating   = user.MeanRating,
+                TotalTrips   = user.TotalTrips,
+                Kms          = user.Kms,
+                CreatedAt    = DateTime.UtcNow,
+                UpdatedAt    = DateTime.UtcNow,
             };
-
             _dbContext.Users.Add(entity);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(ct);
             user.Id = entity.UserId;
         }
 
-        public async Task UpdateAsync(User user, CancellationToken cancellationToken = default)
+        public async Task UpdateAsync(User user, CancellationToken ct = default)
         {
-            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == user.Id, cancellationToken);
-            if (entity is null) throw new KeyNotFoundException("User not found");
-
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == user.Id, ct)
+                ?? throw new KeyNotFoundException("User not found");
             MapToEntity(entity, user);
             entity.UpdatedAt = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(ct);
         }
 
-        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+        public async Task DeleteAsync(Guid id, CancellationToken ct = default)
         {
-            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, cancellationToken);
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct);
             if (entity is null) return;
             _dbContext.Users.Remove(entity);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(ct);
         }
     }
 }

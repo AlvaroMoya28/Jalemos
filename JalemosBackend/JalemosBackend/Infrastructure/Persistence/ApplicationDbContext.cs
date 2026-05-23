@@ -1,6 +1,5 @@
-using System;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using JalemosBackend.Modules.Users.Domain;
 using JalemosBackend.Modules.Users.Infrastructure.Entities;
 
 namespace JalemosBackend.Infrastructure.Persistence
@@ -44,15 +43,19 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.ToTable("users");
                 e.HasKey(x => x.UserId).HasName("pk_users");
                 e.Property(x => x.UserId).HasColumnName("user_id").HasDefaultValueSql("gen_random_uuid()");
-                e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
+                e.Property(x => x.Username).HasColumnName("username").HasMaxLength(50).IsRequired();
                 e.Property(x => x.Email).HasColumnName("email").HasMaxLength(150).IsRequired();
-                e.Property(x => x.Password).HasColumnName("password").HasMaxLength(255).IsRequired();
+                e.Property(x => x.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
+                e.Property(x => x.FirstName).HasColumnName("first_name").HasMaxLength(100).IsRequired();
+                e.Property(x => x.LastName).HasColumnName("last_name").HasMaxLength(100).IsRequired();
+                e.Property(x => x.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(20).HasDefaultValueSql("'passenger'");
                 e.Property(x => x.MeanRating).HasColumnName("mean_rating").HasColumnType("numeric(3,2)").HasDefaultValue(0.00m);
                 e.Property(x => x.TotalTrips).HasColumnName("total_trips").HasDefaultValue(0);
                 e.Property(x => x.Kms).HasColumnName("kms").HasColumnType("numeric(10,2)").HasDefaultValue(0);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.Email).IsUnique();
+                e.HasIndex(x => x.Username).IsUnique();
             });
 
             // Vehicles
