@@ -194,18 +194,17 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!user.trim() || !password) {
       setError('Completá usuario y contraseña');
       return;
     }
-    const result = login(user.trim(), password);
+    const result = await login(user.trim(), password);
     if (!result.success) {
       setError(result.error ?? 'Error al iniciar sesión');
       return;
     }
     setError('');
-    // Restore driver capability if the user already completed driver registration
     if (result.user?.role === 'passenger+driver') {
       setDriverRegistered(true);
     }

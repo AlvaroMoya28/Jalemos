@@ -1,13 +1,39 @@
-// Mock authentication context.
-// Holds the currently logged-in user and exposes login / logout / register actions.
-// Users are stored in a module-level array that starts with SEED_USERS — new registrations
-// are appended for the session (no persistence yet; replace with real API calls later).
+// Authentication context — wraps the Jalemos REST API.
+// Stores the JWT token in expo-secure-store so the session survives app restarts.
+// Run `npx expo install expo-secure-store` if it isn't installed yet.
 
-import { createContext, ReactNode, useContext, useState } from 'react';
-import { MockUser, SEED_USERS } from '@/constants/mock-users';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { post, ApiError } from '@/services/api';
 
-// Module-level mutable store so registrations survive re-renders within the session
-const userStore: MockUser[] = [...SEED_USERS];
+const TOKEN_KEY = 'jalemos_token';
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: 'admin' | 'passenger' | 'passenger+driver';
+  avatar: string;
+  rating: number;
+  tripsCount: number;
+  memberSince: string;
+}
+
+interface AuthResponse {
+  token: string;
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  avatar: string;
+  rating: number;
+  tripsCount: number;
+  memberSince: string;
+}
 
 export interface RegisterData {
   username: string;
@@ -18,80 +44,109 @@ export interface RegisterData {
 }
 
 interface AuthContextType {
-  user: MockUser | null;
-  login: (username: string, password: string) => { success: boolean; error?: string; user?: MockUser };
-  logout: () => void;
-  register: (data: RegisterData) => { success: boolean; error?: string };
-  /** Upgrades the current passenger to 'passenger+driver' after completing driver registration. */
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  logout: () => Promise<void>;
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   upgradeToDriver: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  login: () => ({ success: false }),
-  logout: () => {},
-  register: () => ({ success: false }),
+  token: null,
+  isLoading: true,
+  login: async () => ({ success: false }),
+  logout: async () => {},
+  register: async () => ({ success: false }),
   upgradeToDriver: () => {},
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<MockUser | null>(null);
+function mapResponse(r: AuthResponse): User {
+  return {
+    id:          r.id,
+    username:    r.username,
+    email:       r.email,
+    firstName:   r.firstName,
+    lastName:    r.lastName,
+    role:        r.role as User['role'],
+    avatar:      r.avatar,
+    rating:      r.rating,
+    tripsCount:  r.tripsCount,
+    memberSince: r.memberSince,
+  };
+}
 
-  const login = (username: string, password: string): { success: boolean; error?: string; user?: MockUser } => {
-    const trimmed = username.trim().toLowerCase();
-    const found = userStore.find(
-      (u) => (u.username.toLowerCase() === trimmed || u.email.toLowerCase() === trimmed)
-        && u.password === password
-    );
-    if (!found) return { success: false, error: 'Usuario o contraseña incorrectos' };
-    setUser(found);
-    return { success: true, user: found };
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser]       = useState<User | null>(null);
+  const [token, setToken]     = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Restore session on startup
+  useEffect(() => {
+    SecureStore.getItemAsync(TOKEN_KEY)
+      .then((stored) => {
+        if (stored) {
+          // Token exists but we don't re-fetch the profile yet — just mark as loaded.
+          // A full implementation would call GET /api/auth/me here.
+          setToken(stored);
+        }
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const login = async (identifier: string, password: string) => {
+    try {
+      const res = await post<AuthResponse>('/api/auth/login', { identifier, password });
+      await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+      const u = mapResponse(res);
+      setToken(res.token);
+      setUser(u);
+      return { success: true, user: u };
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Error de conexión con el servidor';
+      return { success: false, error: msg };
+    }
   };
 
-  const logout = () => setUser(null);
+  const logout = async () => {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    setToken(null);
+    setUser(null);
+  };
 
+  const register = async (data: RegisterData) => {
+    try {
+      const res = await post<AuthResponse>('/api/auth/register', {
+        username:  data.username,
+        email:     data.email,
+        firstName: data.firstName,
+        lastName:  data.lastName,
+        password:  data.password,
+      });
+      await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+      const u = mapResponse(res);
+      setToken(res.token);
+      setUser(u);
+      return { success: true };
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Error de conexión con el servidor';
+      return { success: false, error: msg };
+    }
+  };
+
+  // Called after the admin approves the driver application — updates local state only.
+  // The real role change happens via the admin panel (backend sets role='driver').
   const upgradeToDriver = () => {
     setUser((prev) => {
-      if (!prev || prev.role === 'passenger+driver' || prev.role === 'admin') return prev;
-      const updated = { ...prev, role: 'passenger+driver' as const };
-      const idx = userStore.findIndex((u) => u.id === prev.id);
-      if (idx !== -1) userStore[idx] = updated;
-      return updated;
+      if (!prev || prev.role !== 'passenger') return prev;
+      return { ...prev, role: 'passenger+driver' };
     });
   };
 
-  const register = (data: RegisterData): { success: boolean; error?: string } => {
-    const trimmedUser = data.username.trim().toLowerCase();
-    const trimmedEmail = data.email.trim().toLowerCase();
-
-    if (userStore.some((u) => u.username.toLowerCase() === trimmedUser)) {
-      return { success: false, error: 'Ese nombre de usuario ya está en uso' };
-    }
-    if (userStore.some((u) => u.email.toLowerCase() === trimmedEmail)) {
-      return { success: false, error: 'Ya existe una cuenta con ese correo' };
-    }
-
-    const newUser: MockUser = {
-      id: `user-${Date.now()}`,
-      username: data.username.trim(),
-      email: data.email.trim().toLowerCase(),
-      firstName: data.firstName.trim(),
-      lastName: data.lastName.trim(),
-      password: data.password,
-      role: 'passenger',
-      avatar: `${data.firstName.trim()[0] ?? '?'}${data.lastName.trim()[0] ?? '?'}`.toUpperCase(),
-      rating: 5.0,
-      tripsCount: 0,
-      memberSince: new Date().toLocaleDateString('es-CR', { month: 'long', year: 'numeric' }),
-    };
-
-    userStore.push(newUser);
-    setUser(newUser);
-    return { success: true };
-  };
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, upgradeToDriver }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, register, upgradeToDriver }}>
       {children}
     </AuthContext.Provider>
   );

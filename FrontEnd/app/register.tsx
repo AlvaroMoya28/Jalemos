@@ -202,7 +202,7 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!nombre.trim() || !apellido.trim() || !username.trim() || !email.trim() || !password) {
       setError('Completá todos los campos');
       return;
@@ -219,7 +219,7 @@ export default function RegisterScreen() {
       setError('Las contraseñas no coinciden');
       return;
     }
-    const result = register({ username, email, firstName: nombre, lastName: apellido, password });
+    const result = await register({ username, email, firstName: nombre, lastName: apellido, password });
     if (!result.success) {
       setError(result.error ?? 'Error al crear la cuenta');
       return;

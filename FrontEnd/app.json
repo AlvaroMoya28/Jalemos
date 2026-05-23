@@ -54,7 +54,8 @@
         {
           "googleMapsApiKey": "AIzaSyCRBqxPTccARYtvibScz3HkIOzxywt0Xc0"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
