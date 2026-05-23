@@ -10,6 +10,8 @@ using JalemosBackend.Modules.Users.Infrastructure.Entities;
 
 namespace JalemosBackend.Modules.Auth.Application
 {
+    // Handles credential verification, bcrypt password hashing, and JWT generation.
+    // New users always get role=passenger; role upgrades happen via the admin panel.
     public sealed class AuthService : IAuthService
     {
         private readonly ApplicationDbContext _db;

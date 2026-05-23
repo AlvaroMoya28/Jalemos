@@ -4,6 +4,9 @@ using JalemosBackend.Modules.Auth.Application.DTOs;
 
 namespace JalemosBackend.Modules.Auth.Presentation
 {
+    // Public endpoints — no [Authorize] required.
+    // POST /api/auth/login   — returns JWT on valid credentials, 401 otherwise.
+    // POST /api/auth/register — creates a passenger account, returns JWT, 409 on duplicate.
     [ApiController]
     [Route("api/auth")]
     public sealed class AuthController : ControllerBase
