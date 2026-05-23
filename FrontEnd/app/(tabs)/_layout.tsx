@@ -67,6 +67,7 @@ export default function TabLayout() {
         sceneStyle: { backgroundColor: colors.screenBg },
         tabBarStyle,
         tabBarLabelStyle: { fontSize: 11, fontFamily: Fonts.heading },
+        animation: 'shift',
       }}>
       {/* Admin tabs */}
       <Tabs.Screen
