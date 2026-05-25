@@ -1,7 +1,6 @@
 // Entry point for the Jalemos modular monolith API.
 // All module services, repositories, and shared infrastructure are registered here.
 
-using System.Text;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Auth.Application;
 using JalemosBackend.Modules.Bookings.Application;
@@ -10,13 +9,17 @@ using JalemosBackend.Modules.Notifications.Application;
 using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.Ratings.Application;
 using JalemosBackend.Modules.Ratings.Infrastructure;
-using JalemosBackend.Modules.Rides.Application;
-using JalemosBackend.Modules.Rides.Infrastructure;
+using JalemosBackend.Modules.Trips.Application;
+using JalemosBackend.Modules.Trips.Domain;
+using JalemosBackend.Modules.Trips.Infrastructure;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
+using Npgsql.NameTranslation;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,8 +52,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 // Shared database context used by all modules
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(builder.Configuration.GetConnectionString("DefaultConnection"));
+dataSourceBuilder.MapEnum<TripState>("trip_state", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<BookingState>("booking_state", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<PlaceType>("place_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<PaymentType>("payment_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<NotificationType>("notification_type", new NpgsqlSnakeCaseNameTranslator());
+var dataSource = dataSourceBuilder.Build();
+Console.WriteLine($"DataSource type: {dataSource.GetType().FullName}");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(dataSource, o =>
+    {
+        o.MapEnum<TripState>("trip_state");
+        o.MapEnum<BookingState>("booking_state");
+        o.MapEnum<PlaceType>("place_type");
+        o.MapEnum<PaymentType>("payment_type");
+        o.MapEnum<NotificationType>("notification_type");
+    }));
 
 // Auth module
 builder.Services.AddScoped<IAuthService, AuthService>();

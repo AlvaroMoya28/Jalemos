@@ -2,11 +2,11 @@
 // Maps REST requests to ITripsService use cases and converts results to HTTP responses.
 // Keep this layer thin — all business logic belongs in the service.
 
-using JalemosBackend.Modules.Rides.Application;
-using JalemosBackend.Modules.Rides.Domain;
+using JalemosBackend.Modules.Trips.Application;
+using JalemosBackend.Modules.Trips.Domain;
 using Microsoft.AspNetCore.Mvc;
 
-namespace JalemosBackend.Modules.Rides.Presentation;
+namespace JalemosBackend.Modules.Trips.Presentation;
 
 /// <summary>
 /// Exposes CRUD endpoints for trips (rides) under the /api/rides route.

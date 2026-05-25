@@ -5,11 +5,11 @@ using JalemosBackend.Modules.Users.Infrastructure.Entities;
 namespace JalemosBackend.Infrastructure.Persistence
 {
     // Enums for Postgres enum types.
-    public enum TripState { scheduled, in_progress, completed, cancelled }
-    public enum BookingState { pending, confirmed, cancelled, completed }
-    public enum PlaceType { home, work, other }
-    public enum PaymentType { cash, card, sinpe, other }
-    public enum NotificationType { booking_received, booking_confirmed, booking_cancelled, trip_starting, trip_completed, rating_received, general }
+    public enum TripState { Scheduled, InProgress, Completed, Cancelled }
+    public enum BookingState { Pending, Confirmed, Cancelled, Completed }
+    public enum PlaceType { Home, Work, Other }
+    public enum PaymentType { Cash, Card, Sinpe, Other }
+    public enum NotificationType { BookingReceived, BookingConfirmed, BookingCancelled, TripStarting, TripCompleted, RatingReceived, General }
 
     // This is the EF Core DBContext that represents the database session and provides access to the tables via DbSet<TEntity>.
     // It is registered in the DI container in Program.cs and injected into repositories, services, and controllers as needed.
@@ -91,7 +91,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.TotalSeats).HasColumnName("total_seats").IsRequired();
                 e.Property(x => x.AvailableSeats).HasColumnName("available_seats").IsRequired();
                 e.Property(x => x.Notes).HasColumnName("notes");
-                e.Property(x => x.State).HasColumnName("state").HasColumnType("trip_state").HasDefaultValue(TripState.scheduled);
+                e.Property(x => x.State).HasColumnName("state").HasColumnType("trip_state").HasDefaultValue(TripState.Scheduled);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.DriverUserId).HasDatabaseName("idx_trips_driver");
                 e.HasIndex(x => x.State).HasDatabaseName("idx_trips_state");
@@ -111,7 +111,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.PassengerId).HasColumnName("passenger_id").IsRequired();
                 e.Property(x => x.SeatsReserved).HasColumnName("seats_reserved").IsRequired();
                 e.Property(x => x.EstimatedAmount).HasColumnName("estimated_amount").HasColumnType("numeric(10,2)").IsRequired();
-                e.Property(x => x.State).HasColumnName("state").HasColumnType("booking_state").HasDefaultValue(BookingState.pending);
+                e.Property(x => x.State).HasColumnName("state").HasColumnType("booking_state").HasDefaultValue(BookingState.Pending);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.TripId).HasDatabaseName("idx_bookings_trip");
@@ -148,7 +148,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.HasKey(x => x.FavoritePlaceId);
                 e.Property(x => x.FavoritePlaceId).HasColumnName("favorite_place_id").HasDefaultValueSql("gen_random_uuid()");
                 e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
-                e.Property(x => x.Type).HasColumnName("type").HasColumnType("place_type").HasDefaultValue(PlaceType.other);
+                e.Property(x => x.Type).HasColumnName("type").HasColumnType("place_type").HasDefaultValue(PlaceType.Other);
                 e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
                 e.Property(x => x.Address).HasColumnName("address").HasMaxLength(255).IsRequired();
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
@@ -180,7 +180,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
                 e.Property(x => x.TripId).HasColumnName("trip_id");
                 e.Property(x => x.BookingId).HasColumnName("booking_id");
-                e.Property(x => x.Type).HasColumnName("type").HasColumnType("notification_type").HasDefaultValue(NotificationType.general);
+                e.Property(x => x.Type).HasColumnName("type").HasColumnType("notification_type").HasDefaultValue(NotificationType.General);
                 e.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
                 e.Property(x => x.Read).HasColumnName("read").HasDefaultValue(false);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");

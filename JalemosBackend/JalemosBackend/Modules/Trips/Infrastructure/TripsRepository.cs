@@ -3,7 +3,7 @@ using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Trips.Domain;
 //using JalemosBackend.Modules.Trips.Infrastructure.Entities;
 
-namespace JalemosBackend.Modules.Rides.Infrastructure;
+namespace JalemosBackend.Modules.Trips.Infrastructure;
 
 /// <summary>
 /// Provides raw CRUD operations against the trips table in the shared database.
