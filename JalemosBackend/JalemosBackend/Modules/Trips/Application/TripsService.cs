@@ -2,10 +2,10 @@
 // Orchestrates business rules (e.g., seat validation, driver ownership checks)
 // and delegates all persistence operations to TripsRepository.
 
-using JalemosBackend.Modules.Rides.Domain;
-using JalemosBackend.Modules.Rides.Infrastructure;
+using JalemosBackend.Modules.Trips.Domain;
+using JalemosBackend.Modules.Trips.Infrastructure;
 
-namespace JalemosBackend.Modules.Rides.Application;
+namespace JalemosBackend.Modules.Trips.Application;
 
 /// <summary>
 /// Implements trip use cases. Acts as the single orchestration point
@@ -35,17 +35,17 @@ public sealed class TripsService : ITripsService
     }
 
     /// <inheritdoc/>
-    public Task CreateAsync(Trip ride, CancellationToken cancellationToken = default)
+    public Task CreateAsync(Trip trip, CancellationToken cancellationToken = default)
     {
         // TODO: validate that the driver has a registered vehicle and that departure is in the future
-        return _repository.CreateAsync(ride, cancellationToken);
+        return _repository.CreateAsync(trip, cancellationToken);
     }
-
+        
     /// <inheritdoc/>
-    public Task UpdateAsync(Trip ride, CancellationToken cancellationToken = default)
+    public Task UpdateAsync(Trip trip, CancellationToken cancellationToken = default)
     {
         // TODO: ensure only the owning driver can update, and reject changes after booking cutoff
-        return _repository.UpdateAsync(ride, cancellationToken);
+        return _repository.UpdateAsync(trip, cancellationToken);
     }
 
     /// <inheritdoc/>
