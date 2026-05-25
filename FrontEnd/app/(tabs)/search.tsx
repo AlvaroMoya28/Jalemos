@@ -8,7 +8,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Modal,
@@ -27,6 +27,7 @@ import PlaceSearchInput from '@/components/place-search-input';
 import RideCard, { Ride } from '@/components/RideCard';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { DETAILED_RIDES } from '@/constants/mock-rides';
+import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
@@ -542,6 +543,7 @@ export default function SearchScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
   const router = useRouter();
+  const { showLoader, hideLoader } = useLoading();
   useEffect(() => {
     navigation.setOptions({ title: 'Buscar', icon: { sf: 'magnifyingglass' } });
   }, [navigation]);
@@ -581,6 +583,21 @@ export default function SearchScreen() {
       return matchFrom && matchTo;
     });
   }, [hasSearched, from, to]);
+
+  const handleSearch = useCallback(async () => {
+    showLoader('Buscando viajes...');
+    // Simulate network round-trip; replace with a real API call when the backend is ready
+    await new Promise<void>((resolve) => setTimeout(resolve, 650));
+    hideLoader();
+    setHasSearched(true);
+  }, [showLoader, hideLoader]);
+
+  const handleRidePress = useCallback(async (id: string) => {
+    showLoader('Cargando viaje...');
+    await new Promise<void>((resolve) => setTimeout(resolve, 400));
+    hideLoader();
+    router.push({ pathname: '/ride-detail', params: { id } });
+  }, [showLoader, hideLoader, router]);
 
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
@@ -745,7 +762,7 @@ export default function SearchScreen() {
                     <Text style={styles.clearBtnText}>Limpiar</Text>
                   </Pressable>
                 ) : null}
-                <Pressable style={styles.searchBtn} onPress={() => setHasSearched(true)}>
+                <Pressable style={styles.searchBtn} onPress={handleSearch}>
                   <Text style={styles.searchBtnText}>Buscar</Text>
                 </Pressable>
               </Animated.View>
@@ -803,7 +820,7 @@ export default function SearchScreen() {
                   <RideCard
                     key={ride.id}
                     ride={ride}
-                    onPress={() => router.push({ pathname: '/ride-detail', params: { id: ride.id } })}
+                    onPress={() => handleRidePress(ride.id)}
                   />
                 ))}
               </View>

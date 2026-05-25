@@ -6,6 +6,7 @@
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
+import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -187,6 +188,7 @@ export default function LoginScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { login } = useAuth();
+  const { showLoader, hideLoader } = useLoading();
   const { setDriverRegistered } = useUserMode();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -199,16 +201,21 @@ export default function LoginScreen() {
       setError('Completá usuario y contraseña');
       return;
     }
-    const result = await login(user.trim(), password);
-    if (!result.success) {
-      setError(result.error ?? 'Error al iniciar sesión');
-      return;
+    showLoader('Iniciando sesión...');
+    try {
+      const result = await login(user.trim(), password);
+      if (!result.success) {
+        setError(result.error ?? 'Error al iniciar sesión');
+        return;
+      }
+      setError('');
+      if (result.user?.role === 'passenger+driver') {
+        setDriverRegistered(true);
+      }
+      router.replace('/(tabs)/search');
+    } finally {
+      hideLoader();
     }
-    setError('');
-    if (result.user?.role === 'passenger+driver') {
-      setDriverRegistered(true);
-    }
-    router.replace('/(tabs)/search');
   };
 
   // Animated values for the card entrance animation (fade + slide up)

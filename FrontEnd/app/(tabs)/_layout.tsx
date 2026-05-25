@@ -9,6 +9,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/auth';
+import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
@@ -22,6 +23,7 @@ export default function TabLayout() {
   const { colors } = useAppTheme();
   const { user } = useAuth();
   const { mode } = useUserMode();
+  const { showLoader, hideLoader } = useLoading();
 
   const isAdmin = user?.role === 'admin';
   const isDriver = mode === 'driver';
@@ -59,6 +61,12 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      screenListeners={{
+        tabPress: () => {
+          showLoader('Cargando...');
+          setTimeout(hideLoader, 320);
+        },
+      }}
       screenOptions={{
         tabBarActiveTintColor: Brand.colors.green.normal,
         tabBarInactiveTintColor: colors.textMuted,

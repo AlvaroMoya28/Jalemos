@@ -6,7 +6,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { useLoading } from '@/contexts/loading';
 import {
+  Alert,
   Appearance,
   Image,
   Pressable,
@@ -586,6 +588,8 @@ export default function RideDetailScreen() {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const { showLoader, hideLoader } = useLoading();
+
   const ride = useMemo(
     () => DETAILED_RIDES.find((r) => r.id === (Array.isArray(id) ? id[0] : id)),
     [id]
@@ -601,7 +605,12 @@ export default function RideDetailScreen() {
   useEffect(() => {
     if (!ride) return;
     const { fromCoords: f, toCoords: t } = ride;
-    fetchRoutePolyline(f.lat, f.lng, t.lat, t.lng).then(setPolyline);
+    showLoader('Cargando ruta...');
+    fetchRoutePolyline(f.lat, f.lng, t.lat, t.lng).then(poly => {
+      setPolyline(poly);
+      hideLoader();
+    }).catch(() => hideLoader());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ride]);
 
   // Rebuild map URL synchronously whenever polyline or theme changes.
@@ -616,6 +625,14 @@ export default function RideDetailScreen() {
   }, [ride, polyline, isDark]);
 
   const totalPrice = seats * (ride?.price ?? 0);
+
+  const handleReserve = () => {
+    showLoader('Reservando viaje...');
+    setTimeout(() => {
+      hideLoader();
+      Alert.alert('¡Viaje reservado!', `Has reservado ${seats} ${seats === 1 ? 'espacio' : 'espacios'} en este viaje.`);
+    }, 700);
+  };
 
   if (!ride) {
     return (
@@ -844,7 +861,7 @@ export default function RideDetailScreen() {
           </View>
         </View>
 
-        <AnimatedPressable pressedScale={0.98} style={styles.reserveBtn}>
+        <AnimatedPressable pressedScale={0.98} style={styles.reserveBtn} onPress={handleReserve}>
           <Text style={styles.reserveBtnText}>Reservar viaje</Text>
         </AnimatedPressable>
       </View>

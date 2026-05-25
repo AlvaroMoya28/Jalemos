@@ -6,6 +6,7 @@
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
+import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -191,6 +192,7 @@ export default function RegisterScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { register } = useAuth();
+  const { showLoader, hideLoader } = useLoading();
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -219,13 +221,18 @@ export default function RegisterScreen() {
       setError('Las contraseñas no coinciden');
       return;
     }
-    const result = await register({ username, email, firstName: nombre, lastName: apellido, password });
-    if (!result.success) {
-      setError(result.error ?? 'Error al crear la cuenta');
-      return;
+    showLoader('Creando tu cuenta...');
+    try {
+      const result = await register({ username, email, firstName: nombre, lastName: apellido, password });
+      if (!result.success) {
+        setError(result.error ?? 'Error al crear la cuenta');
+        return;
+      }
+      setError('');
+      router.replace('/(tabs)/search');
+    } finally {
+      hideLoader();
     }
-    setError('');
-    router.replace('/(tabs)/search');
   };
 
   const cardOpacity = useRef(new Animated.Value(0)).current;

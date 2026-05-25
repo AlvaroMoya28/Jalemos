@@ -10,6 +10,7 @@
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
 import { useAuth } from '@/contexts/auth';
+import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -223,6 +224,7 @@ export default function ProfileScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
   const { user, logout } = useAuth();
+  const { showLoader, hideLoader } = useLoading();
   const { mode, isDriverRegistered, profilePhoto, setMode, setProfilePhoto } = useUserMode();
   const isDriver = mode === 'driver';
 
@@ -261,11 +263,16 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigation.getParent()?.dispatch(
-      CommonActions.reset({ index: 0, routes: [{ name: 'index' }] })
-    );
+  const handleLogout = async () => {
+    showLoader('Cerrando sesión...');
+    try {
+      await logout();
+      navigation.getParent()?.dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: 'index' }] })
+      );
+    } finally {
+      hideLoader();
+    }
   };
 
   const handleSwitchMode = (target: 'passenger' | 'driver') => {

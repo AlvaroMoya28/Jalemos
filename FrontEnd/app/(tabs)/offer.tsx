@@ -7,6 +7,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
+import { useLoading } from '@/contexts/loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import {
@@ -639,6 +640,7 @@ export default function OfferScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
+  const { showLoader, hideLoader } = useLoading();
   useEffect(() => {
     navigation.setOptions({ title: 'Ofrecer', icon: { sf: 'car' } });
   }, [navigation]);
@@ -723,7 +725,11 @@ export default function OfferScreen() {
       Alert.alert('Campos incompletos', 'Completa origen, destino, fecha y hora.');
       return;
     }
-    Alert.alert('Listo', `Tu viaje se publicó correctamente con ${selectedVehicle.name}.`);
+    showLoader('Publicando viaje...');
+    setTimeout(() => {
+      hideLoader();
+      Alert.alert('Listo', `Tu viaje se publicó correctamente con ${selectedVehicle.name}.`);
+    }, 700);
   };
 
   return (
