@@ -22,6 +22,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/auth';
 import { ApplicationsProvider } from '@/contexts/applications';
 import { UserModeProvider } from '@/contexts/user-mode';
+import { LoadingProvider } from '@/contexts/loading';
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
 export const unstable_settings = {
@@ -61,6 +62,7 @@ export default function RootLayout() {
     <ApplicationsProvider>
     <UserModeProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <LoadingProvider>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -90,6 +92,7 @@ export default function RootLayout() {
         />
       </Stack>
       <StatusBar style="auto" />
+      </LoadingProvider>
     </ThemeProvider>
     </UserModeProvider>
     </ApplicationsProvider>

@@ -11,6 +11,7 @@ import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
 import { useApplications } from '@/contexts/applications';
+import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -171,6 +172,7 @@ export default function DriverRegistrationScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { user } = useAuth();
   const { submitApplication } = useApplications();
+  const { showLoader, hideLoader } = useLoading();
   const { setProfilePhoto } = useUserMode();
 
   // ── Vehicle form fields ──────────────────────────────────────────────────
@@ -229,6 +231,7 @@ export default function DriverRegistrationScreen() {
   };
 
   const handleRegister = () => {
+    showLoader('Enviando solicitud...');
     if (facePhoto) setProfilePhoto(facePhoto.uri);
     // Submit to the verification pipeline — driver mode activates only after admin approves.
     submitApplication({
@@ -241,7 +244,10 @@ export default function DriverRegistrationScreen() {
       licensePhotoBack: licenciaBack?.uri ?? null,
       dekraPhoto: dekraPhoto?.uri ?? null,
     });
-    router.replace('/driver-status');
+    setTimeout(() => {
+      hideLoader();
+      router.replace('/driver-status');
+    }, 600);
   };
 
   return (
