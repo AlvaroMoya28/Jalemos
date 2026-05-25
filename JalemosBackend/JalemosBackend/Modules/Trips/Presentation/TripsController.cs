@@ -12,7 +12,7 @@ namespace JalemosBackend.Modules.Trips.Presentation;
 /// Exposes CRUD endpoints for trips (rides) under the /api/rides route.
 /// </summary>
 [ApiController]
-[Route("api/rides")]
+[Route("api/trips")]
 public sealed class TripsController : ControllerBase
 {
     private readonly ITripsService _ridesService;

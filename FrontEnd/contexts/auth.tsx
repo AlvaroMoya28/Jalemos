@@ -2,11 +2,17 @@
 // Stores the JWT token in expo-secure-store so the session survives app restarts.
 // Run `npx expo install expo-secure-store` if it isn't installed yet.
 
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { post, ApiError } from '@/services/api';
+import { ApiError, post } from "@/services/api";
+import * as SecureStore from "expo-secure-store";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
-const TOKEN_KEY = 'jalemos_token';
+const TOKEN_KEY = "jalemos_token";
 
 export interface User {
   id: string;
@@ -14,7 +20,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'admin' | 'passenger' | 'passenger+driver';
+  role: "admin" | "passenger" | "passenger+driver";
   avatar: string;
   rating: number;
   tripsCount: number;
@@ -47,9 +53,14 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  login: (
+    identifier: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => Promise<void>;
-  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    data: RegisterData,
+  ) => Promise<{ success: boolean; error?: string }>;
   upgradeToDriver: () => void;
 }
 
@@ -65,22 +76,22 @@ const AuthContext = createContext<AuthContextType>({
 
 function mapResponse(r: AuthResponse): User {
   return {
-    id:          r.id,
-    username:    r.username,
-    email:       r.email,
-    firstName:   r.firstName,
-    lastName:    r.lastName,
-    role:        r.role as User['role'],
-    avatar:      r.avatar,
-    rating:      r.rating,
-    tripsCount:  r.tripsCount,
+    id: r.id,
+    username: r.username,
+    email: r.email,
+    firstName: r.firstName,
+    lastName: r.lastName,
+    role: r.role as User["role"],
+    avatar: r.avatar,
+    rating: r.rating,
+    tripsCount: r.tripsCount,
     memberSince: r.memberSince,
   };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]       = useState<User | null>(null);
-  const [token, setToken]     = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Restore session on startup
@@ -98,14 +109,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (identifier: string, password: string) => {
     try {
-      const res = await post<AuthResponse>('/api/auth/login', { identifier, password });
+      const res = await post<AuthResponse>("/api/auth/login", {
+        identifier,
+        password,
+      });
       await SecureStore.setItemAsync(TOKEN_KEY, res.token);
       const u = mapResponse(res);
       setToken(res.token);
       setUser(u);
       return { success: true, user: u };
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Error de conexión con el servidor';
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Error de conexión con el servidor";
       return { success: false, error: msg };
     }
   };
@@ -118,12 +135,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterData) => {
     try {
-      const res = await post<AuthResponse>('/api/auth/register', {
-        username:  data.username,
-        email:     data.email,
+      const res = await post<AuthResponse>("/api/auth/register", {
+        username: data.username,
+        email: data.email,
         firstName: data.firstName,
-        lastName:  data.lastName,
-        password:  data.password,
+        lastName: data.lastName,
+        password: data.password,
       });
       await SecureStore.setItemAsync(TOKEN_KEY, res.token);
       const u = mapResponse(res);
@@ -131,7 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       return { success: true };
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Error de conexión con el servidor';
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Error de conexión con el servidor";
       return { success: false, error: msg };
     }
   };
@@ -140,13 +160,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // The real role change happens via the admin panel (backend sets role='driver').
   const upgradeToDriver = () => {
     setUser((prev) => {
-      if (!prev || prev.role !== 'passenger') return prev;
-      return { ...prev, role: 'passenger+driver' };
+      if (!prev || prev.role !== "passenger") return prev;
+      return { ...prev, role: "passenger+driver" };
     });
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, register, upgradeToDriver }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isLoading,
+        login,
+        logout,
+        register,
+        upgradeToDriver,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

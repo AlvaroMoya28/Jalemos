@@ -15,6 +15,12 @@ public sealed class Trip
     public decimal Rate { get; set; }
     public string Origin { get; set; }
     public string Destination { get; set; }
+
+    public decimal OriginLatitude { get; set; }
+    public decimal OriginLongitude { get; set; }
+    public decimal DestinationLatitude { get; set; }
+    public decimal DestinationLongitude { get; set; }
+
     public DateTime DepartureAt { get; set; }
     public short TotalSeats { get; set; }
     public short AvailableSeats { get; set; }

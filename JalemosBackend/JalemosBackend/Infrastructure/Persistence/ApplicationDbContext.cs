@@ -87,6 +87,10 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.Rate).HasColumnName("rate").HasColumnType("numeric(8,2)").IsRequired();
                 e.Property(x => x.FromLocation).HasColumnName("from_location").HasMaxLength(255).IsRequired();
                 e.Property(x => x.ToLocation).HasColumnName("to_location").HasMaxLength(255).IsRequired();
+                e.Property(x => x.FromLatitude).HasColumnName("from_latitude").HasColumnType("numeric(18,15)").IsRequired();
+                e.Property(x => x.FromLongitude).HasColumnName("from_longitude").HasColumnType("numeric(18,15)").IsRequired();
+                e.Property(x => x.ToLatitude).HasColumnName("to_latitude").HasColumnType("numeric(18,15)").IsRequired();
+                e.Property(x => x.ToLongitude).HasColumnName("to_longitude").HasColumnType("numeric(18,15)").IsRequired();
                 e.Property(x => x.StartDateTime).HasColumnName("start_date_time").IsRequired();
                 e.Property(x => x.TotalSeats).HasColumnName("total_seats").IsRequired();
                 e.Property(x => x.AvailableSeats).HasColumnName("available_seats").IsRequired();
@@ -213,6 +217,12 @@ namespace JalemosBackend.Infrastructure.Persistence
         public decimal Rate { get; set; }
         public string FromLocation { get; set; } = null!;
         public string ToLocation { get; set; } = null!;
+
+        public decimal FromLatitude { get; set; }
+        public decimal FromLongitude { get; set; }
+        public decimal ToLatitude { get; set; }
+        public decimal ToLongitude { get; set; }
+
         public DateTime StartDateTime { get; set; }
         public short TotalSeats { get; set; }
         public short AvailableSeats { get; set; }

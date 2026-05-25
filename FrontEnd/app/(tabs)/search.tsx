@@ -6,9 +6,9 @@
 // contentInsetAdjustmentBehavior="automatic" lets iOS shift scroll content above the
 // floating NativeTabs bar without manual padding calculations.
 
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Modal,
@@ -19,41 +19,29 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from "react-native";
 
-import GlassCard from '@/components/glass-card';
-import NotificationsModal from '@/components/NotificationsModal';
-import PlaceSearchInput from '@/components/place-search-input';
-import RideCard, { Ride } from '@/components/RideCard';
-import { Brand, Fonts, withElevation } from '@/constants/theme';
-import { DETAILED_RIDES } from '@/constants/mock-rides';
-import { useLoading } from '@/contexts/loading';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
+import GlassCard from "@/components/glass-card";
+import NotificationsModal from "@/components/NotificationsModal";
+import PlaceSearchInput from "@/components/place-search-input";
+import RideCard, { Ride } from "@/components/RideCard";
+import { Brand, Fonts, withElevation } from "@/constants/theme";
+import { useLoading } from "@/contexts/loading";
+import { useTrips } from "@/contexts/trips";
+import { useAppTheme } from "@/hooks/use-app-theme";
+import Animated, {
+  FadeInDown,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 
-// Derive the simple Ride shape from the detailed mock data so both screens share one source of truth
-const rides: Ride[] = DETAILED_RIDES.map((r) => {
-  const [firstName, ...rest] = r.driver.fullName.split(' ');
-  const lastInitial = rest[0]?.[0] ?? '';
-  return {
-    id: r.id,
-    from: r.from,
-    to: r.to,
-    date: r.date,
-    time: r.time,
-    price: r.price,
-    seats: r.availableSeats,
-    driver: `${firstName} ${lastInitial}.`,
-    rating: r.driver.rating,
-    avatar: r.driver.avatar,
-  };
-});
+// Convert `Trip` context objects into the lightweight `Ride` shape used by the UI
 
 // Shortcut routes shown as chips below the search card for quick selection
 const quickRoutes = [
-  { from: 'San Jose', to: 'Heredia' },
-  { from: 'Cartago', to: 'San Jose' },
-  { from: 'Alajuela', to: 'SJO' },
+  { from: "San Jose", to: "Heredia" },
+  { from: "Cartago", to: "San Jose" },
+  { from: "Alajuela", to: "SJO" },
 ];
 
 // Scroll-wheel picker constants — each row is 36 px tall and 5 rows are visible at once
@@ -64,17 +52,21 @@ const hours = Array.from({ length: 12 }, (_, i) => i + 1);
 const minutes = Array.from({ length: 60 }, (_, idx) => idx);
 
 function monthLabel(date: Date) {
-  return date.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
+  return date.toLocaleDateString("es-CR", { month: "long", year: "numeric" });
 }
 
 function dateLabel(date: Date) {
-  return date.toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' });
+  return date.toLocaleDateString("es-CR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 }
 
 function timeLabel(hour: number, minute: number) {
-  const period = hour < 12 ? 'AM' : 'PM';
+  const period = hour < 12 ? "AM" : "PM";
   const h = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h}:${String(minute).padStart(2, '0')} ${period}`;
+  return `${h}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
 function buildCalendarDays(cursor: Date) {
@@ -85,17 +77,22 @@ function buildCalendarDays(cursor: Date) {
   const startIndex = (first.getDay() + 6) % 7;
   const cells: (Date | null)[] = [];
   for (let i = 0; i < startIndex; i += 1) cells.push(null);
-  for (let day = 1; day <= lastDay; day += 1) cells.push(new Date(year, month, day));
+  for (let day = 1; day <= lastDay; day += 1)
+    cells.push(new Date(year, month, day));
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
 }
 
 function isSameDay(a: Date | null, b: Date | null) {
   if (!a || !b) return false;
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
-function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
+function makeStyles(c: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -105,23 +102,23 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       paddingBottom: 26,
     },
     heroWrap: {
-      position: 'relative',
+      position: "relative",
     },
     heroImage: {
-      width: '100%',
+      width: "100%",
     },
     heroOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(10, 63, 57, 0.38)',
+      backgroundColor: "rgba(10, 63, 57, 0.38)",
     },
     heroHeader: {
-      position: 'absolute',
+      position: "absolute",
       top: 58,
       left: Brand.grid.margin,
       right: Brand.grid.margin,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
     },
     heroMini: {
       color: Brand.colors.green.light,
@@ -137,24 +134,24 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(255, 255, 255, 0.2)",
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.3)',
+      borderColor: "rgba(255, 255, 255, 0.3)",
     },
     bellDot: {
-      position: 'absolute',
+      position: "absolute",
       top: 10,
       right: 10,
       width: 7,
       height: 7,
       borderRadius: 4,
-      backgroundColor: '#ffb13e',
+      backgroundColor: "#ffb13e",
     },
     // Outer wrapper that positions the card + floating suggestions dropdown
     searchCardArea: {
-      position: 'absolute',
+      position: "absolute",
       left: Brand.grid.margin,
       right: Brand.grid.margin,
       top: 194,
@@ -169,15 +166,15 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     suggestionsBox: {
       marginTop: 6,
       borderRadius: Brand.radius[12],
-      overflow: 'hidden',
+      overflow: "hidden",
       borderWidth: 1,
       borderColor: c.border,
       backgroundColor: c.inputBg,
       ...withElevation(400),
     },
     suggestionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 8,
       paddingVertical: 11,
       paddingHorizontal: 12,
@@ -210,9 +207,9 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       backgroundColor: c.inputBg,
       paddingHorizontal: 10,
       paddingVertical: 9,
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 6,
-      alignItems: 'center',
+      alignItems: "center",
     },
     searchInput: {
       flex: 1,
@@ -224,9 +221,9 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       color: c.textPlaceholder,
     },
     seatCompact: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       borderRadius: Brand.radius[12],
       borderWidth: 1,
       borderColor: c.border,
@@ -239,20 +236,20 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       height: 26,
       borderRadius: 13,
       backgroundColor: Brand.colors.green.normal,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     seatNumber: {
       minWidth: 24,
-      textAlign: 'center',
+      textAlign: "center",
       fontSize: 16,
       color: c.textPrimary,
       fontFamily: Fonts.headingBold,
     },
     actionRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 8,
-      alignItems: 'center',
+      alignItems: "center",
     },
     clearBtn: {
       borderRadius: 999,
@@ -272,7 +269,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       backgroundColor: Brand.colors.green.normal,
       paddingHorizontal: 11,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
       flex: 1,
     },
     searchBtnText: {
@@ -302,8 +299,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       backgroundColor: c.surfaceAlt,
       paddingVertical: 8,
       paddingHorizontal: 11,
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 5,
     },
     filterText: {
@@ -317,9 +314,9 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       gap: 10,
     },
     sectionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
     },
     sectionTitle: {
       color: c.textPrimary,
@@ -351,7 +348,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       gap: 9,
     },
     emptyState: {
-      alignItems: 'center',
+      alignItems: "center",
       paddingVertical: 28,
       gap: 10,
     },
@@ -362,8 +359,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     calendarBackdrop: {
       flex: 1,
-      backgroundColor: 'rgba(8, 24, 22, 0.72)',
-      justifyContent: 'center',
+      backgroundColor: "rgba(8, 24, 22, 0.72)",
+      justifyContent: "center",
       paddingHorizontal: Brand.grid.margin,
     },
     calendarCard: {
@@ -376,35 +373,35 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       ...withElevation(400),
     },
     calendarHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
     },
     calendarTitle: {
       color: c.textPrimary,
       fontFamily: Fonts.headingBold,
       fontSize: 16,
-      textTransform: 'capitalize',
+      textTransform: "capitalize",
     },
     weekHeader: {
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     weekDay: {
       flex: 1,
-      textAlign: 'center',
+      textAlign: "center",
       color: c.textMuted,
       fontSize: 11,
       fontFamily: Fonts.heading,
     },
     calendarGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: "row",
+      flexWrap: "wrap",
       rowGap: 6,
     },
     dayCell: {
-      width: '14.2857%',
-      alignItems: 'center',
-      justifyContent: 'center',
+      width: "14.2857%",
+      alignItems: "center",
+      justifyContent: "center",
       paddingVertical: 6,
       borderRadius: 10,
     },
@@ -423,9 +420,9 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       color: Brand.colors.black.b1,
     },
     timeRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 10,
-      alignItems: 'flex-start',
+      alignItems: "flex-start",
     },
     timeColumn: {
       flex: 1,
@@ -435,7 +432,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       color: c.textSecondary,
       fontSize: 11,
       fontFamily: Fonts.headingBold,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     wheelWrap: {
       height: PICKER_HEIGHT,
@@ -443,7 +440,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderWidth: 1,
       borderColor: c.border,
       backgroundColor: c.wheelBg,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     wheelScroll: {
       flex: 1,
@@ -453,8 +450,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     wheelItem: {
       height: PICKER_ITEM_HEIGHT,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     wheelItemText: {
       color: c.textSecondary,
@@ -466,7 +463,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.headingBold,
     },
     wheelHighlight: {
-      position: 'absolute',
+      position: "absolute",
       left: 6,
       right: 6,
       top: PICKER_ITEM_HEIGHT * 2,
@@ -474,7 +471,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderRadius: 10,
       borderWidth: 1,
       borderColor: c.border,
-      backgroundColor: 'rgba(26, 158, 143, 0.1)',
+      backgroundColor: "rgba(26, 158, 143, 0.1)",
     },
     ampmColumn: {
       gap: 6,
@@ -485,12 +482,12 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderWidth: 1,
       borderColor: c.border,
       backgroundColor: c.wheelBg,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       minWidth: 52,
     },
     ampmBtnActive: {
-      backgroundColor: Brand.colors.green.normal + '22',
+      backgroundColor: Brand.colors.green.normal + "22",
       borderColor: Brand.colors.green.normal,
     },
     ampmText: {
@@ -502,8 +499,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       color: Brand.colors.green.dark,
     },
     calendarActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
+      flexDirection: "row",
+      justifyContent: "flex-end",
       gap: 8,
     },
     cancelBtn: {
@@ -545,11 +542,11 @@ export default function SearchScreen() {
   const router = useRouter();
   const { showLoader, hideLoader } = useLoading();
   useEffect(() => {
-    navigation.setOptions({ title: 'Buscar', icon: { sf: 'magnifyingglass' } });
+    navigation.setOptions({ title: "Buscar", icon: { sf: "magnifyingglass" } });
   }, [navigation]);
 
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [seats, setSeats] = useState(1);
   const [notifOpen, setNotifOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -559,89 +556,157 @@ export default function SearchScreen() {
   const [draftDate, setDraftDate] = useState<Date | null>(null);
   const [draftHour, setDraftHour] = useState(7);
   const [draftMinute, setDraftMinute] = useState(0);
-  const [draftPeriod, setDraftPeriod] = useState<'AM' | 'PM'>('AM');
+  const [draftPeriod, setDraftPeriod] = useState<"AM" | "PM">("AM");
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
   const [hasSearched, setHasSearched] = useState(false);
+  const { trips, isLoading: tripsLoading, refreshTrips } = useTrips();
+
+  const rides: Ride[] = useMemo(() => {
+    if (!trips) return [];
+    return trips.map((t) => {
+      const nameParts = t.driverName.split(" ");
+      const firstName = nameParts[0] ?? "";
+      const lastInitial = nameParts[1]?.[0] ?? "";
+      const dep = new Date(t.departureAt);
+      return {
+        id: t.id,
+        from: t.origin,
+        to: t.destination,
+        date: dateLabel(dep),
+        time: timeLabel(dep.getHours(), dep.getMinutes()),
+        price: t.rate,
+        seats: t.availableSeats,
+        driver: `${firstName} ${lastInitial}.`,
+        rating: t.driverRating,
+        avatar: `${firstName[0] ?? ""}${nameParts[1]?.[0] ?? ""}`.toUpperCase(),
+      } as Ride;
+    });
+  }, [trips]);
 
   const hasOrigin = from.trim().length > 0;
   const hasDestination = to.trim().length > 0;
   const hasDate = selectedDate !== null;
   const hasAnyInput = hasOrigin || hasDestination || hasDate || seats !== 1;
 
-  const visibleBlocks = 1 + (hasOrigin ? 1 : 0) + (hasDestination ? 1 : 0) + (hasDate ? 2 : 0);
+  const visibleBlocks =
+    1 + (hasOrigin ? 1 : 0) + (hasDestination ? 1 : 0) + (hasDate ? 2 : 0);
   const heroHeight = 280 + visibleBlocks * 62;
 
-  const calendarDays = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
+  const calendarDays = useMemo(
+    () => buildCalendarDays(cursorDate),
+    [cursorDate],
+  );
 
   const filteredRides = useMemo(() => {
     if (!hasSearched) return rides;
     return rides.filter((ride) => {
-      const matchFrom = !from.trim() || ride.from.toLowerCase().includes(from.trim().toLowerCase());
-      const matchTo = !to.trim() || ride.to.toLowerCase().includes(to.trim().toLowerCase());
+      const matchFrom =
+        !from.trim() ||
+        ride.from.toLowerCase().includes(from.trim().toLowerCase());
+      const matchTo =
+        !to.trim() || ride.to.toLowerCase().includes(to.trim().toLowerCase());
       return matchFrom && matchTo;
     });
-  }, [hasSearched, from, to]);
+  }, [hasSearched, from, to, rides]);
 
   const handleSearch = useCallback(async () => {
-    showLoader('Buscando viajes...');
-    // Simulate network round-trip; replace with a real API call when the backend is ready
-    await new Promise<void>((resolve) => setTimeout(resolve, 650));
-    hideLoader();
-    setHasSearched(true);
-  }, [showLoader, hideLoader]);
+    showLoader("Buscando viajes...");
+    try {
+      await refreshTrips();
+      setHasSearched(true);
+    } finally {
+      hideLoader();
+    }
+  }, [showLoader, hideLoader, refreshTrips]);
 
-  const handleRidePress = useCallback(async (id: string) => {
-    showLoader('Cargando viaje...');
-    await new Promise<void>((resolve) => setTimeout(resolve, 400));
-    hideLoader();
-    router.push({ pathname: '/ride-detail', params: { id } });
-  }, [showLoader, hideLoader, router]);
+  const handleRidePress = useCallback(
+    async (id: string) => {
+      showLoader("Cargando viaje...");
+      await new Promise<void>((resolve) => setTimeout(resolve, 400));
+      hideLoader();
+      router.push({ pathname: "/ride-detail", params: { id } });
+    },
+    [showLoader, hideLoader, router],
+  );
 
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
     const rawHour = source.getHours();
     const h12 = rawHour % 12 === 0 ? 12 : rawHour % 12;
-    const period: 'AM' | 'PM' = rawHour < 12 ? 'AM' : 'PM';
+    const period: "AM" | "PM" = rawHour < 12 ? "AM" : "PM";
     setCursorDate(new Date(source.getFullYear(), source.getMonth(), 1));
-    setDraftDate(new Date(source.getFullYear(), source.getMonth(), source.getDate()));
+    setDraftDate(
+      new Date(source.getFullYear(), source.getMonth(), source.getDate()),
+    );
     setDraftHour(h12);
     setDraftMinute(source.getMinutes());
     setDraftPeriod(period);
     setCalendarOpen(true);
     setTimeout(() => {
-      hourScrollRef.current?.scrollTo({ y: (h12 - 1) * PICKER_ITEM_HEIGHT, animated: false });
-      minuteScrollRef.current?.scrollTo({ y: source.getMinutes() * PICKER_ITEM_HEIGHT, animated: false });
+      hourScrollRef.current?.scrollTo({
+        y: (h12 - 1) * PICKER_ITEM_HEIGHT,
+        animated: false,
+      });
+      minuteScrollRef.current?.scrollTo({
+        y: source.getMinutes() * PICKER_ITEM_HEIGHT,
+        animated: false,
+      });
     }, 0);
   };
 
   const onHourScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.max(0, Math.min(11, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+    const idx = Math.max(
+      0,
+      Math.min(
+        11,
+        Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT),
+      ),
+    );
     setDraftHour(idx + 1);
-    hourScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
+    hourScrollRef.current?.scrollTo({
+      y: idx * PICKER_ITEM_HEIGHT,
+      animated: true,
+    });
   };
 
-  const onMinuteScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.max(0, Math.min(59, Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+  const onMinuteScrollEnd = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    const idx = Math.max(
+      0,
+      Math.min(
+        59,
+        Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT),
+      ),
+    );
     setDraftMinute(idx);
-    minuteScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
+    minuteScrollRef.current?.scrollTo({
+      y: idx * PICKER_ITEM_HEIGHT,
+      animated: true,
+    });
   };
 
   const applyDateTime = () => {
     const base = draftDate ?? new Date();
     const merged = new Date(base);
-    const hour24 = draftPeriod === 'AM'
-      ? (draftHour === 12 ? 0 : draftHour)
-      : (draftHour === 12 ? 12 : draftHour + 12);
+    const hour24 =
+      draftPeriod === "AM"
+        ? draftHour === 12
+          ? 0
+          : draftHour
+        : draftHour === 12
+          ? 12
+          : draftHour + 12;
     merged.setHours(hour24, draftMinute, 0, 0);
     setSelectedDate(merged);
     setCalendarOpen(false);
   };
 
   const clearSearch = () => {
-    setFrom('');
-    setTo('');
+    setFrom("");
+    setTo("");
     setSelectedDate(null);
     setSeats(1);
     setCalendarOpen(false);
@@ -656,10 +721,18 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: colors.bottomSurface }}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        style={{ backgroundColor: colors.bottomSurface }}
+      >
         <View style={[styles.heroWrap, { height: heroHeight }]}>
           <Image
-            source={isDark ? require('../../assets/images/hero-banner-dark.jpg') : require('../../assets/images/hero-banner.jpg')}
+            source={
+              isDark
+                ? require("../../assets/images/hero-banner-dark.jpg")
+                : require("../../assets/images/hero-banner.jpg")
+            }
             style={[styles.heroImage, { height: heroHeight }]}
           />
           <View style={styles.heroOverlay} />
@@ -669,104 +742,150 @@ export default function SearchScreen() {
               <Text style={styles.heroMini}>Pura Vida</Text>
               <Text style={styles.heroTitle}>¿A dónde jalamos?</Text>
             </View>
-            <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
-              <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
+            <Pressable
+              onPress={() => setNotifOpen(true)}
+              style={styles.bellBtn}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={20}
+                color="#ecfff9"
+              />
               <View style={styles.bellDot} />
             </Pressable>
           </View>
 
           <View style={styles.searchCardArea}>
             <GlassCard style={styles.searchCard} intensity={46}>
-            <View style={styles.verticalField}>
-              <Text style={styles.fieldLabel}>Origen</Text>
-              <PlaceSearchInput
-                value={from}
-                onChangeText={setFrom}
-                onSelect={(pred) => setFrom(pred.description)}
-                leadingIcon={<Ionicons name="radio-button-on" size={12} color={Brand.colors.green.dark} />}
-                fieldStyle={styles.searchField}
-                placeholder="De"
-                placeholderTextColor={colors.textPlaceholder}
-              />
-            </View>
-
-            {hasOrigin ? (
-              <Animated.View
-                entering={FadeInDown.duration(220)}
-                exiting={FadeOut.duration(140)}
-                layout={LinearTransition.duration(220)}
-                style={styles.verticalField}
-              >
-                <Text style={styles.fieldLabel}>Destino</Text>
+              <View style={styles.verticalField}>
+                <Text style={styles.fieldLabel}>Origen</Text>
                 <PlaceSearchInput
-                  value={to}
-                  onChangeText={setTo}
-                  onSelect={(pred) => setTo(pred.description)}
-                  leadingIcon={<Ionicons name="location-outline" size={13} color={Brand.colors.green.normal} />}
+                  value={from}
+                  onChangeText={setFrom}
+                  onSelect={(pred) => setFrom(pred.description)}
+                  leadingIcon={
+                    <Ionicons
+                      name="radio-button-on"
+                      size={12}
+                      color={Brand.colors.green.dark}
+                    />
+                  }
                   fieldStyle={styles.searchField}
-                  placeholder="A"
+                  placeholder="De"
                   placeholderTextColor={colors.textPlaceholder}
                 />
-              </Animated.View>
-            ) : null}
+              </View>
 
-            {hasDestination ? (
-              <Animated.View
-                entering={FadeInDown.duration(220)}
-                exiting={FadeOut.duration(140)}
-                layout={LinearTransition.duration(220)}
-                style={styles.verticalField}
-              >
-                <Text style={styles.fieldLabel}>Fecha y hora</Text>
-                <Pressable style={styles.searchField} onPress={openDateModal}>
-                  <Ionicons name="calendar-outline" size={12} color={Brand.colors.green.dark} />
-                  <Text style={[styles.searchInput, !selectedDate && styles.placeholderText]}>
-                    {selectedDate
-                      ? `${dateLabel(selectedDate)} · ${timeLabel(selectedDate.getHours(), selectedDate.getMinutes())}`
-                      : 'Seleccionar fecha y hora'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
-                </Pressable>
-              </Animated.View>
-            ) : null}
+              {hasOrigin ? (
+                <Animated.View
+                  entering={FadeInDown.duration(220)}
+                  exiting={FadeOut.duration(140)}
+                  layout={LinearTransition.duration(220)}
+                  style={styles.verticalField}
+                >
+                  <Text style={styles.fieldLabel}>Destino</Text>
+                  <PlaceSearchInput
+                    value={to}
+                    onChangeText={setTo}
+                    onSelect={(pred) => setTo(pred.description)}
+                    leadingIcon={
+                      <Ionicons
+                        name="location-outline"
+                        size={13}
+                        color={Brand.colors.green.normal}
+                      />
+                    }
+                    fieldStyle={styles.searchField}
+                    placeholder="A"
+                    placeholderTextColor={colors.textPlaceholder}
+                  />
+                </Animated.View>
+              ) : null}
 
-            {hasDate ? (
-              <Animated.View
-                entering={FadeInDown.duration(220)}
-                exiting={FadeOut.duration(140)}
-                layout={LinearTransition.duration(220)}
-                style={styles.verticalField}
-              >
-                <Text style={styles.fieldLabel}>Plazas</Text>
-                <View style={styles.seatCompact}>
-                  <Pressable style={styles.seatAction} onPress={() => setSeats((prev) => Math.max(1, prev - 1))}>
-                    <Ionicons name="remove" size={15} color={Brand.colors.black.b1} />
+              {hasDestination ? (
+                <Animated.View
+                  entering={FadeInDown.duration(220)}
+                  exiting={FadeOut.duration(140)}
+                  layout={LinearTransition.duration(220)}
+                  style={styles.verticalField}
+                >
+                  <Text style={styles.fieldLabel}>Fecha y hora</Text>
+                  <Pressable style={styles.searchField} onPress={openDateModal}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={12}
+                      color={Brand.colors.green.dark}
+                    />
+                    <Text
+                      style={[
+                        styles.searchInput,
+                        !selectedDate && styles.placeholderText,
+                      ]}
+                    >
+                      {selectedDate
+                        ? `${dateLabel(selectedDate)} · ${timeLabel(selectedDate.getHours(), selectedDate.getMinutes())}`
+                        : "Seleccionar fecha y hora"}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={14}
+                      color={colors.textMuted}
+                    />
                   </Pressable>
-                  <Text style={styles.seatNumber}>{seats}</Text>
-                  <Pressable style={styles.seatAction} onPress={() => setSeats((prev) => Math.min(6, prev + 1))}>
-                    <Ionicons name="add" size={15} color={Brand.colors.black.b1} />
-                  </Pressable>
-                </View>
-              </Animated.View>
-            ) : null}
+                </Animated.View>
+              ) : null}
 
-            {hasDate ? (
-              <Animated.View
-                entering={FadeInDown.duration(220)}
-                exiting={FadeOut.duration(140)}
-                layout={LinearTransition.duration(220)}
-                style={styles.actionRow}
-              >
-                {hasAnyInput ? (
-                  <Pressable style={styles.clearBtn} onPress={clearSearch}>
-                    <Text style={styles.clearBtnText}>Limpiar</Text>
+              {hasDate ? (
+                <Animated.View
+                  entering={FadeInDown.duration(220)}
+                  exiting={FadeOut.duration(140)}
+                  layout={LinearTransition.duration(220)}
+                  style={styles.verticalField}
+                >
+                  <Text style={styles.fieldLabel}>Plazas</Text>
+                  <View style={styles.seatCompact}>
+                    <Pressable
+                      style={styles.seatAction}
+                      onPress={() => setSeats((prev) => Math.max(1, prev - 1))}
+                    >
+                      <Ionicons
+                        name="remove"
+                        size={15}
+                        color={Brand.colors.black.b1}
+                      />
+                    </Pressable>
+                    <Text style={styles.seatNumber}>{seats}</Text>
+                    <Pressable
+                      style={styles.seatAction}
+                      onPress={() => setSeats((prev) => Math.min(6, prev + 1))}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={15}
+                        color={Brand.colors.black.b1}
+                      />
+                    </Pressable>
+                  </View>
+                </Animated.View>
+              ) : null}
+
+              {hasDate ? (
+                <Animated.View
+                  entering={FadeInDown.duration(220)}
+                  exiting={FadeOut.duration(140)}
+                  layout={LinearTransition.duration(220)}
+                  style={styles.actionRow}
+                >
+                  {hasAnyInput ? (
+                    <Pressable style={styles.clearBtn} onPress={clearSearch}>
+                      <Text style={styles.clearBtnText}>Limpiar</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable style={styles.searchBtn} onPress={handleSearch}>
+                    <Text style={styles.searchBtnText}>Buscar</Text>
                   </Pressable>
-                ) : null}
-                <Pressable style={styles.searchBtn} onPress={handleSearch}>
-                  <Text style={styles.searchBtnText}>Buscar</Text>
-                </Pressable>
-              </Animated.View>
-            ) : null}
+                </Animated.View>
+              ) : null}
             </GlassCard>
           </View>
         </View>
@@ -779,11 +898,19 @@ export default function SearchScreen() {
             contentContainerStyle={styles.quickFiltersContent}
           >
             <Pressable style={styles.filterBtn}>
-              <Ionicons name="locate-outline" size={14} color={Brand.colors.green.dark} />
+              <Ionicons
+                name="locate-outline"
+                size={14}
+                color={Brand.colors.green.dark}
+              />
               <Text style={styles.filterText}>Cerca de mí</Text>
             </Pressable>
             <Pressable style={styles.filterBtn}>
-              <Ionicons name="calendar-outline" size={14} color={Brand.colors.green.dark} />
+              <Ionicons
+                name="calendar-outline"
+                size={14}
+                color={Brand.colors.green.dark}
+              />
               <Text style={styles.filterText}>Hoy</Text>
             </Pressable>
             <Pressable style={styles.filterBtn}>
@@ -793,10 +920,20 @@ export default function SearchScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Rutas populares</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.routesRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.routesRow}
+            >
               {quickRoutes.map((route) => (
-                <Pressable key={`${route.from}-${route.to}`} style={styles.routeChip} onPress={() => applyQuickRoute(route.from, route.to)}>
-                  <Text style={styles.routeChipText}>{route.from} - {route.to}</Text>
+                <Pressable
+                  key={`${route.from}-${route.to}`}
+                  style={styles.routeChip}
+                  onPress={() => applyQuickRoute(route.from, route.to)}
+                >
+                  <Text style={styles.routeChipText}>
+                    {route.from} - {route.to}
+                  </Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -805,7 +942,9 @@ export default function SearchScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
-                {hasSearched ? `${filteredRides.length} resultado${filteredRides.length !== 1 ? 's' : ''}` : 'Viajes disponibles'}
+                {hasSearched
+                  ? `${filteredRides.length} resultado${filteredRides.length !== 1 ? "s" : ""}`
+                  : "Viajes disponibles"}
               </Text>
               {hasSearched ? (
                 <Pressable onPress={clearSearch}>
@@ -826,7 +965,9 @@ export default function SearchScreen() {
               </View>
             ) : (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No hay viajes para esa ruta</Text>
+                <Text style={styles.emptyText}>
+                  No hay viajes para esa ruta
+                </Text>
                 <Pressable onPress={clearSearch}>
                   <Text style={styles.sectionLink}>Ver todos los viajes</Text>
                 </Pressable>
@@ -836,23 +977,55 @@ export default function SearchScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={calendarOpen} transparent animationType="fade" onRequestClose={() => setCalendarOpen(false)}>
+      <Modal
+        visible={calendarOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCalendarOpen(false)}
+      >
         <View style={styles.calendarBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCalendarOpen(false)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setCalendarOpen(false)}
+          />
           <GlassCard style={styles.calendarCard} intensity={44}>
             <View style={styles.calendarHeader}>
-              <Pressable onPress={() => setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
-                <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+              <Pressable
+                onPress={() =>
+                  setCursorDate(
+                    (prev) =>
+                      new Date(prev.getFullYear(), prev.getMonth() - 1, 1),
+                  )
+                }
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={20}
+                  color={colors.textPrimary}
+                />
               </Pressable>
               <Text style={styles.calendarTitle}>{monthLabel(cursorDate)}</Text>
-              <Pressable onPress={() => setCursorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
-                <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+              <Pressable
+                onPress={() =>
+                  setCursorDate(
+                    (prev) =>
+                      new Date(prev.getFullYear(), prev.getMonth() + 1, 1),
+                  )
+                }
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.textPrimary}
+                />
               </Pressable>
             </View>
 
             <View style={styles.weekHeader}>
-              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => (
-                <Text key={day} style={styles.weekDay}>{day}</Text>
+              {["L", "M", "X", "J", "V", "S", "D"].map((day) => (
+                <Text key={day} style={styles.weekDay}>
+                  {day}
+                </Text>
               ))}
             </View>
 
@@ -862,11 +1035,19 @@ export default function SearchScreen() {
                 return (
                   <Pressable
                     key={`day-${idx}`}
-                    style={[styles.dayCell, active && styles.dayCellActive, !day && styles.dayCellEmpty]}
+                    style={[
+                      styles.dayCell,
+                      active && styles.dayCellActive,
+                      !day && styles.dayCellEmpty,
+                    ]}
                     disabled={!day}
                     onPress={() => day && setDraftDate(day)}
                   >
-                    <Text style={[styles.dayText, active && styles.dayTextActive]}>{day ? day.getDate() : ''}</Text>
+                    <Text
+                      style={[styles.dayText, active && styles.dayTextActive]}
+                    >
+                      {day ? day.getDate() : ""}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -887,8 +1068,13 @@ export default function SearchScreen() {
                   >
                     {hours.map((hour) => (
                       <View key={hour} style={styles.wheelItem}>
-                        <Text style={[styles.wheelItemText, draftHour === hour && styles.wheelItemTextActive]}>
-                          {String(hour).padStart(2, '0')}
+                        <Text
+                          style={[
+                            styles.wheelItemText,
+                            draftHour === hour && styles.wheelItemTextActive,
+                          ]}
+                        >
+                          {String(hour).padStart(2, "0")}
                         </Text>
                       </View>
                     ))}
@@ -911,8 +1097,14 @@ export default function SearchScreen() {
                   >
                     {minutes.map((minute) => (
                       <View key={minute} style={styles.wheelItem}>
-                        <Text style={[styles.wheelItemText, draftMinute === minute && styles.wheelItemTextActive]}>
-                          {String(minute).padStart(2, '0')}
+                        <Text
+                          style={[
+                            styles.wheelItemText,
+                            draftMinute === minute &&
+                              styles.wheelItemTextActive,
+                          ]}
+                        >
+                          {String(minute).padStart(2, "0")}
                         </Text>
                       </View>
                     ))}
@@ -923,26 +1115,49 @@ export default function SearchScreen() {
 
               <View style={styles.ampmColumn}>
                 {/* Spacer matching the height of the 'Hora'/'Minutos' labels above the wheels */}
-                <Text style={styles.timeLabel}>{' '}</Text>
+                <Text style={styles.timeLabel}> </Text>
                 <View style={{ height: PICKER_HEIGHT, gap: 6 }}>
                   <Pressable
-                    style={[styles.ampmBtn, draftPeriod === 'AM' && styles.ampmBtnActive]}
-                    onPress={() => setDraftPeriod('AM')}
+                    style={[
+                      styles.ampmBtn,
+                      draftPeriod === "AM" && styles.ampmBtnActive,
+                    ]}
+                    onPress={() => setDraftPeriod("AM")}
                   >
-                    <Text style={[styles.ampmText, draftPeriod === 'AM' && styles.ampmTextActive]}>AM</Text>
+                    <Text
+                      style={[
+                        styles.ampmText,
+                        draftPeriod === "AM" && styles.ampmTextActive,
+                      ]}
+                    >
+                      AM
+                    </Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.ampmBtn, draftPeriod === 'PM' && styles.ampmBtnActive]}
-                    onPress={() => setDraftPeriod('PM')}
+                    style={[
+                      styles.ampmBtn,
+                      draftPeriod === "PM" && styles.ampmBtnActive,
+                    ]}
+                    onPress={() => setDraftPeriod("PM")}
                   >
-                    <Text style={[styles.ampmText, draftPeriod === 'PM' && styles.ampmTextActive]}>PM</Text>
+                    <Text
+                      style={[
+                        styles.ampmText,
+                        draftPeriod === "PM" && styles.ampmTextActive,
+                      ]}
+                    >
+                      PM
+                    </Text>
                   </Pressable>
                 </View>
               </View>
             </View>
 
             <View style={styles.calendarActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setCalendarOpen(false)}>
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => setCalendarOpen(false)}
+              >
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </Pressable>
               <Pressable style={styles.applyBtn} onPress={applyDateTime}>
@@ -953,7 +1168,10 @@ export default function SearchScreen() {
         </View>
       </Modal>
 
-      <NotificationsModal visible={notifOpen} onClose={() => setNotifOpen(false)} />
+      <NotificationsModal
+        visible={notifOpen}
+        onClose={() => setNotifOpen(false)}
+      />
     </View>
   );
 }

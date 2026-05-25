@@ -37,3 +37,10 @@ export function post<T>(path: string, body: object, token?: string): Promise<T> 
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 }
+
+export function get<T>(path: string, token?: string): Promise<T> {
+  return request<T>(path, {
+    method: 'GET',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}

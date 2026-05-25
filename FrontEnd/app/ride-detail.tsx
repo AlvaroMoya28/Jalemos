@@ -3,10 +3,10 @@
 // with ratings, recent reviews, and a fixed booking panel at the bottom.
 // Uses mock data from constants/mock-rides.ts until the backend API is ready.
 
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { useLoading } from '@/contexts/loading';
+import { useLoading } from "@/contexts/loading";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Appearance,
@@ -16,43 +16,47 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+} from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import InteractiveMapModal from '@/components/map-modal';
+import InteractiveMapModal from "../components/map-modal";
 
-import AnimatedPressable from '@/components/animated-pressable';
-import GlassCard from '@/components/glass-card';
-import { Brand, Fonts, withElevation } from '@/constants/theme';
-import { DETAILED_RIDES, DetailedRide } from '@/constants/mock-rides';
-import { useAppTheme } from '@/hooks/use-app-theme';
+import AnimatedPressable from "@/components/animated-pressable";
+import GlassCard from "@/components/glass-card";
+import { Brand, Fonts, withElevation } from "@/constants/theme";
+import { useTrips } from "@/contexts/trips";
+import { useAppTheme } from "@/hooks/use-app-theme";
 
-const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? '';
+const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? "";
 const MAP_HEIGHT = 220;
 const BOOKING_PANEL_HEIGHT = 112;
 
 // Fetches the road route polyline from Directions API.
 // Returns the encoded polyline string, or null if unavailable (web / no key / API error).
 async function fetchRoutePolyline(
-  fromLat: number, fromLng: number,
-  toLat: number, toLng: number,
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
 ): Promise<string | null> {
   // Directions REST API is blocked by CORS from the browser (same restriction as Places Autocomplete).
   // On web the static map falls back to a straight line between the two points.
-  if (!GOOGLE_MAPS_KEY || typeof document !== 'undefined') return null;
+  if (!GOOGLE_MAPS_KEY || typeof document !== "undefined") return null;
   try {
     const params = new URLSearchParams({
       origin: `${fromLat},${fromLng}`,
       destination: `${toLat},${toLng}`,
       key: GOOGLE_MAPS_KEY,
     });
-    const res = await fetch(`https://maps.googleapis.com/maps/api/directions/json?${params}`);
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/directions/json?${params}`,
+    );
     const json = await res.json();
-    if (json.status !== 'OK' || !json.routes?.[0]) return null;
+    if (json.status !== "OK" || !json.routes?.[0]) return null;
     return json.routes[0].overview_polyline.points as string;
   } catch (e) {
-    console.warn('[Directions] fetch error', e);
+    console.warn("[Directions] fetch error", e);
     return null;
   }
 }
@@ -61,34 +65,36 @@ async function fetchRoutePolyline(
 // Dark theme mirrors the app's dark surface (#1a1a1a) with teal water and muted labels.
 // Light theme keeps roads clean and tints water with the app's brand green (#bae2dd).
 const DARK_MAP_STYLES = [
-  'feature:all|element:geometry|color:0x060e0d',
-  'feature:all|element:labels.text.fill|color:0x4a7a74',
-  'feature:all|element:labels.text.stroke|color:0x060e0d',
-  'feature:road|element:geometry|color:0x0f1f1d',
-  'feature:road.highway|element:geometry|color:0x162624',
-  'feature:road.highway|element:geometry.stroke|color:0x1a9e8f',
-  'feature:water|element:geometry|color:0x040a09',
-  'feature:landscape.natural|element:geometry|color:0x060c0b',
-  'feature:landscape.man_made|element:geometry|color:0x0a1916',
-  'feature:poi|element:geometry|color:0x060e0d',
-  'feature:poi.park|element:geometry|color:0x07110a',
-  'feature:transit|element:geometry|color:0x0d1b19',
-  'feature:administrative|element:labels.text.fill|color:0x2e5550',
+  "feature:all|element:geometry|color:0x060e0d",
+  "feature:all|element:labels.text.fill|color:0x4a7a74",
+  "feature:all|element:labels.text.stroke|color:0x060e0d",
+  "feature:road|element:geometry|color:0x0f1f1d",
+  "feature:road.highway|element:geometry|color:0x162624",
+  "feature:road.highway|element:geometry.stroke|color:0x1a9e8f",
+  "feature:water|element:geometry|color:0x040a09",
+  "feature:landscape.natural|element:geometry|color:0x060c0b",
+  "feature:landscape.man_made|element:geometry|color:0x0a1916",
+  "feature:poi|element:geometry|color:0x060e0d",
+  "feature:poi.park|element:geometry|color:0x07110a",
+  "feature:transit|element:geometry|color:0x0d1b19",
+  "feature:administrative|element:labels.text.fill|color:0x2e5550",
 ];
 
 const LIGHT_MAP_STYLES = [
-  'feature:water|element:geometry|color:0xbae2dd',
-  'feature:landscape.natural|element:geometry|color:0xf0f7f5',
-  'feature:poi.park|element:geometry|color:0xdceee9',
-  'feature:road|element:geometry|color:0xffffff',
-  'feature:road.highway|element:geometry|color:0xe8f4f1',
-  'feature:road.highway|element:geometry.stroke|color:0x1a9e8f',
-  'feature:administrative|element:labels.text.fill|color:0x595959',
+  "feature:water|element:geometry|color:0xbae2dd",
+  "feature:landscape.natural|element:geometry|color:0xf0f7f5",
+  "feature:poi.park|element:geometry|color:0xdceee9",
+  "feature:road|element:geometry|color:0xffffff",
+  "feature:road.highway|element:geometry|color:0xe8f4f1",
+  "feature:road.highway|element:geometry.stroke|color:0x1a9e8f",
+  "feature:administrative|element:labels.text.fill|color:0x595959",
 ];
 
 function buildMapUrl(
-  fromLat: number, fromLng: number,
-  toLat: number, toLng: number,
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
   encodedPolyline: string | null,
   isDark: boolean,
 ): string | null {
@@ -114,28 +120,84 @@ function StarRating({ rating, size = 13 }: { rating: number; size?: number }) {
   const hasHalf = rating % 1 >= 0.4;
   const empty = 5 - full - (hasHalf ? 1 : 0);
   return (
-    <View style={{ flexDirection: 'row', gap: 1 }}>
+    <View style={{ flexDirection: "row", gap: 1 }}>
       {Array.from({ length: full }).map((_, i) => (
         <Ionicons key={`f${i}`} name="star" size={size} color="#f7a900" />
       ))}
-      {hasHalf ? <Ionicons name="star-half" size={size} color="#f7a900" /> : null}
+      {hasHalf ? (
+        <Ionicons name="star-half" size={size} color="#f7a900" />
+      ) : null}
       {Array.from({ length: empty }).map((_, i) => (
-        <Ionicons key={`e${i}`} name="star-outline" size={size} color="#f7a900" />
+        <Ionicons
+          key={`e${i}`}
+          name="star-outline"
+          size={size}
+          color="#f7a900"
+        />
       ))}
     </View>
   );
 }
 
+function dateLabel(date: Date) {
+  return date.toLocaleDateString("es-CR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
 
-function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
+function timeLabel(hour: number, minute: number) {
+  const period = hour < 12 ? "AM" : "PM";
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+type RideReview = {
+  id: string;
+  reviewer: string;
+  avatar: string;
+  rating: number;
+  comment: string;
+  date: string;
+};
+
+type RideDetail = {
+  id: string;
+  from: string;
+  to: string;
+  fromCoords: { lat: number; lng: number };
+  toCoords: { lat: number; lng: number };
+  date: string;
+  time: string;
+  price: number;
+  totalSeats: number;
+  availableSeats: number;
+  notes?: string;
+  driver: {
+    id: string;
+    fullName: string;
+    avatar: string;
+    rating: number;
+    ratingsCount: number;
+    tripsCompleted: number;
+    memberSince: string;
+    vehicle: string;
+    plate: string;
+    verified: boolean;
+    reviews: RideReview[];
+  };
+};
+
+function makeStyles(c: ReturnType<typeof useAppTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: c.screenBg,
     },
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: Brand.grid.margin,
       paddingVertical: 12,
       backgroundColor: c.screenBg,
@@ -145,15 +207,15 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       height: 38,
       borderRadius: 19,
       backgroundColor: c.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       borderWidth: 1,
       borderColor: c.border,
       ...withElevation(100),
     },
     headerTitle: {
       flex: 1,
-      textAlign: 'center',
+      textAlign: "center",
       color: c.textPrimary,
       fontFamily: Fonts.headingBold,
       fontSize: 16,
@@ -166,16 +228,16 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     mapContainer: {
       height: MAP_HEIGHT,
       backgroundColor: c.surfaceAlt,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     mapImage: {
-      width: '100%',
+      width: "100%",
       height: MAP_HEIGHT,
     },
     mapFallback: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       gap: 8,
     },
     mapFallbackText: {
@@ -184,35 +246,35 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       color: c.textMuted,
     },
     mapExpandBtn: {
-      position: 'absolute',
+      position: "absolute",
       top: 10,
       right: 10,
       width: 34,
       height: 34,
       borderRadius: 17,
-      backgroundColor: 'rgba(0,0,0,0.52)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: "rgba(0,0,0,0.52)",
+      alignItems: "center",
+      justifyContent: "center",
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.25)',
+      borderColor: "rgba(255,255,255,0.25)",
     },
     mapBadgesRow: {
-      position: 'absolute',
+      position: "absolute",
       bottom: 32,
       left: 12,
       right: 12,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      justifyContent: "space-between",
     },
     mapBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 5,
-      backgroundColor: 'rgba(0,0,0,0.58)',
+      backgroundColor: "rgba(0,0,0,0.58)",
       borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 5,
-      maxWidth: '46%',
+      maxWidth: "46%",
     },
     mapDot: {
       width: 8,
@@ -222,7 +284,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       flexShrink: 0,
     },
     mapBadgeText: {
-      color: '#ffffff',
+      color: "#ffffff",
       fontFamily: Fonts.heading,
       fontSize: 12,
     },
@@ -243,12 +305,12 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     // Route inside trip card
     routeRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
-      alignItems: 'stretch',
+      alignItems: "stretch",
     },
     routeLine: {
-      alignItems: 'center',
+      alignItems: "center",
       paddingTop: 3,
       gap: 0,
     },
@@ -277,7 +339,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 10,
       color: c.textMuted,
       fontFamily: Fonts.sans,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     routePlace: {
       fontSize: 15,
@@ -291,12 +353,12 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     // Detail grid 2×2
     detailGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: "row",
+      flexWrap: "wrap",
     },
     detailCell: {
-      width: '50%',
-      alignItems: 'flex-start',
+      width: "50%",
+      alignItems: "flex-start",
       gap: 4,
       paddingVertical: 10,
       paddingHorizontal: 4,
@@ -314,7 +376,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 11,
       color: c.textMuted,
       fontFamily: Fonts.sans,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     detailValue: {
       fontSize: 15,
@@ -328,9 +390,9 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       marginBottom: 2,
     },
     notesRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 8,
-      alignItems: 'flex-start',
+      alignItems: "flex-start",
     },
     notesText: {
       flex: 1,
@@ -341,17 +403,17 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     // Driver card
     driverHeader: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     driverAvatar: {
       width: 52,
       height: 52,
       borderRadius: 26,
       backgroundColor: Brand.colors.green.light,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       flexShrink: 0,
     },
     driverAvatarText: {
@@ -364,10 +426,10 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       gap: 4,
     },
     driverNameRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 6,
-      flexWrap: 'wrap',
+      flexWrap: "wrap",
     },
     driverName: {
       fontSize: 16,
@@ -375,15 +437,15 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.headingBold,
     },
     verifiedBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 3,
-      backgroundColor: Brand.colors.green.normal + '1a',
+      backgroundColor: Brand.colors.green.normal + "1a",
       borderRadius: 999,
       paddingHorizontal: 7,
       paddingVertical: 2,
       borderWidth: 1,
-      borderColor: Brand.colors.green.normal + '44',
+      borderColor: Brand.colors.green.normal + "44",
     },
     verifiedText: {
       fontSize: 10,
@@ -391,8 +453,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.heading,
     },
     driverRatingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 6,
     },
     driverRatingText: {
@@ -402,11 +464,11 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     },
     // Driver stats row
     statsRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     statCell: {
       flex: 1,
-      alignItems: 'center',
+      alignItems: "center",
       gap: 3,
       paddingVertical: 6,
     },
@@ -418,14 +480,14 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 14,
       color: c.textPrimary,
       fontFamily: Fonts.headingBold,
-      textAlign: 'center',
+      textAlign: "center",
     },
     statLabel: {
       fontSize: 10,
       color: c.textMuted,
       fontFamily: Fonts.sans,
-      textTransform: 'uppercase',
-      textAlign: 'center',
+      textTransform: "uppercase",
+      textAlign: "center",
     },
     // Reviews
     reviewsSection: {
@@ -443,17 +505,17 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       gap: 8,
     },
     reviewHeader: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 10,
-      alignItems: 'center',
+      alignItems: "center",
     },
     reviewAvatar: {
       width: 34,
       height: 34,
       borderRadius: 17,
       backgroundColor: c.surfaceAlt,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       borderWidth: 1,
       borderColor: c.border,
       flexShrink: 0,
@@ -473,8 +535,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.heading,
     },
     reviewRatingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 8,
     },
     reviewDate: {
@@ -498,8 +560,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       ...withElevation(400),
     },
     bookingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 12,
       marginBottom: 12,
     },
@@ -511,11 +573,11 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 11,
       color: c.textMuted,
       fontFamily: Fonts.sans,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     seatCounter: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
     },
     seatBtn: {
@@ -523,8 +585,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       height: 30,
       borderRadius: 15,
       backgroundColor: Brand.colors.green.normal,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     seatBtnDisabled: {
       backgroundColor: c.surfaceAlt,
@@ -536,7 +598,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       color: c.textPrimary,
       fontFamily: Fonts.headingBold,
       minWidth: 24,
-      textAlign: 'center',
+      textAlign: "center",
     },
     totalPrice: {
       fontSize: 22,
@@ -546,8 +608,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     reserveBtn: {
       backgroundColor: Brand.colors.green.normal,
       borderRadius: 999,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       paddingVertical: 14,
     },
     reserveBtnText: {
@@ -558,8 +620,8 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     // Error state
     errorContainer: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       gap: 14,
     },
     errorText: {
@@ -589,11 +651,49 @@ export default function RideDetailScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { showLoader, hideLoader } = useLoading();
+  const { trips, isLoading: tripsLoading, error: tripsError } = useTrips();
+  const tripId = Array.isArray(id) ? id[0] : id;
 
-  const ride = useMemo(
-    () => DETAILED_RIDES.find((r) => r.id === (Array.isArray(id) ? id[0] : id)),
-    [id]
+  const trip = useMemo(
+    () => trips?.find((item) => item.id === tripId) ?? null,
+    [trips, tripId],
   );
+
+  const ride = useMemo<RideDetail | null>(() => {
+    if (!trip) return null;
+
+    const departure = new Date(trip.departureAt);
+    const driverNameParts = trip.driverName.split(" ");
+    const driverAvatar =
+      `${driverNameParts[0]?.[0] ?? ""}${driverNameParts[1]?.[0] ?? ""}`.toUpperCase();
+
+    return {
+      id: trip.id,
+      from: trip.origin,
+      to: trip.destination,
+      fromCoords: { lat: trip.originLat, lng: trip.originLng },
+      toCoords: { lat: trip.destinationLat, lng: trip.destinationLng },
+      date: dateLabel(departure),
+      time: timeLabel(departure.getHours(), departure.getMinutes()),
+      price: trip.rate,
+      totalSeats: trip.totalSeats,
+      availableSeats: trip.availableSeats,
+      notes: trip.notes,
+      driver: {
+        id: trip.driverId,
+        fullName: trip.driverName,
+        avatar: driverAvatar,
+        rating: trip.driverRating ?? 0,
+        ratingsCount: trip.driverRating ? 1 : 0,
+        tripsCompleted: trip.driverTripsCount ?? 0,
+        memberSince: trip.driverMemberSince ?? "",
+        vehicle: trip.vehicleId,
+        plate: "",
+        verified: false,
+        reviews: [] as RideReview[],
+      },
+    };
+  }, [trip]);
 
   const [seats, setSeats] = useState(1);
   const [mapError, setMapError] = useState(false);
@@ -601,16 +701,18 @@ export default function RideDetailScreen() {
   const [polyline, setPolyline] = useState<string | null>(null);
   const [mapModalVisible, setMapModalVisible] = useState(false);
 
-  // Fetch polyline once — no dependency on isDark to avoid redundant network calls
   useEffect(() => {
     if (!ride) return;
     const { fromCoords: f, toCoords: t } = ride;
-    showLoader('Cargando ruta...');
-    fetchRoutePolyline(f.lat, f.lng, t.lat, t.lng).then(poly => {
-      setPolyline(poly);
-      hideLoader();
-    }).catch(() => hideLoader());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!f || !t) return;
+    showLoader("Cargando ruta...");
+    fetchRoutePolyline(f.lat, f.lng, t.lat, t.lng)
+      .then((poly) => {
+        setPolyline(poly);
+        hideLoader();
+      })
+      .catch(() => hideLoader());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ride]);
 
   // Rebuild map URL synchronously whenever polyline or theme changes.
@@ -619,25 +721,79 @@ export default function RideDetailScreen() {
   useEffect(() => {
     if (!ride) return;
     const { fromCoords: f, toCoords: t } = ride;
-    const dark = Appearance.getColorScheme() === 'dark';
+    if (!f || !t) return setMapUrl(null);
+    const dark = Appearance.getColorScheme() === "dark";
     setMapError(false);
     setMapUrl(buildMapUrl(f.lat, f.lng, t.lat, t.lng, polyline, dark));
   }, [ride, polyline, isDark]);
 
   const totalPrice = seats * (ride?.price ?? 0);
 
+  if (!tripId) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.errorContainer,
+          { paddingTop: insets.top },
+        ]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.textMuted}
+        />
+        <Text style={styles.errorText}>Viaje no encontrado</Text>
+        <Pressable style={styles.errorBackBtn} onPress={() => router.back()}>
+          <Text style={styles.errorBackBtnText}>Volver</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!ride) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.errorContainer,
+          { paddingTop: insets.top },
+        ]}
+      >
+        <Ionicons name="time-outline" size={48} color={colors.textMuted} />
+        <Text style={styles.errorText}>
+          {tripsError ??
+            (tripsLoading ? "Cargando viaje..." : "Viaje no encontrado")}
+        </Text>
+      </View>
+    );
+  }
+
   const handleReserve = () => {
-    showLoader('Reservando viaje...');
+    showLoader("Reservando viaje...");
     setTimeout(() => {
       hideLoader();
-      Alert.alert('¡Viaje reservado!', `Has reservado ${seats} ${seats === 1 ? 'espacio' : 'espacios'} en este viaje.`);
+      Alert.alert(
+        "¡Viaje reservado!",
+        `Has reservado ${seats} ${seats === 1 ? "espacio" : "espacios"} en este viaje.`,
+      );
     }, 700);
   };
 
   if (!ride) {
     return (
-      <View style={[styles.container, styles.errorContainer, { paddingTop: insets.top }]}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
+      <View
+        style={[
+          styles.container,
+          styles.errorContainer,
+          { paddingTop: insets.top },
+        ]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.textMuted}
+        />
         <Text style={styles.errorText}>Viaje no encontrado</Text>
         <Pressable style={styles.errorBackBtn} onPress={() => router.back()}>
           <Text style={styles.errorBackBtnText}>Volver</Text>
@@ -650,7 +806,11 @@ export default function RideDetailScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          hitSlop={8}
+        >
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -661,10 +821,15 @@ export default function RideDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: BOOKING_PANEL_HEIGHT + insets.bottom + 8 }}
+        contentContainerStyle={{
+          paddingBottom: BOOKING_PANEL_HEIGHT + insets.bottom + 8,
+        }}
       >
         {/* Map — tap to open full-screen zoomable view */}
-        <Pressable style={styles.mapContainer} onPress={() => setMapModalVisible(true)}>
+        <Pressable
+          style={styles.mapContainer}
+          onPress={() => setMapModalVisible(true)}
+        >
           {mapUrl && !mapError ? (
             <Image
               source={{ uri: mapUrl }}
@@ -675,7 +840,9 @@ export default function RideDetailScreen() {
           ) : (
             <View style={styles.mapFallback}>
               <Ionicons name="map-outline" size={40} color={colors.textMuted} />
-              <Text style={styles.mapFallbackText}>{ride.from} → {ride.to}</Text>
+              <Text style={styles.mapFallbackText}>
+                {ride.from} → {ride.to}
+              </Text>
             </View>
           )}
           <View style={styles.mapExpandBtn}>
@@ -684,11 +851,15 @@ export default function RideDetailScreen() {
           <View style={styles.mapBadgesRow}>
             <View style={styles.mapBadge}>
               <View style={styles.mapDot} />
-              <Text style={styles.mapBadgeText} numberOfLines={1}>{ride.from}</Text>
+              <Text style={styles.mapBadgeText} numberOfLines={1}>
+                {ride.from}
+              </Text>
             </View>
             <View style={styles.mapBadge}>
               <Ionicons name="location" size={11} color="#E53935" />
-              <Text style={styles.mapBadgeText} numberOfLines={1}>{ride.to}</Text>
+              <Text style={styles.mapBadgeText} numberOfLines={1}>
+                {ride.to}
+              </Text>
             </View>
           </View>
         </Pressable>
@@ -703,7 +874,11 @@ export default function RideDetailScreen() {
                 <View style={styles.routeLine}>
                   <View style={styles.routeDot} />
                   <View style={styles.routeConnector} />
-                  <Ionicons name="location" size={14} color={Brand.colors.green.normal} />
+                  <Ionicons
+                    name="location"
+                    size={14}
+                    color={Brand.colors.green.normal}
+                  />
                 </View>
                 <View style={styles.routePlaces}>
                   <View style={styles.routePlaceBlock}>
@@ -722,27 +897,59 @@ export default function RideDetailScreen() {
               {/* 2×2 detail grid */}
               <View style={styles.detailGrid}>
                 <View style={styles.detailCell}>
-                  <Ionicons style={styles.detailIcon} name="calendar-outline" size={16} color={Brand.colors.green.dark} />
+                  <Ionicons
+                    style={styles.detailIcon}
+                    name="calendar-outline"
+                    size={16}
+                    color={Brand.colors.green.dark}
+                  />
                   <Text style={styles.detailLabel}>Fecha</Text>
                   <Text style={styles.detailValue}>{ride.date}</Text>
                 </View>
                 <View style={[styles.detailCell, styles.detailCellRight]}>
-                  <Ionicons style={styles.detailIcon} name="time-outline" size={16} color={Brand.colors.green.dark} />
+                  <Ionicons
+                    style={styles.detailIcon}
+                    name="time-outline"
+                    size={16}
+                    color={Brand.colors.green.dark}
+                  />
                   <Text style={styles.detailLabel}>Hora</Text>
                   <Text style={styles.detailValue}>{ride.time}</Text>
                 </View>
                 <View style={[styles.detailCell, styles.detailCellBottom]}>
-                  <Ionicons style={styles.detailIcon} name="people-outline" size={16} color={Brand.colors.green.dark} />
+                  <Ionicons
+                    style={styles.detailIcon}
+                    name="people-outline"
+                    size={16}
+                    color={Brand.colors.green.dark}
+                  />
                   <Text style={styles.detailLabel}>Espacios libres</Text>
                   <Text style={styles.detailValue}>
-                    {ride.availableSeats}{' '}
-                    <Text style={{ color: colors.textMuted, fontSize: 13, fontFamily: Fonts.sans }}>
+                    {ride.availableSeats}{" "}
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: 13,
+                        fontFamily: Fonts.sans,
+                      }}
+                    >
                       de {ride.totalSeats}
                     </Text>
                   </Text>
                 </View>
-                <View style={[styles.detailCell, styles.detailCellRight, styles.detailCellBottom]}>
-                  <Ionicons style={styles.detailIcon} name="cash-outline" size={16} color={Brand.colors.green.dark} />
+                <View
+                  style={[
+                    styles.detailCell,
+                    styles.detailCellRight,
+                    styles.detailCellBottom,
+                  ]}
+                >
+                  <Ionicons
+                    style={styles.detailIcon}
+                    name="cash-outline"
+                    size={16}
+                    color={Brand.colors.green.dark}
+                  />
                   <Text style={styles.detailLabel}>Por persona</Text>
                   <Text style={[styles.detailValue, styles.detailValueGreen]}>
                     ₡{ride.price.toLocaleString()}
@@ -754,7 +961,11 @@ export default function RideDetailScreen() {
                 <>
                   <View style={styles.divider} />
                   <View style={styles.notesRow}>
-                    <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color={colors.textMuted}
+                    />
                     <Text style={styles.notesText}>{ride.notes}</Text>
                   </View>
                 </>
@@ -767,14 +978,22 @@ export default function RideDetailScreen() {
             <GlassCard style={styles.card} intensity={34}>
               <View style={styles.driverHeader}>
                 <View style={styles.driverAvatar}>
-                  <Text style={styles.driverAvatarText}>{ride.driver.avatar}</Text>
+                  <Text style={styles.driverAvatarText}>
+                    {ride.driver.avatar}
+                  </Text>
                 </View>
                 <View style={styles.driverInfo}>
                   <View style={styles.driverNameRow}>
-                    <Text style={styles.driverName}>{ride.driver.fullName}</Text>
+                    <Text style={styles.driverName}>
+                      {ride.driver.fullName}
+                    </Text>
                     {ride.driver.verified && (
                       <View style={styles.verifiedBadge}>
-                        <Ionicons name="checkmark-circle" size={12} color={Brand.colors.green.normal} />
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={12}
+                          color={Brand.colors.green.normal}
+                        />
                         <Text style={styles.verifiedText}>Verificado</Text>
                       </View>
                     )}
@@ -792,15 +1011,21 @@ export default function RideDetailScreen() {
 
               <View style={styles.statsRow}>
                 <View style={styles.statCell}>
-                  <Text style={styles.statValue}>{ride.driver.tripsCompleted}</Text>
+                  <Text style={styles.statValue}>
+                    {ride.driver.tripsCompleted}
+                  </Text>
                   <Text style={styles.statLabel}>Viajes</Text>
                 </View>
                 <View style={[styles.statCell, styles.statCellDivider]}>
-                  <Text style={styles.statValue}>{ride.driver.memberSince}</Text>
+                  <Text style={styles.statValue}>
+                    {ride.driver.memberSince}
+                  </Text>
                   <Text style={styles.statLabel}>Miembro desde</Text>
                 </View>
                 <View style={[styles.statCell, styles.statCellDivider]}>
-                  <Text style={styles.statValue} numberOfLines={1}>{ride.driver.vehicle}</Text>
+                  <Text style={styles.statValue} numberOfLines={1}>
+                    {ride.driver.vehicle}
+                  </Text>
                   <Text style={styles.statLabel}>{ride.driver.plate}</Text>
                 </View>
               </View>
@@ -808,10 +1033,17 @@ export default function RideDetailScreen() {
           </Animated.View>
 
           {/* Reviews */}
-          <Animated.View entering={FadeInDown.duration(240).delay(200)} style={styles.reviewsSection}>
+          <Animated.View
+            entering={FadeInDown.duration(240).delay(200)}
+            style={styles.reviewsSection}
+          >
             <Text style={styles.sectionTitle}>Reseñas recientes</Text>
             {ride.driver.reviews.map((review) => (
-              <GlassCard key={review.id} style={styles.reviewCard} intensity={28}>
+              <GlassCard
+                key={review.id}
+                style={styles.reviewCard}
+                intensity={28}
+              >
                 <View style={styles.reviewHeader}>
                   <View style={styles.reviewAvatar}>
                     <Text style={styles.reviewAvatarText}>{review.avatar}</Text>
@@ -832,7 +1064,9 @@ export default function RideDetailScreen() {
       </ScrollView>
 
       {/* Fixed booking panel */}
-      <View style={[styles.bookingPanel, { paddingBottom: insets.bottom + 14 }]}>
+      <View
+        style={[styles.bookingPanel, { paddingBottom: insets.bottom + 14 }]}
+      >
         <View style={styles.bookingRow}>
           <View style={styles.bookingGroup}>
             <Text style={styles.bookingLabel}>Espacios</Text>
@@ -842,26 +1076,49 @@ export default function RideDetailScreen() {
                 onPress={() => setSeats((s) => Math.max(1, s - 1))}
                 disabled={seats <= 1}
               >
-                <Ionicons name="remove" size={16} color={seats <= 1 ? colors.textMuted : Brand.colors.black.b1} />
+                <Ionicons
+                  name="remove"
+                  size={16}
+                  color={seats <= 1 ? colors.textMuted : Brand.colors.black.b1}
+                />
               </Pressable>
               <Text style={styles.seatNumber}>{seats}</Text>
               <Pressable
-                style={[styles.seatBtn, seats >= ride.availableSeats && styles.seatBtnDisabled]}
-                onPress={() => setSeats((s) => Math.min(ride.availableSeats, s + 1))}
+                style={[
+                  styles.seatBtn,
+                  seats >= ride.availableSeats && styles.seatBtnDisabled,
+                ]}
+                onPress={() =>
+                  setSeats((s) => Math.min(ride.availableSeats, s + 1))
+                }
                 disabled={seats >= ride.availableSeats}
               >
-                <Ionicons name="add" size={16} color={seats >= ride.availableSeats ? colors.textMuted : Brand.colors.black.b1} />
+                <Ionicons
+                  name="add"
+                  size={16}
+                  color={
+                    seats >= ride.availableSeats
+                      ? colors.textMuted
+                      : Brand.colors.black.b1
+                  }
+                />
               </Pressable>
             </View>
           </View>
 
           <View style={styles.bookingGroup}>
             <Text style={styles.bookingLabel}>Total</Text>
-            <Text style={styles.totalPrice}>₡{totalPrice.toLocaleString()}</Text>
+            <Text style={styles.totalPrice}>
+              ₡{totalPrice.toLocaleString()}
+            </Text>
           </View>
         </View>
 
-        <AnimatedPressable pressedScale={0.98} style={styles.reserveBtn} onPress={handleReserve}>
+        <AnimatedPressable
+          pressedScale={0.98}
+          style={styles.reserveBtn}
+          onPress={handleReserve}
+        >
           <Text style={styles.reserveBtnText}>Reservar viaje</Text>
         </AnimatedPressable>
       </View>
