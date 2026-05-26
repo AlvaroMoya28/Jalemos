@@ -6,7 +6,8 @@ import { createContext, ReactNode, useContext, useEffect, useState } from 'react
 import * as SecureStore from 'expo-secure-store';
 import { get, post, ApiError } from '@/services/api';
 
-const TOKEN_KEY = 'jalemos_token';
+const TOKEN_KEY           = 'jalemos_token';
+const DRIVER_ACTIVATED_KEY = 'jalemos_driver_activated';
 
 export interface User {
   id: string;
@@ -47,20 +48,24 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  driverActivated: boolean;
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => Promise<void>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
-  upgradeToDriver: () => Promise<void>;
+  upgradeToDriver: () => Promise<string>;
+  setDriverActivated: (v: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   isLoading: true,
+  driverActivated: false,
   login: async () => ({ success: false }),
   logout: async () => {},
   register: async () => ({ success: false }),
-  upgradeToDriver: async () => {},
+  upgradeToDriver: async () => 'passenger',
+  setDriverActivated: async () => {},
 });
 
 function mapResponse(r: AuthResponse): User {
@@ -79,26 +84,36 @@ function mapResponse(r: AuthResponse): User {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]       = useState<User | null>(null);
-  const [token, setToken]     = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser]               = useState<User | null>(null);
+  const [token, setToken]             = useState<string | null>(null);
+  const [isLoading, setIsLoading]     = useState(true);
+  const [driverActivated, _setDriverActivated] = useState(false);
 
   // Restore session on startup — refresh the JWT to get the current user profile and role
   useEffect(() => {
-    SecureStore.getItemAsync(TOKEN_KEY)
-      .then(async (stored) => {
-        if (!stored) return;
-        try {
-          const res = await get<AuthResponse>('/api/auth/refresh', stored);
-          await SecureStore.setItemAsync(TOKEN_KEY, res.token);
-          setToken(res.token);
-          setUser(mapResponse(res));
-        } catch {
-          // Server unavailable or token expired — keep token so protected screens can retry
-          setToken(stored);
+    Promise.all([
+      SecureStore.getItemAsync(TOKEN_KEY),
+      SecureStore.getItemAsync(DRIVER_ACTIVATED_KEY),
+    ]).then(async ([stored, activated]) => {
+      if (!stored) return;
+      try {
+        const res = await get<AuthResponse>('/api/auth/refresh', stored);
+        await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+        setToken(res.token);
+        setUser(mapResponse(res));
+        // Sync driverActivated with actual role from server
+        if (res.role === 'passenger+driver' && activated === '1') {
+          _setDriverActivated(true);
+        } else if (res.role !== 'passenger+driver' && activated === '1') {
+          // Admin removed driver role — clear the flag
+          await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
         }
-      })
-      .finally(() => setIsLoading(false));
+      } catch {
+        // Server unavailable — restore flag from SecureStore and keep token
+        if (activated === '1') _setDriverActivated(true);
+        setToken(stored);
+      }
+    }).finally(() => setIsLoading(false));
   }, []);
 
   const login = async (identifier: string, password: string) => {
@@ -108,6 +123,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = mapResponse(res);
       setToken(res.token);
       setUser(u);
+      // Sync driverActivated with SecureStore + actual role
+      if (u.role !== 'passenger+driver') {
+        await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
+        _setDriverActivated(false);
+      } else {
+        const activated = await SecureStore.getItemAsync(DRIVER_ACTIVATED_KEY);
+        _setDriverActivated(activated === '1');
+      }
       return { success: true, user: u };
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Error de conexión con el servidor';
@@ -119,6 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    _setDriverActivated(false);
+    // driverActivated NOT cleared from SecureStore on logout — it survives sessions
+    // so the onboarding pipeline doesn't repeat. It only clears if the admin
+    // removes the driver role (handled in login and startup refresh).
+  };
+
+  const setDriverActivated = async (v: boolean) => {
+    if (v) {
+      await SecureStore.setItemAsync(DRIVER_ACTIVATED_KEY, '1');
+    } else {
+      await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
+    }
+    _setDriverActivated(v);
   };
 
   const register = async (data: RegisterData) => {
@@ -143,25 +179,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Fetches a fresh JWT from the server (role may have changed to 'driver' after admin approval)
   // then updates local state. Navigates to offer tab on success.
-  const upgradeToDriver = async () => {
-    if (!token) return;
+  const upgradeToDriver = async (): Promise<string> => {
+    if (!token) return 'passenger';
     try {
       const res = await get<AuthResponse>('/api/auth/refresh', token);
-      const newToken = res.token;
-      await SecureStore.setItemAsync(TOKEN_KEY, newToken);
-      setToken(newToken);
+      await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+      setToken(res.token);
       setUser(mapResponse(res));
+      return res.role; // 'passenger+driver' if still approved, 'passenger' if role was removed
     } catch {
-      // Fallback: update local role if the API call fails (e.g. offline)
-      setUser((prev) => {
-        if (!prev) return prev;
-        return { ...prev, role: 'passenger+driver' };
-      });
+      // Offline fallback — assume role unchanged
+      setUser((prev) => prev ? { ...prev, role: 'passenger+driver' } : prev);
+      return 'passenger+driver';
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, register, upgradeToDriver }}>
+    <AuthContext.Provider value={{ user, token, isLoading, driverActivated, login, logout, register, upgradeToDriver, setDriverActivated }}>
       {children}
     </AuthContext.Provider>
   );

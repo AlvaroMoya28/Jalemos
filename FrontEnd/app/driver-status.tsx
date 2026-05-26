@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,7 @@ import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
+import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
 type StepState = 'done' | 'active' | 'pending' | 'error';
@@ -237,7 +239,8 @@ export default function DriverStatusScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { upgradeToDriver } = useAuth();
+  const { upgradeToDriver, setDriverActivated } = useAuth();
+  const { setMode } = useUserMode();
   const { myApplication: application, myApplicationLoading, loadMyApplication } = useApplications();
   const { showLoader, hideLoader } = useLoading();
 
@@ -276,7 +279,17 @@ export default function DriverStatusScreen() {
   const handleActivateDriver = async () => {
     showLoader('Activando modo conductor...');
     try {
-      await upgradeToDriver();
+      const role = await upgradeToDriver();
+      if (role !== 'passenger+driver') {
+        Alert.alert(
+          'Rol retirado',
+          'Un administrador quitó tu rol de conductor. Debés enviar una nueva solicitud para volver a conducir.',
+          [{ text: 'Entendido', onPress: () => router.back() }]
+        );
+        return;
+      }
+      await setDriverActivated(true);
+      setMode('driver');
       router.replace('/(tabs)/offer');
     } finally {
       hideLoader();
