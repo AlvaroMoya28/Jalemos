@@ -21,8 +21,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
-import { REVIEW_ISSUES, ApplicationStatus } from '@/constants/mock-applications';
-import { useApplications } from '@/contexts/applications';
+import { REVIEW_ISSUES } from '@/constants/mock-applications';
+import { ApplicationStatus, useApplications } from '@/contexts/applications';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
 const STATUS_LABELS: Record<ApplicationStatus, { label: string; color: string }> = {
@@ -186,19 +186,23 @@ export default function ApplicationDetailScreen() {
     );
   };
 
-  const handleSetUnderReview = () => {
+  const handleSetUnderReview = async () => {
     if (!app) return;
-    setUnderReview(app.id);
+    try { await setUnderReview(app.id); } catch {}
   };
 
-  const handleRequestCorrection = () => {
+  const handleRequestCorrection = async () => {
     if (!app) return;
     if (selectedIssues.length === 0) {
       Alert.alert('Sin problemas seleccionados', 'Marcá al menos un problema para solicitar corrección.');
       return;
     }
-    requestCorrection(app.id, selectedIssues, notes);
-    router.back();
+    try {
+      await requestCorrection(app.id, selectedIssues, notes);
+      router.back();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'No se pudo actualizar la solicitud.');
+    }
   };
 
   const handleApprove = () => {
@@ -208,7 +212,13 @@ export default function ApplicationDetailScreen() {
       `¿Aprobar la solicitud de ${app.applicantName}? Se le habilitará el modo conductor.`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Aprobar', style: 'default', onPress: () => { approveApplication(app.id); router.back(); } },
+        {
+          text: 'Aprobar', style: 'default',
+          onPress: async () => {
+            try { await approveApplication(app.id); router.back(); }
+            catch (err: any) { Alert.alert('Error', err?.message ?? 'No se pudo aprobar.'); }
+          },
+        },
       ]
     );
   };
@@ -220,7 +230,13 @@ export default function ApplicationDetailScreen() {
       '¿Rechazar permanentemente esta solicitud? El usuario no podrá activar el modo conductor.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Rechazar', style: 'destructive', onPress: () => { rejectApplication(app.id, selectedIssues, notes); router.back(); } },
+        {
+          text: 'Rechazar', style: 'destructive',
+          onPress: async () => {
+            try { await rejectApplication(app.id, selectedIssues, notes); router.back(); }
+            catch (err: any) { Alert.alert('Error', err?.message ?? 'No se pudo rechazar.'); }
+          },
+        },
       ]
     );
   };

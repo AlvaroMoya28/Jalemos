@@ -9,15 +9,16 @@
 
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
+import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
-import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useNavigation } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { router, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActionSheetIOS, Alert, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
@@ -104,7 +105,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     statValue: { fontFamily: Fonts.headingBold, color: c.textPrimary, fontSize: 16 },
     statValueGreen: { fontFamily: Fonts.headingBold, color: Brand.colors.green.normal, fontSize: 16 },
     statLabel: { fontSize: 11, color: c.textMuted, fontFamily: Fonts.sans, marginTop: 2 },
-    // ── Mode toggle ───────────────────────────────────────────────────────────
+    // Mode toggle
     modeToggleWrap: {
       marginHorizontal: Brand.grid.margin,
       marginTop: 10,
@@ -123,7 +124,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     modeBtnActive: { backgroundColor: Brand.colors.green.normal },
     modeBtnText: { fontSize: 13, fontFamily: Fonts.headingBold, color: c.textMuted },
     modeBtnTextActive: { color: Brand.colors.black.b1 },
-    // ── Action buttons ────────────────────────────────────────────────────────
+    // Action buttons
     favButton: {
       marginTop: 10, marginHorizontal: Brand.grid.margin,
       borderRadius: Brand.radius[16], padding: 12,
@@ -145,7 +146,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       flexDirection: 'row', gap: 8, paddingVertical: 12,
     },
     shareButtonText: { color: Brand.colors.black.b1, fontSize: 14, fontFamily: Fonts.headingBold },
-    // ── Section cards ─────────────────────────────────────────────────────────
+    // Section cards
     sectionWrap: { marginTop: 12, marginHorizontal: Brand.grid.margin },
     sectionTitle: {
       marginBottom: 6, marginLeft: 2, fontSize: 11,
@@ -225,7 +226,8 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
   const { showLoader, hideLoader } = useLoading();
-  const { mode, isDriverRegistered, profilePhoto, setMode, setProfilePhoto } = useUserMode();
+  const { mode, profilePhoto, setMode, setProfilePhoto } = useUserMode();
+  const { loadMyApplication } = useApplications();
   const isDriver = mode === 'driver';
 
   useEffect(() => {
@@ -275,15 +277,24 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSwitchMode = (target: 'passenger' | 'driver') => {
+  const handleSwitchMode = async (target: 'passenger' | 'driver') => {
     if (target === mode) return;
     if (target === 'driver') {
-      if (!isDriverRegistered) {
-        router.push('/driver-registration');
-      } else {
+      if (user?.role === 'driver') {
         setMode('driver');
-        // Defer navigation so the tab layout finishes updating before the route changes
         setTimeout(() => router.replace('/(tabs)/offer'), 0);
+        return;
+      }
+      showLoader('Verificando solicitud...');
+      try {
+        const app = await loadMyApplication();
+        if (app) {
+          router.push('/driver-status');
+        } else {
+          router.push('/driver-registration');
+        }
+      } finally {
+        hideLoader();
       }
     } else {
       setMode('passenger');

@@ -3,21 +3,21 @@
 // Leaves drift backward from the rear to reinforce the "driving" feel.
 // Control visibility via LoadingContext (contexts/loading.tsx).
 
+import { Brand, Fonts } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { BlurView } from 'expo-blur';
 import React, { useEffect } from 'react';
 import { Dimensions, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, {
-  cancelAnimation,
-  Easing,
-  SharedValue,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withTiming,
+    cancelAnimation,
+    Easing,
+    SharedValue,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withRepeat,
+    withTiming,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import { Brand, Fonts } from '@/constants/theme';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -48,7 +48,7 @@ const LEAVES = [
   { yOff:  -7, delay: LEAF_PHASE * 4, emoji: '🍂' },
 ] as const;
 
-// ─── Wheel ────────────────────────────────────────────────────────────────────
+// Wheel
 
 const WHEEL = 28;
 
@@ -78,7 +78,7 @@ function Wheel({
   );
 }
 
-// ─── Compact chibi car (faces right) ─────────────────────────────────────────
+// Compact chibi car (faces right)
 
 function SideCar({
   carColor,
@@ -112,7 +112,7 @@ function SideCar({
   );
 }
 
-// ─── Fixed-position car wrapper ───────────────────────────────────────────────
+// Fixed-position car wrapper
 
 function CarIcon({
   wheelRotation,
@@ -132,7 +132,7 @@ function CarIcon({
   );
 }
 
-// ─── Leaf drifting backward from rear ────────────────────────────────────────
+// Leaf drifting backward from rear
 
 function LeafParticle({
   yOff, delay, emoji,
@@ -168,7 +168,7 @@ function LeafParticle({
   return <Animated.Text style={[{ fontSize: 15 }, style]}>{emoji}</Animated.Text>;
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// Main component
 
 export interface PageLoaderProps {
   visible?: boolean;
@@ -233,7 +233,7 @@ export default function PageLoader({ visible = true, label = 'Cargando...' }: Pa
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// Styles
 
 const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, zIndex: 9999 },

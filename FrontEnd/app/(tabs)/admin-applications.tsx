@@ -3,7 +3,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,7 +16,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
-import { ApplicationStatus, DriverApplication } from '@/constants/mock-applications';
+import { ApplicationStatus, DriverApplication } from '@/contexts/applications';
 import { useApplications } from '@/contexts/applications';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
@@ -107,8 +107,10 @@ export default function AdminApplicationsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
   const router = useRouter();
-  const { applications } = useApplications();
+  const { applications, loadApplications, applicationsLoading } = useApplications();
   const [filter, setFilter] = useState<Filter>('all');
+
+  useEffect(() => { loadApplications(); }, []);
 
   useEffect(() => {
     navigation.setOptions({ title: 'Solicitudes', icon: { sf: 'doc.text' } });

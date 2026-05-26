@@ -4,7 +4,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { post, ApiError } from '@/services/api';
+import { get, post, ApiError } from '@/services/api';
 
 const TOKEN_KEY = 'jalemos_token';
 
@@ -50,7 +50,7 @@ interface AuthContextType {
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => Promise<void>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
-  upgradeToDriver: () => void;
+  upgradeToDriver: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -60,7 +60,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => ({ success: false }),
   logout: async () => {},
   register: async () => ({ success: false }),
-  upgradeToDriver: () => {},
+  upgradeToDriver: async () => {},
 });
 
 function mapResponse(r: AuthResponse): User {
@@ -83,13 +83,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken]     = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session on startup
+  // Restore session on startup — refresh the JWT to get the current user profile and role
   useEffect(() => {
     SecureStore.getItemAsync(TOKEN_KEY)
-      .then((stored) => {
-        if (stored) {
-          // Token exists but we don't re-fetch the profile yet — just mark as loaded.
-          // A full implementation would call GET /api/auth/me here.
+      .then(async (stored) => {
+        if (!stored) return;
+        try {
+          const res = await get<AuthResponse>('/api/auth/refresh', stored);
+          await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+          setToken(res.token);
+          setUser(mapResponse(res));
+        } catch {
+          // Server unavailable or token expired — keep token so protected screens can retry
           setToken(stored);
         }
       })
@@ -136,13 +141,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Called after the admin approves the driver application — updates local state only.
-  // The real role change happens via the admin panel (backend sets role='driver').
-  const upgradeToDriver = () => {
-    setUser((prev) => {
-      if (!prev || prev.role !== 'passenger') return prev;
-      return { ...prev, role: 'passenger+driver' };
-    });
+  // Fetches a fresh JWT from the server (role may have changed to 'driver' after admin approval)
+  // then updates local state. Navigates to offer tab on success.
+  const upgradeToDriver = async () => {
+    if (!token) return;
+    try {
+      const res = await get<AuthResponse>('/api/auth/refresh', token);
+      const newToken = res.token;
+      await SecureStore.setItemAsync(TOKEN_KEY, newToken);
+      setToken(newToken);
+      setUser(mapResponse(res));
+    } catch {
+      // Fallback: update local role if the API call fails (e.g. offline)
+      setUser((prev) => {
+        if (!prev) return prev;
+        return { ...prev, role: 'passenger+driver' };
+      });
+    }
   };
 
   return (

@@ -16,6 +16,7 @@ export interface ReviewIssue {
 export const REVIEW_ISSUES: ReviewIssue[] = [
   { id: 'license_unreadable',      label: 'La foto de la licencia no es legible' },
   { id: 'name_mismatch',           label: 'El nombre no coincide con la licencia' },
+  { id: 'cedula_mismatch',         label: 'La cédula no coincide con la información de la licencia' },
   { id: 'license_expired',         label: 'La licencia está vencida' },
   { id: 'dekra_vehicle_mismatch',  label: 'El Dekra no coincide con el vehículo registrado' },
   { id: 'dekra_failed',            label: 'El vehículo no pasó la revisión técnica (Dekra)' },

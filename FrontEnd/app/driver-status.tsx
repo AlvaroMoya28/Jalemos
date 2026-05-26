@@ -4,7 +4,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -20,6 +20,7 @@ import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
+import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
 type StepState = 'done' | 'active' | 'pending' | 'error';
@@ -236,10 +237,13 @@ export default function DriverStatusScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, upgradeToDriver } = useAuth();
-  const { getMyApplication } = useApplications();
+  const { upgradeToDriver } = useAuth();
+  const { myApplication: application, myApplicationLoading, loadMyApplication } = useApplications();
+  const { showLoader, hideLoader } = useLoading();
 
-  const application = user ? getMyApplication(user.id) : undefined;
+  // Load on mount and keep fresh
+  useEffect(() => { loadMyApplication(); }, []);
+
   const status = application?.status ?? 'pending';
 
   const statusConfig = {
@@ -269,14 +273,28 @@ export default function DriverStatusScreen() {
     status === 'needs_correction' ? 'Se requieren correcciones' :
     'Resultado';
 
-  const handleActivateDriver = () => {
-    upgradeToDriver();
-    router.replace('/(tabs)/search');
+  const handleActivateDriver = async () => {
+    showLoader('Activando modo conductor...');
+    try {
+      await upgradeToDriver();
+      router.replace('/(tabs)/offer');
+    } finally {
+      hideLoader();
+    }
   };
 
   const handleResubmit = () => {
     router.push('/driver-registration');
   };
+
+  if (myApplicationLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
+        <Ionicons name="time-outline" size={48} color={colors.textMuted} />
+        <Text style={[styles.successBody, { marginTop: 12 }]}>Cargando solicitud...</Text>
+      </View>
+    );
+  }
 
   if (!application) {
     return (
@@ -401,7 +419,7 @@ export default function DriverStatusScreen() {
                 Tu solicitud fue aprobada. Ya podés activar el modo conductor desde tu perfil o directamente desde aquí.
               </Text>
               <Pressable style={styles.primaryBtn} onPress={handleActivateDriver}>
-                <Text style={styles.primaryBtnText}>Activar modo conductor</Text>
+                <Text style={styles.primaryBtnText}>Empezar a ofrecer viajes</Text>
               </Pressable>
             </GlassCard>
           </Animated.View>
