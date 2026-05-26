@@ -23,6 +23,7 @@ import { AuthProvider } from '@/contexts/auth';
 import { ApplicationsProvider } from '@/contexts/applications';
 import { UserModeProvider } from '@/contexts/user-mode';
 import { LoadingProvider } from '@/contexts/loading';
+import { AdminUsersProvider } from '@/contexts/admin-users';
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
 export const unstable_settings = {
@@ -60,6 +61,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
     <ApplicationsProvider>
+    <AdminUsersProvider>
     <UserModeProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <LoadingProvider>
@@ -85,6 +87,8 @@ export default function RootLayout() {
         <Stack.Screen name="driver-status" options={{ headerShown: false, animation: 'slide_from_right' }} />
         {/* Admin: full application review */}
         <Stack.Screen name="application-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        {/* Políticas de uso */}
+        <Stack.Screen name="policies" options={{ headerShown: false, animation: 'slide_from_right' }} />
         {/* Transparent modal overlay that slides up from the bottom */}
         <Stack.Screen
           name="modal"
@@ -95,6 +99,7 @@ export default function RootLayout() {
       </LoadingProvider>
     </ThemeProvider>
     </UserModeProvider>
+    </AdminUsersProvider>
     </ApplicationsProvider>
     </AuthProvider>
     </GestureHandlerRootView>

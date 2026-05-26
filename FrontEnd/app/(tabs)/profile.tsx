@@ -26,15 +26,16 @@ const preferencesSections = [
   {
     title: 'Preferencias',
     items: [
-      { icon: 'settings-outline' as const, label: 'Configuración', desc: 'Idioma y notificaciones' },
-      { icon: 'shield-checkmark-outline' as const, label: 'Privacidad y seguridad', desc: 'Datos y permisos' },
+      { icon: 'settings-outline' as const, label: 'Configuración', desc: 'Idioma y notificaciones', route: null },
+      { icon: 'shield-checkmark-outline' as const, label: 'Privacidad y seguridad', desc: 'Datos y permisos', route: null },
     ],
   },
   {
     title: 'Soporte',
     items: [
-      { icon: 'help-circle-outline' as const, label: 'Ayuda', desc: 'Preguntas frecuentes' },
-      { icon: 'information-circle-outline' as const, label: 'Acerca de Jalemos', desc: 'Versión 1.0.0' },
+      { icon: 'help-circle-outline' as const, label: 'Ayuda', desc: 'Preguntas frecuentes', route: null },
+      { icon: 'document-text-outline' as const, label: 'Políticas de uso', desc: 'Términos y condiciones', route: '/policies' as const },
+      { icon: 'information-circle-outline' as const, label: 'Acerca de Jalemos', desc: 'Versión 1.0.0', route: null },
     ],
   },
 ];
@@ -224,11 +225,12 @@ export default function ProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
-  const { user, logout } = useAuth();
+  const { user, logout, driverActivated } = useAuth();
   const { showLoader, hideLoader } = useLoading();
   const { mode, profilePhoto, setMode, setProfilePhoto } = useUserMode();
   const { loadMyApplication } = useApplications();
-  const isDriver = mode === 'driver';
+  const isAdmin = user?.role === 'admin';
+  const isDriver = !isAdmin && mode === 'driver';
 
   useEffect(() => {
     navigation.setOptions({ title: 'Perfil', icon: { sf: 'person' } });
@@ -280,7 +282,7 @@ export default function ProfileScreen() {
   const handleSwitchMode = async (target: 'passenger' | 'driver') => {
     if (target === mode) return;
     if (target === 'driver') {
-      if (user?.role === 'driver') {
+      if (driverActivated) {
         setMode('driver');
         setTimeout(() => router.replace('/(tabs)/offer'), 0);
         return;
@@ -289,7 +291,12 @@ export default function ProfileScreen() {
       try {
         const app = await loadMyApplication();
         if (app) {
-          router.push('/driver-status');
+          // Application approved but role was revoked by admin → force re-registration
+          if (app.status === 'approved' && user?.role !== 'passenger+driver') {
+            router.push('/driver-registration');
+          } else {
+            router.push('/driver-status');
+          }
         } else {
           router.push('/driver-registration');
         }
@@ -350,15 +357,33 @@ export default function ProfileScreen() {
                   )}
                 </View>
                 <Text style={styles.email}>{user?.email ?? ''}</Text>
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={13} color="#f7a900" />
-                  <Text style={styles.rating}>{user?.rating?.toFixed(1) ?? '—'}</Text>
-                  <Text style={styles.ratingSub}>· {isDriver ? `${user?.tripsCount ?? 0} viajes ofrecidos` : `${user?.tripsCount ?? 0} viajes`}</Text>
-                </View>
+                {isAdmin ? (
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="shield-checkmark-outline" size={13} color={Brand.colors.green.normal} />
+                    <Text style={[styles.rating, { color: Brand.colors.green.normal }]}>Administrador</Text>
+                  </View>
+                ) : (
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="star" size={13} color="#f7a900" />
+                    <Text style={styles.rating}>{user?.rating?.toFixed(1) ?? '—'}</Text>
+                    <Text style={styles.ratingSub}>· {isDriver ? `${user?.tripsCount ?? 0} viajes ofrecidos` : `${user?.tripsCount ?? 0} viajes`}</Text>
+                  </View>
+                )}
               </View>
             </View>
             <View style={styles.statsRow}>
-              {isDriver ? (
+              {isAdmin ? (
+                <>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValueGreen}>Admin</Text>
+                    <Text style={styles.statLabel}>Rol</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{user?.memberSince ?? '—'}</Text>
+                    <Text style={styles.statLabel}>Miembro desde</Text>
+                  </View>
+                </>
+              ) : isDriver ? (
                 <>
                   <View style={styles.statItem}>
                     <Text style={styles.statValue}>{user?.tripsCount ?? 0}</Text>
@@ -392,7 +417,8 @@ export default function ProfileScreen() {
             </View>
           </GlassCard>
 
-          {/* Mode toggle */}
+          {/* Mode toggle — hidden for admins */}
+          {!isAdmin && (
           <View style={styles.modeToggleWrap}>
             <Pressable
               style={[styles.modeBtn, !isDriver && styles.modeBtnActive]}
@@ -407,9 +433,10 @@ export default function ProfileScreen() {
               <Text style={[styles.modeBtnText, isDriver && styles.modeBtnTextActive]}>Conductor</Text>
             </Pressable>
           </View>
+          )}
 
           {/* Passenger-only sections */}
-          {!isDriver && (
+          {!isAdmin && !isDriver && (
             <>
               <GlassCard style={styles.favButton}>
                 <View style={styles.favIconWrap}>
@@ -465,7 +492,7 @@ export default function ProfileScreen() {
           )}
 
           {/* Driver-only sections */}
-          {isDriver && (
+          {!isAdmin && isDriver && (
             <>
               <View style={styles.sectionWrap}>
                 <Text style={styles.sectionTitle}>Mis vehículos</Text>
@@ -531,6 +558,7 @@ export default function ProfileScreen() {
                 {section.items.map((item, index) => (
                   <Pressable
                     key={item.label}
+                    onPress={() => item.route ? router.push(item.route as any) : undefined}
                     style={[styles.sectionItem, index !== section.items.length - 1 && styles.sectionItemBorder]}>
                     <View style={styles.itemIconWrap}>
                       <Ionicons name={item.icon} size={16} color={Brand.colors.green.darkActive} />
