@@ -10,9 +10,11 @@ namespace JalemosBackend.Infrastructure.Persistence
     public enum PlaceType { Home, Work, Other }
     public enum PaymentType { Cash, Card, Sinpe, Other }
     public enum NotificationType { BookingReceived, BookingConfirmed, BookingCancelled, TripStarting, TripCompleted, RatingReceived, General }
+    public enum ApplicationStatus { pending, under_review, needs_correction, approved, rejected }
+    public enum ReportReason { bad_behavior, dangerous_driving, no_show, late_cancellation, harassment, vehicle_condition, other }
+    public enum ReportStatus { pending, resolved, dismissed }
+    public enum AdminActionType { suspended, deactivated, dismissed }
 
-    // This is the EF Core DBContext that represents the database session and provides access to the tables via DbSet<TEntity>.
-    // It is registered in the DI container in Program.cs and injected into repositories, services, and controllers as needed.
     public sealed class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
@@ -25,8 +27,9 @@ namespace JalemosBackend.Infrastructure.Persistence
         public DbSet<FavoritePlaceEntity> FavoritePlaces { get; set; } = null!;
         public DbSet<PaymentMethodEntity> PaymentMethods { get; set; } = null!;
         public DbSet<NotificationEntity> Notifications { get; set; } = null!;
+        public DbSet<DriverApplicationEntity> DriverApplications { get; set; } = null!;
+        public DbSet<UserReportEntity> UserReports { get; set; } = null!;
 
-        // Configure the EF Core model and mappings to the database schema using the Fluent API.
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Register Postgres enums and extension
@@ -35,6 +38,10 @@ namespace JalemosBackend.Infrastructure.Persistence
             modelBuilder.HasPostgresEnum<PlaceType>("place_type");
             modelBuilder.HasPostgresEnum<PaymentType>("payment_type");
             modelBuilder.HasPostgresEnum<NotificationType>("notification_type");
+            modelBuilder.HasPostgresEnum<ApplicationStatus>("application_status");
+            modelBuilder.HasPostgresEnum<ReportReason>("report_reason");
+            modelBuilder.HasPostgresEnum<ReportStatus>("report_status");
+            modelBuilder.HasPostgresEnum<AdminActionType>("admin_action_type");
             modelBuilder.HasPostgresExtension("pgcrypto");
 
             // Users
@@ -52,6 +59,8 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.MeanRating).HasColumnName("mean_rating").HasColumnType("numeric(3,2)").HasDefaultValue(0.00m);
                 e.Property(x => x.TotalTrips).HasColumnName("total_trips").HasDefaultValue(0);
                 e.Property(x => x.Kms).HasColumnName("kms").HasColumnType("numeric(10,2)").HasDefaultValue(0);
+                e.Property(x => x.SuspendedUntil).HasColumnName("suspended_until");
+                e.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.Email).IsUnique();
@@ -189,10 +198,62 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.HasOne<TripEntity>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne<BookingEntity>().WithMany().HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.SetNull);
             });
+
+            // DriverApplications
+            modelBuilder.Entity<DriverApplicationEntity>(e =>
+            {
+                e.ToTable("driver_applications");
+                e.HasKey(x => x.ApplicationId);
+                e.Property(x => x.ApplicationId).HasColumnName("application_id").HasDefaultValueSql("gen_random_uuid()");
+                e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                e.Property(x => x.Status).HasColumnName("status").HasColumnType("application_status").HasDefaultValue(ApplicationStatus.pending);
+                e.Property(x => x.Attempts).HasColumnName("attempts").HasDefaultValue((short)1);
+                e.Property(x => x.Cedula).HasColumnName("cedula").HasMaxLength(20).IsRequired();
+                e.Property(x => x.Address).HasColumnName("address").IsRequired();
+                e.Property(x => x.VehicleBrand).HasColumnName("vehicle_brand").HasMaxLength(100).IsRequired();
+                e.Property(x => x.VehicleModel).HasColumnName("vehicle_model").HasMaxLength(100).IsRequired();
+                e.Property(x => x.VehicleYear).HasColumnName("vehicle_year").IsRequired();
+                e.Property(x => x.VehiclePlate).HasColumnName("vehicle_plate").HasMaxLength(20).IsRequired();
+                e.Property(x => x.VehicleColor).HasColumnName("vehicle_color").HasMaxLength(50).IsRequired();
+                e.Property(x => x.LicensePhotoFront).HasColumnName("license_photo_front");
+                e.Property(x => x.LicensePhotoBack).HasColumnName("license_photo_back");
+                e.Property(x => x.DekraPhoto).HasColumnName("dekra_photo");
+                e.Property(x => x.AdminIssueIds).HasColumnName("admin_issue_ids").HasColumnType("text[]");
+                e.Property(x => x.AdminNotes).HasColumnName("admin_notes");
+                e.Property(x => x.ReviewedAt).HasColumnName("reviewed_at");
+                e.Property(x => x.SubmittedAt).HasColumnName("submitted_at").HasDefaultValueSql("NOW()");
+                e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.UserId).HasDatabaseName("idx_driver_app_user");
+                e.HasIndex(x => x.Status).HasDatabaseName("idx_driver_app_status");
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // UserReports
+            modelBuilder.Entity<UserReportEntity>(e =>
+            {
+                e.ToTable("user_reports");
+                e.HasKey(x => x.ReportId);
+                e.Property(x => x.ReportId).HasColumnName("report_id").HasDefaultValueSql("gen_random_uuid()");
+                e.Property(x => x.ReportedUserId).HasColumnName("reported_user_id").IsRequired();
+                e.Property(x => x.ReportedById).HasColumnName("reported_by_id").IsRequired();
+                e.Property(x => x.Reason).HasColumnName("reason").HasColumnType("report_reason").IsRequired();
+                e.Property(x => x.Details).HasColumnName("details");
+                e.Property(x => x.Status).HasColumnName("status").HasColumnType("report_status").HasDefaultValue(ReportStatus.pending);
+                e.Property(x => x.AdminAction).HasColumnName("admin_action").HasColumnType("admin_action_type");
+                e.Property(x => x.SuspensionDays).HasColumnName("suspension_days");
+                e.Property(x => x.ResolvedAt).HasColumnName("resolved_at");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
+                e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.ReportedUserId).HasDatabaseName("idx_reports_reported");
+                e.HasIndex(x => x.Status).HasDatabaseName("idx_reports_status");
+                e.HasCheckConstraint("chk_no_self_report", "reported_user_id <> reported_by_id");
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.ReportedUserId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.ReportedById).OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 
-    // TODO: This classes should be moved to separate files.
+    // TODO: These classes should be moved to separate files.
     public class VehicleEntity
     {
         public Guid VehicleId { get; set; }
@@ -274,5 +335,43 @@ namespace JalemosBackend.Infrastructure.Persistence
         public string Title { get; set; } = null!;
         public bool Read { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    public class DriverApplicationEntity
+    {
+        public Guid ApplicationId { get; set; }
+        public Guid UserId { get; set; }
+        public ApplicationStatus Status { get; set; }
+        public short Attempts { get; set; }
+        public string Cedula { get; set; } = null!;
+        public string Address { get; set; } = null!;
+        public string VehicleBrand { get; set; } = null!;
+        public string VehicleModel { get; set; } = null!;
+        public short VehicleYear { get; set; }
+        public string VehiclePlate { get; set; } = null!;
+        public string VehicleColor { get; set; } = null!;
+        public string? LicensePhotoFront { get; set; }
+        public string? LicensePhotoBack { get; set; }
+        public string? DekraPhoto { get; set; }
+        public string[]? AdminIssueIds { get; set; }
+        public string? AdminNotes { get; set; }
+        public DateTime? ReviewedAt { get; set; }
+        public DateTime SubmittedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class UserReportEntity
+    {
+        public Guid ReportId { get; set; }
+        public Guid ReportedUserId { get; set; }
+        public Guid ReportedById { get; set; }
+        public ReportReason Reason { get; set; }
+        public string? Details { get; set; }
+        public ReportStatus Status { get; set; }
+        public AdminActionType? AdminAction { get; set; }
+        public short? SuspensionDays { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 }

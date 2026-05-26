@@ -15,6 +15,8 @@ namespace JalemosBackend.Modules.Users.Infrastructure.Entities
         public decimal MeanRating { get; set; }
         public int TotalTrips { get; set; }
         public decimal Kms { get; set; }
+        public DateTime? SuspendedUntil { get; set; }
+        public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

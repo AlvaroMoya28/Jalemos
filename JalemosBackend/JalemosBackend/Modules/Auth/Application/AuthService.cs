@@ -66,6 +66,14 @@ namespace JalemosBackend.Modules.Auth.Application
             return BuildResponse(entity);
         }
 
+        public async Task<AuthResponseDto?> RefreshAsync(Guid userId, CancellationToken ct = default)
+        {
+            var user = await _db.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == userId, ct);
+            return user is null ? null : BuildResponse(user);
+        }
+
         private AuthResponseDto BuildResponse(UserEntity user)
         {
             var avatar = $"{(user.FirstName.Length > 0 ? user.FirstName[0] : '?')}" +

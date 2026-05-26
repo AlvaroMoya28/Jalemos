@@ -5,6 +5,8 @@ using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Auth.Application;
 using JalemosBackend.Modules.Bookings.Application;
 using JalemosBackend.Modules.Bookings.Infrastructure;
+using JalemosBackend.Modules.DriverApplications.Application;
+using JalemosBackend.Modules.DriverApplications.Infrastructure;
 using JalemosBackend.Modules.Notifications.Application;
 using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.Ratings.Application;
@@ -58,6 +60,10 @@ dataSourceBuilder.MapEnum<BookingState>("booking_state", new NpgsqlSnakeCaseName
 dataSourceBuilder.MapEnum<PlaceType>("place_type", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<PaymentType>("payment_type", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<NotificationType>("notification_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<ApplicationStatus>("application_status", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<ReportReason>("report_reason", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<ReportStatus>("report_status", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<AdminActionType>("admin_action_type", new NpgsqlSnakeCaseNameTranslator());
 var dataSource = dataSourceBuilder.Build();
 Console.WriteLine($"DataSource type: {dataSource.GetType().FullName}");
 
@@ -69,6 +75,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         o.MapEnum<PlaceType>("place_type");
         o.MapEnum<PaymentType>("payment_type");
         o.MapEnum<NotificationType>("notification_type");
+        o.MapEnum<ApplicationStatus>("application_status");
+        o.MapEnum<ReportReason>("report_reason");
+        o.MapEnum<ReportStatus>("report_status");
+        o.MapEnum<AdminActionType>("admin_action_type");
     }));
 
 // Auth module
@@ -93,6 +103,10 @@ builder.Services.AddScoped<BookingsRepository>();
 // Ratings module
 builder.Services.AddScoped<IRatingsService, RatingsService>();
 builder.Services.AddScoped<RatingsRepository>();
+
+// DriverApplications module
+builder.Services.AddScoped<IDriverApplicationsService, DriverApplicationsService>();
+builder.Services.AddScoped<DriverApplicationsRepository>();
 
 var app = builder.Build();
 
