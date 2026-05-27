@@ -1,14 +1,20 @@
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.DriverApplications.Application.DTOs;
 using JalemosBackend.Modules.DriverApplications.Infrastructure;
+using JalemosBackend.Modules.Storage;
 
 namespace JalemosBackend.Modules.DriverApplications.Application;
 
 public sealed class DriverApplicationsService : IDriverApplicationsService
 {
     private readonly DriverApplicationsRepository _repo;
+    private readonly IStorageService              _storage;
 
-    public DriverApplicationsService(DriverApplicationsRepository repo) => _repo = repo;
+    public DriverApplicationsService(DriverApplicationsRepository repo, IStorageService storage)
+    {
+        _repo    = repo;
+        _storage = storage;
+    }
 
     public async Task<ApplicationResponse?> GetMyApplicationAsync(Guid userId, CancellationToken ct = default)
     {
@@ -39,24 +45,69 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
 
     public async Task<ApplicationResponse> SubmitAsync(Guid userId, SubmitApplicationRequest dto, CancellationToken ct = default)
     {
+        string cedula, address, vehicleBrand, vehicleModel, vehiclePlate, vehicleColor;
+        short vehicleYear;
+
+        if (dto.IsRenewal)
+        {
+            // Renewals only update documents — copy vehicle/personal data from the existing approved application
+            var existing = await _repo.GetLatestByUserAsync(userId, ct)
+                ?? throw new InvalidOperationException("No se encontró una solicitud aprobada para renovar.");
+            cedula       = existing.Cedula;
+            address      = existing.Address;
+            vehicleBrand = existing.VehicleBrand;
+            vehicleModel = existing.VehicleModel;
+            vehicleYear  = existing.VehicleYear;
+            vehiclePlate = existing.VehiclePlate;
+            vehicleColor = existing.VehicleColor;
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(dto.Cedula))       throw new InvalidOperationException("La cédula es requerida.");
+            if (string.IsNullOrWhiteSpace(dto.Address))      throw new InvalidOperationException("La dirección es requerida.");
+            if (string.IsNullOrWhiteSpace(dto.VehicleBrand)) throw new InvalidOperationException("La marca del vehículo es requerida.");
+            if (string.IsNullOrWhiteSpace(dto.VehicleModel)) throw new InvalidOperationException("El modelo del vehículo es requerido.");
+            if (dto.VehicleYear is null)                     throw new InvalidOperationException("El año del vehículo es requerido.");
+            if (string.IsNullOrWhiteSpace(dto.VehiclePlate)) throw new InvalidOperationException("La placa es requerida.");
+            if (string.IsNullOrWhiteSpace(dto.VehicleColor)) throw new InvalidOperationException("El color del vehículo es requerido.");
+            cedula       = dto.Cedula.Trim();
+            address      = dto.Address.Trim();
+            vehicleBrand = dto.VehicleBrand.Trim();
+            vehicleModel = dto.VehicleModel.Trim();
+            vehicleYear  = dto.VehicleYear.Value;
+            vehiclePlate = dto.VehiclePlate.Trim().ToUpper();
+            vehicleColor = dto.VehicleColor.Trim();
+        }
+
+        var faceUrl  = await _storage.UploadBase64Async(dto.FacePhoto,         "user-profiles",               ct);
+        var frontUrl = await _storage.UploadBase64Async(dto.LicensePhotoFront, "driver-applications/licenses", ct);
+        var backUrl  = await _storage.UploadBase64Async(dto.LicensePhotoBack,  "driver-applications/licenses", ct);
+        var dekraUrl = await _storage.UploadBase64Async(dto.DekraPhoto,        "driver-applications/dekra",    ct);
+
         var entity = new DriverApplicationEntity
         {
-            ApplicationId    = Guid.NewGuid(),
-            UserId           = userId,
-            Status           = ApplicationStatus.pending,
-            Attempts         = 1,
-            Cedula           = dto.Cedula.Trim(),
-            Address          = dto.Address.Trim(),
-            VehicleBrand     = dto.VehicleBrand.Trim(),
-            VehicleModel     = dto.VehicleModel.Trim(),
-            VehicleYear      = dto.VehicleYear,
-            VehiclePlate     = dto.VehiclePlate.Trim().ToUpper(),
-            VehicleColor     = dto.VehicleColor.Trim(),
-            LicensePhotoFront = dto.LicensePhotoFront,
-            LicensePhotoBack  = dto.LicensePhotoBack,
-            DekraPhoto        = dto.DekraPhoto,
-            SubmittedAt      = DateTime.UtcNow,
-            UpdatedAt        = DateTime.UtcNow,
+            ApplicationId     = Guid.NewGuid(),
+            UserId            = userId,
+            Status            = ApplicationStatus.pending,
+            Attempts          = 1,
+            Cedula            = cedula,
+            Address           = address,
+            VehicleBrand      = vehicleBrand,
+            VehicleModel      = vehicleModel,
+            VehicleYear       = vehicleYear,
+            VehiclePlate      = vehiclePlate,
+            VehicleColor      = vehicleColor,
+            FacePhoto         = faceUrl,
+            LicensePhotoFront = frontUrl,
+            LicensePhotoBack  = backUrl,
+            DekraPhoto        = dekraUrl,
+            LicenseExpiryMonth = dto.LicenseExpiryMonth,
+            LicenseExpiryYear  = dto.LicenseExpiryYear,
+            DekraExpiryMonth   = dto.DekraExpiryMonth,
+            DekraExpiryYear    = dto.DekraExpiryYear,
+            IsRenewal         = dto.IsRenewal,
+            SubmittedAt       = DateTime.UtcNow,
+            UpdatedAt         = DateTime.UtcNow,
         };
 
         await _repo.CreateAsync(entity, ct);
@@ -74,28 +125,38 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
         if (entity.Status != ApplicationStatus.needs_correction)
             throw new InvalidOperationException("Solo se puede reenviar una solicitud en estado 'needs_correction'.");
 
-        // Reuse existing entity fields but update mutable ones — EF Update needs a tracked copy
+        var faceUrl  = await _storage.UploadBase64Async(dto.FacePhoto,         "user-profiles",               ct);
+        var frontUrl = await _storage.UploadBase64Async(dto.LicensePhotoFront, "driver-applications/licenses", ct);
+        var backUrl  = await _storage.UploadBase64Async(dto.LicensePhotoBack,  "driver-applications/licenses", ct);
+        var dekraUrl = await _storage.UploadBase64Async(dto.DekraPhoto,        "driver-applications/dekra",    ct);
+
         var tracked = new DriverApplicationEntity
         {
-            ApplicationId     = entity.ApplicationId,
-            UserId            = entity.UserId,
-            Status            = ApplicationStatus.pending,
-            Attempts          = (short)(entity.Attempts + 1),
-            Cedula            = dto.Cedula.Trim(),
-            Address           = dto.Address.Trim(),
-            VehicleBrand      = dto.VehicleBrand.Trim(),
-            VehicleModel      = dto.VehicleModel.Trim(),
-            VehicleYear       = dto.VehicleYear,
-            VehiclePlate      = dto.VehiclePlate.Trim().ToUpper(),
-            VehicleColor      = dto.VehicleColor.Trim(),
-            LicensePhotoFront = dto.LicensePhotoFront,
-            LicensePhotoBack  = dto.LicensePhotoBack,
-            DekraPhoto        = dto.DekraPhoto,
-            AdminIssueIds     = null,
-            AdminNotes        = null,
-            ReviewedAt        = null,
-            SubmittedAt       = entity.SubmittedAt,
-            UpdatedAt         = DateTime.UtcNow,
+            ApplicationId      = entity.ApplicationId,
+            UserId             = entity.UserId,
+            Status             = ApplicationStatus.pending,
+            Attempts           = (short)(entity.Attempts + 1),
+            Cedula             = dto.Cedula?.Trim()       ?? entity.Cedula,
+            Address            = dto.Address?.Trim()      ?? entity.Address,
+            VehicleBrand       = dto.VehicleBrand?.Trim() ?? entity.VehicleBrand,
+            VehicleModel       = dto.VehicleModel?.Trim() ?? entity.VehicleModel,
+            VehicleYear        = dto.VehicleYear          ?? entity.VehicleYear,
+            VehiclePlate       = dto.VehiclePlate?.Trim().ToUpper() ?? entity.VehiclePlate,
+            VehicleColor       = dto.VehicleColor?.Trim() ?? entity.VehicleColor,
+            FacePhoto          = faceUrl  ?? entity.FacePhoto,
+            LicensePhotoFront  = frontUrl ?? entity.LicensePhotoFront,
+            LicensePhotoBack   = backUrl  ?? entity.LicensePhotoBack,
+            DekraPhoto         = dekraUrl ?? entity.DekraPhoto,
+            LicenseExpiryMonth = dto.LicenseExpiryMonth ?? entity.LicenseExpiryMonth,
+            LicenseExpiryYear  = dto.LicenseExpiryYear  ?? entity.LicenseExpiryYear,
+            DekraExpiryMonth   = dto.DekraExpiryMonth   ?? entity.DekraExpiryMonth,
+            DekraExpiryYear    = dto.DekraExpiryYear    ?? entity.DekraExpiryYear,
+            IsRenewal          = entity.IsRenewal,
+            AdminIssueIds      = null,
+            AdminNotes         = null,
+            ReviewedAt         = null,
+            SubmittedAt        = entity.SubmittedAt,
+            UpdatedAt          = DateTime.UtcNow,
         };
 
         await _repo.UpdateAsync(tracked, ct);
@@ -128,7 +189,25 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
         entity.ReviewedAt = DateTime.UtcNow;
         entity.UpdatedAt  = DateTime.UtcNow;
         await _repo.UpdateAsync(entity, ct);
-        await _repo.PromoteToDriverAsync(entity.UserId, ct);
+
+        if (entity.IsRenewal)
+        {
+            // Only update documents and expiry dates — role is already 'driver'
+            await _repo.UpdateDocumentsAsync(
+                entity.UserId,
+                entity.LicensePhotoFront, entity.LicensePhotoBack, entity.DekraPhoto,
+                entity.LicenseExpiryMonth, entity.LicenseExpiryYear,
+                entity.DekraExpiryMonth,   entity.DekraExpiryYear,
+                ct);
+        }
+        else
+        {
+            await _repo.PromoteToDriverAsync(
+                entity.UserId, entity.FacePhoto,
+                entity.LicenseExpiryMonth, entity.LicenseExpiryYear,
+                entity.DekraExpiryMonth,   entity.DekraExpiryYear,
+                ct);
+        }
     }
 
     public async Task RejectAsync(Guid applicationId, ReviewActionRequest dto, CancellationToken ct = default)
@@ -161,28 +240,34 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
             : "?";
 
         return new ApplicationResponse(
-            ApplicationId:    e.ApplicationId,
-            UserId:           e.UserId,
-            Status:           e.Status.ToString(),
-            Attempts:         e.Attempts,
-            Cedula:           e.Cedula,
-            Address:          e.Address,
-            VehicleBrand:     e.VehicleBrand,
-            VehicleModel:     e.VehicleModel,
-            VehicleYear:      e.VehicleYear,
-            VehiclePlate:     e.VehiclePlate,
-            VehicleColor:     e.VehicleColor,
-            LicensePhotoFront: e.LicensePhotoFront,
-            LicensePhotoBack:  e.LicensePhotoBack,
-            DekraPhoto:        e.DekraPhoto,
-            AdminIssueIds:     e.AdminIssueIds,
-            AdminNotes:        e.AdminNotes,
-            ReviewedAt:        e.ReviewedAt?.ToString("O"),
-            SubmittedAt:       e.SubmittedAt.ToString("O"),
-            UpdatedAt:         e.UpdatedAt.ToString("O"),
-            ApplicantName:     name,
-            ApplicantEmail:    email,
-            ApplicantAvatar:   avatar
+            ApplicationId:      e.ApplicationId,
+            UserId:             e.UserId,
+            Status:             e.Status.ToString(),
+            Attempts:           e.Attempts,
+            Cedula:             e.Cedula,
+            Address:            e.Address,
+            VehicleBrand:       e.VehicleBrand,
+            VehicleModel:       e.VehicleModel,
+            VehicleYear:        e.VehicleYear,
+            VehiclePlate:       e.VehiclePlate,
+            VehicleColor:       e.VehicleColor,
+            FacePhoto:          e.FacePhoto,
+            LicensePhotoFront:  e.LicensePhotoFront,
+            LicensePhotoBack:   e.LicensePhotoBack,
+            DekraPhoto:         e.DekraPhoto,
+            LicenseExpiryMonth: e.LicenseExpiryMonth,
+            LicenseExpiryYear:  e.LicenseExpiryYear,
+            DekraExpiryMonth:   e.DekraExpiryMonth,
+            DekraExpiryYear:    e.DekraExpiryYear,
+            IsRenewal:          e.IsRenewal,
+            AdminIssueIds:      e.AdminIssueIds,
+            AdminNotes:         e.AdminNotes,
+            ReviewedAt:         e.ReviewedAt?.ToString("O"),
+            SubmittedAt:        e.SubmittedAt.ToString("O"),
+            UpdatedAt:          e.UpdatedAt.ToString("O"),
+            ApplicantName:      name,
+            ApplicantEmail:     email,
+            ApplicantAvatar:    avatar
         );
     }
 }

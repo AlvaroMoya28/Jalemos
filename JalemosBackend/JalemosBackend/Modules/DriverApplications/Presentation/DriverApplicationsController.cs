@@ -55,6 +55,7 @@ public sealed class DriverApplicationsController : ControllerBase
         }
         catch (Exception ex)
         {
+            Console.Error.WriteLine($"[Submit] ERROR: {ex}");
             return Problem(detail: ex.Message, statusCode: 400);
         }
     }

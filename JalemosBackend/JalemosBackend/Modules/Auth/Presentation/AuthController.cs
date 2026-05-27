@@ -18,10 +18,20 @@ namespace JalemosBackend.Modules.Auth.Presentation
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto, CancellationToken ct)
         {
-            var result = await _authService.LoginAsync(dto.Identifier, dto.Password, ct);
-            if (result is null)
-                return Unauthorized(new { error = "Usuario o contraseña incorrectos" });
-            return Ok(result);
+            try
+            {
+                var result = await _authService.LoginAsync(dto.Identifier, dto.Password, ct);
+                if (result is null)
+                    return Unauthorized(new { error = "Usuario o contraseña incorrectos" });
+                return Ok(result);
+            }
+            catch (AccountBlockedException ex)
+            {
+                var message = ex.IsDeactivated
+                    ? "Tu cuenta fue desactivada. Contactá al equipo de soporte."
+                    : $"Tu cuenta está suspendida hasta el {ex.SuspendedUntil!.Value.ToLocalTime():dd/MM/yyyy 'a las' HH:mm}.";
+                return StatusCode(403, new { error = message });
+            }
         }
 
         [HttpPost("register")]

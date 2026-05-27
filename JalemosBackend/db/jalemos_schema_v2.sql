@@ -20,15 +20,24 @@ CREATE TABLE users (
     last_name        VARCHAR(100)    NOT NULL,
     role             VARCHAR(20)     NOT NULL DEFAULT 'passenger'
                                      CHECK (role IN ('admin', 'passenger', 'driver')),
-    mean_rating      NUMERIC(3, 2)   NOT NULL DEFAULT 0.00
+    mean_rating      NUMERIC(3, 2)   NOT NULL DEFAULT 5.00
                                      CHECK (mean_rating >= 0 AND mean_rating <= 5),
     total_trips      INTEGER         NOT NULL DEFAULT 0  CHECK (total_trips >= 0),
+    driver_trips     INTEGER         NOT NULL DEFAULT 0  CHECK (driver_trips >= 0),
     kms              NUMERIC(10, 2)  NOT NULL DEFAULT 0  CHECK (kms >= 0),
     -- Moderación
-    suspended_until  TIMESTAMPTZ,
-    is_active        BOOLEAN         NOT NULL DEFAULT TRUE,
-    created_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+    suspended_until      TIMESTAMPTZ,
+    is_active            BOOLEAN   NOT NULL DEFAULT TRUE,
+    -- Foto de perfil (bloqueada después de que el admin aprueba la solicitud de conductor)
+    profile_photo_url    TEXT,
+    profile_photo_locked BOOLEAN   NOT NULL DEFAULT FALSE,
+    -- Vencimientos de documentos (copiados al aprobar solicitud de conductor)
+    license_expiry_month SMALLINT  CHECK (license_expiry_month BETWEEN 1 AND 12),
+    license_expiry_year  SMALLINT  CHECK (license_expiry_year >= 2020),
+    dekra_expiry_month   SMALLINT  CHECK (dekra_expiry_month BETWEEN 1 AND 12),
+    dekra_expiry_year    SMALLINT  CHECK (dekra_expiry_year >= 2020),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON COLUMN users.suspended_until IS 'Date until which the user is suspended; NULL means active';
@@ -180,10 +189,20 @@ CREATE TABLE driver_applications (
 
     cedula               VARCHAR(20)        NOT NULL,
     address              TEXT               NOT NULL,
+    face_photo           TEXT,
 
     license_photo_front  TEXT,
     license_photo_back   TEXT,
     dekra_photo          TEXT,
+
+    -- Fechas de vencimiento (mes y año) — verificadas por el admin en la revisión
+    license_expiry_month SMALLINT           CHECK (license_expiry_month BETWEEN 1 AND 12),
+    license_expiry_year  SMALLINT           CHECK (license_expiry_year >= 2020),
+    dekra_expiry_month   SMALLINT           CHECK (dekra_expiry_month BETWEEN 1 AND 12),
+    dekra_expiry_year    SMALLINT           CHECK (dekra_expiry_year >= 2020),
+
+    -- TRUE cuando esta fila es una renovación de documentos (no una solicitud inicial)
+    is_renewal           BOOLEAN            NOT NULL DEFAULT FALSE,
 
     admin_issue_ids      TEXT[],
     admin_notes          TEXT,
@@ -312,10 +331,9 @@ CREATE OR REPLACE FUNCTION fn_update_mean_rating()
 RETURNS TRIGGER AS $$
 BEGIN
     UPDATE users
-    SET mean_rating = (
-        SELECT ROUND(AVG(rating)::NUMERIC, 2)
-        FROM ratings
-        WHERE rated_id = NEW.rated_id
+    SET mean_rating = COALESCE(
+        (SELECT ROUND(AVG(rating)::NUMERIC, 2) FROM ratings WHERE rated_id = NEW.rated_id),
+        5.00
     )
     WHERE user_id = NEW.rated_id;
     RETURN NEW;
@@ -336,25 +354,25 @@ DECLARE
     v_carlos_id    UUID;
     v_vehicle_id   UUID;
 BEGIN
-    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
-    VALUES ('admin', 'admin@jalemos.cr', crypt('admin123', gen_salt('bf', 10)), 'Admin', 'Jalemos', 'admin', 5.00, 120);
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips, driver_trips)
+    VALUES ('admin', 'admin@jalemos.cr', crypt('admin123', gen_salt('bf', 10)), 'Admin', 'Jalemos', 'admin', 5.00, 120, 0);
 
-    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
-    VALUES ('pasajero', 'pasajero@jalemos.cr', crypt('pass123', gen_salt('bf', 10)), 'Álvaro', 'Moya', 'passenger', 4.80, 38)
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips, driver_trips)
+    VALUES ('pasajero', 'pasajero@jalemos.cr', crypt('pass123', gen_salt('bf', 10)), 'Álvaro', 'Moya', 'passenger', 4.80, 38, 0)
     RETURNING user_id INTO v_pasajero_id;
 
-    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
-    VALUES ('carlos.m', 'carlos@jalemos.cr', crypt('carlos123', gen_salt('bf', 10)), 'Carlos', 'Monestel', 'driver', 4.80, 52)
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips, driver_trips)
+    VALUES ('carlos.m', 'carlos@jalemos.cr', crypt('carlos123', gen_salt('bf', 10)), 'Carlos', 'Monestel', 'driver', 4.80, 15, 52)
     RETURNING user_id INTO v_carlos_id;
 
-    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
-    VALUES ('maria.r', 'maria@jalemos.cr', crypt('maria123', gen_salt('bf', 10)), 'María', 'Rodríguez', 'driver', 4.90, 91);
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips, driver_trips)
+    VALUES ('maria.r', 'maria@jalemos.cr', crypt('maria123', gen_salt('bf', 10)), 'María', 'Rodríguez', 'driver', 4.90, 22, 91);
 
-    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
-    VALUES ('jose.l', 'jose@jalemos.cr', crypt('jose123', gen_salt('bf', 10)), 'José', 'Ledezma', 'driver', 4.70, 38);
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips, driver_trips)
+    VALUES ('jose.l', 'jose@jalemos.cr', crypt('jose123', gen_salt('bf', 10)), 'José', 'Ledezma', 'driver', 4.70, 10, 38);
 
-    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips)
-    VALUES ('ana.p', 'ana@jalemos.cr', crypt('ana123', gen_salt('bf', 10)), 'Ana', 'Picado', 'driver', 5.00, 30);
+    INSERT INTO users (username, email, password_hash, first_name, last_name, role, mean_rating, total_trips, driver_trips)
+    VALUES ('ana.p', 'ana@jalemos.cr', crypt('ana123', gen_salt('bf', 10)), 'Ana', 'Picado', 'driver', 5.00, 8, 30);
 
     INSERT INTO vehicles (user_id, model, year, num_plate, color)
     VALUES (v_carlos_id, 'Toyota Corolla', 2020, 'ABC-123', 'Blanco')

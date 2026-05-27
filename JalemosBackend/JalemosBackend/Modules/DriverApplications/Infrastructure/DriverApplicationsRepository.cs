@@ -52,13 +52,40 @@ public sealed class DriverApplicationsRepository
         return user is null ? null : ($"{user.FirstName} {user.LastName}", user.Email);
     }
 
-    // Sets user.role = 'driver' when an application is approved
-    public async Task PromoteToDriverAsync(Guid userId, CancellationToken ct)
+    // Sets user.role = 'driver', copies face photo as locked profile photo, copies expiry dates
+    public async Task PromoteToDriverAsync(Guid userId, string? facePhotoUrl,
+        short? licenseMonth, short? licenseYear, short? dekraMonth, short? dekraYear,
+        CancellationToken ct)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId, ct);
         if (user is null) return;
-        user.Role = UserRole.driver;
+        user.Role      = UserRole.driver;
         user.UpdatedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(facePhotoUrl))
+        {
+            user.ProfilePhotoUrl    = facePhotoUrl;
+            user.ProfilePhotoLocked = true;
+        }
+        user.LicenseExpiryMonth = licenseMonth;
+        user.LicenseExpiryYear  = licenseYear;
+        user.DekraExpiryMonth   = dekraMonth;
+        user.DekraExpiryYear    = dekraYear;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // Updates only the document photos and expiry dates (used when admin approves a renewal)
+    public async Task UpdateDocumentsAsync(Guid userId,
+        string? licensePhotoFront, string? licensePhotoBack, string? dekraPhoto,
+        short? licenseMonth, short? licenseYear, short? dekraMonth, short? dekraYear,
+        CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId, ct);
+        if (user is null) return;
+        user.UpdatedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(licenseMonth.ToString())) user.LicenseExpiryMonth = licenseMonth;
+        if (!string.IsNullOrWhiteSpace(licenseYear.ToString()))  user.LicenseExpiryYear  = licenseYear;
+        if (!string.IsNullOrWhiteSpace(dekraMonth.ToString()))   user.DekraExpiryMonth   = dekraMonth;
+        if (!string.IsNullOrWhiteSpace(dekraYear.ToString()))    user.DekraExpiryYear    = dekraYear;
         await _db.SaveChangesAsync(ct);
     }
 }

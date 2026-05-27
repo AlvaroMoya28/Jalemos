@@ -56,9 +56,16 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.FirstName).HasColumnName("first_name").HasMaxLength(100).IsRequired();
                 e.Property(x => x.LastName).HasColumnName("last_name").HasMaxLength(100).IsRequired();
                 e.Property(x => x.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(20).HasDefaultValueSql("'passenger'");
-                e.Property(x => x.MeanRating).HasColumnName("mean_rating").HasColumnType("numeric(3,2)").HasDefaultValue(0.00m);
+                e.Property(x => x.MeanRating).HasColumnName("mean_rating").HasColumnType("numeric(3,2)").HasDefaultValue(5.00m);
                 e.Property(x => x.TotalTrips).HasColumnName("total_trips").HasDefaultValue(0);
+                e.Property(x => x.DriverTrips).HasColumnName("driver_trips").HasDefaultValue(0);
                 e.Property(x => x.Kms).HasColumnName("kms").HasColumnType("numeric(10,2)").HasDefaultValue(0);
+                e.Property(x => x.ProfilePhotoUrl).HasColumnName("profile_photo_url");
+                e.Property(x => x.ProfilePhotoLocked).HasColumnName("profile_photo_locked").HasDefaultValue(false);
+                e.Property(x => x.LicenseExpiryMonth).HasColumnName("license_expiry_month");
+                e.Property(x => x.LicenseExpiryYear).HasColumnName("license_expiry_year");
+                e.Property(x => x.DekraExpiryMonth).HasColumnName("dekra_expiry_month");
+                e.Property(x => x.DekraExpiryYear).HasColumnName("dekra_expiry_year");
                 e.Property(x => x.SuspendedUntil).HasColumnName("suspended_until");
                 e.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
@@ -215,9 +222,15 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.VehicleYear).HasColumnName("vehicle_year").IsRequired();
                 e.Property(x => x.VehiclePlate).HasColumnName("vehicle_plate").HasMaxLength(20).IsRequired();
                 e.Property(x => x.VehicleColor).HasColumnName("vehicle_color").HasMaxLength(50).IsRequired();
+                e.Property(x => x.FacePhoto).HasColumnName("face_photo");
                 e.Property(x => x.LicensePhotoFront).HasColumnName("license_photo_front");
                 e.Property(x => x.LicensePhotoBack).HasColumnName("license_photo_back");
                 e.Property(x => x.DekraPhoto).HasColumnName("dekra_photo");
+                e.Property(x => x.LicenseExpiryMonth).HasColumnName("license_expiry_month");
+                e.Property(x => x.LicenseExpiryYear).HasColumnName("license_expiry_year");
+                e.Property(x => x.DekraExpiryMonth).HasColumnName("dekra_expiry_month");
+                e.Property(x => x.DekraExpiryYear).HasColumnName("dekra_expiry_year");
+                e.Property(x => x.IsRenewal).HasColumnName("is_renewal").HasDefaultValue(false);
                 e.Property(x => x.AdminIssueIds).HasColumnName("admin_issue_ids").HasColumnType("text[]");
                 e.Property(x => x.AdminNotes).HasColumnName("admin_notes");
                 e.Property(x => x.ReviewedAt).HasColumnName("reviewed_at");
@@ -350,9 +363,15 @@ namespace JalemosBackend.Infrastructure.Persistence
         public short VehicleYear { get; set; }
         public string VehiclePlate { get; set; } = null!;
         public string VehicleColor { get; set; } = null!;
+        public string? FacePhoto { get; set; }
         public string? LicensePhotoFront { get; set; }
         public string? LicensePhotoBack { get; set; }
         public string? DekraPhoto { get; set; }
+        public short? LicenseExpiryMonth { get; set; }
+        public short? LicenseExpiryYear { get; set; }
+        public short? DekraExpiryMonth { get; set; }
+        public short? DekraExpiryYear { get; set; }
+        public bool IsRenewal { get; set; }
         public string[]? AdminIssueIds { get; set; }
         public string? AdminNotes { get; set; }
         public DateTime? ReviewedAt { get; set; }

@@ -3,6 +3,7 @@
 
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Auth.Application;
+using JalemosBackend.Modules.Storage;
 using JalemosBackend.Modules.Bookings.Application;
 using JalemosBackend.Modules.Bookings.Infrastructure;
 using JalemosBackend.Modules.DriverApplications.Application;
@@ -80,6 +81,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         o.MapEnum<ReportStatus>("report_status");
         o.MapEnum<AdminActionType>("admin_action_type");
     }));
+
+// Storage — singleton because IAmazonS3 is thread-safe and expensive to create
+builder.Services.AddSingleton<IStorageService, S3StorageService>();
 
 // Auth module
 builder.Services.AddScoped<IAuthService, AuthService>();
