@@ -59,10 +59,11 @@ public sealed class TripsRepository
         Notes = d.Notes
     };
 
-    /// <summary>Fetches all trip records. Replace with <c>_dbContext.Trips.ToListAsync()</c>.</summary>
+    /// <summary>Fetches all trip records, mapping in memory after materialisation.</summary>
     public async Task<IEnumerable<Trip>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Trips.AsNoTracking().Select(e => MapToDomain(e)).ToListAsync(cancellationToken);
+        var entities = await _dbContext.Trips.AsNoTracking().ToListAsync(cancellationToken);
+        return entities.Select(MapToDomain).ToList();
     }
 
     /// <summary>Finds a trip by its primary key. Returns null when not found.</summary>

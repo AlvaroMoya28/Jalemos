@@ -21,9 +21,15 @@ async function request<T>(path: string, options: RequestInit): Promise<T> {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new ApiError(res.status, body.error ?? `Error ${res.status}`);
+      // .NET problem details uses title/detail, not error
+      const message =
+        body.error ?? body.title ?? body.detail ?? `Error ${res.status}`;
+      console.error(`[API] ${options.method} ${path} → ${res.status}`, JSON.stringify(body));
+      throw new ApiError(res.status, message);
     }
 
+    // 204 No Content — no body to parse
+    if (res.status === 204) return undefined as unknown as T;
     return res.json();
   } finally {
     clearTimeout(timer);

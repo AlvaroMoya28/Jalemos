@@ -617,6 +617,45 @@ function makeStyles(c: ReturnType<typeof useAppTheme>["colors"]) {
       fontFamily: Fonts.headingBold,
       fontSize: 15,
     },
+    // Vehicle card
+    vehicleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    vehicleIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: Brand.colors.green.light,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    vehicleInfo: {
+      flex: 1,
+      gap: 6,
+    },
+    vehicleModel: {
+      fontSize: 16,
+      color: c.textPrimary,
+      fontFamily: Fonts.headingBold,
+    },
+    vehiclePlateBadge: {
+      alignSelf: "flex-start",
+      backgroundColor: c.surfaceAlt,
+      borderRadius: Brand.radius[8],
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+    },
+    vehiclePlateText: {
+      fontSize: 13,
+      color: c.textSecondary,
+      fontFamily: Fonts.heading,
+      letterSpacing: 1,
+    },
     // Error state
     errorContainer: {
       flex: 1,
@@ -687,8 +726,8 @@ export default function RideDetailScreen() {
         ratingsCount: trip.driverRating ? 1 : 0,
         tripsCompleted: trip.driverTripsCount ?? 0,
         memberSince: trip.driverMemberSince ?? "",
-        vehicle: trip.vehicleId,
-        plate: "",
+        vehicle: trip.vehicleModel ?? trip.vehicleId,
+        plate: trip.vehiclePlate ?? "",
         verified: false,
         reviews: [] as RideReview[],
       },
@@ -1022,15 +1061,32 @@ export default function RideDetailScreen() {
                   </Text>
                   <Text style={styles.statLabel}>Miembro desde</Text>
                 </View>
-                <View style={[styles.statCell, styles.statCellDivider]}>
-                  <Text style={styles.statValue} numberOfLines={1}>
-                    {ride.driver.vehicle}
-                  </Text>
-                  <Text style={styles.statLabel}>{ride.driver.plate}</Text>
-                </View>
               </View>
             </GlassCard>
           </Animated.View>
+
+          {/* Vehicle card */}
+          {(ride.driver.vehicle || ride.driver.plate) ? (
+            <Animated.View entering={FadeInDown.duration(240).delay(165)}>
+              <GlassCard style={styles.card} intensity={34}>
+                <View style={styles.vehicleRow}>
+                  <View style={styles.vehicleIconWrap}>
+                    <Ionicons name="car-sport-outline" size={22} color={Brand.colors.green.dark} />
+                  </View>
+                  <View style={styles.vehicleInfo}>
+                    <Text style={styles.vehicleModel} numberOfLines={1}>
+                      {ride.driver.vehicle || "Vehículo sin modelo"}
+                    </Text>
+                    {ride.driver.plate ? (
+                      <View style={styles.vehiclePlateBadge}>
+                        <Text style={styles.vehiclePlateText}>{ride.driver.plate}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              </GlassCard>
+            </Animated.View>
+          ) : null}
 
           {/* Reviews */}
           <Animated.View

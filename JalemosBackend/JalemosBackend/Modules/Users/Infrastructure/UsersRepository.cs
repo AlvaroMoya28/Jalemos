@@ -39,8 +39,11 @@ namespace JalemosBackend.Modules.Users.Infrastructure
             e.Kms        = u.Kms;
         }
 
-        public async Task<IEnumerable<User>> GetAllAsync(CancellationToken ct = default) =>
-            await _dbContext.Users.AsNoTracking().Select(e => MapToDomain(e)).ToListAsync(ct);
+        public async Task<IEnumerable<User>> GetAllAsync(CancellationToken ct = default)
+        {
+            var entities = await _dbContext.Users.AsNoTracking().ToListAsync(ct);
+            return entities.Select(MapToDomain).ToList();
+        }
 
         public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default)
         {

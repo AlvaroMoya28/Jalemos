@@ -9,6 +9,8 @@ using JalemosBackend.Modules.Notifications.Application;
 using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.Ratings.Application;
 using JalemosBackend.Modules.Ratings.Infrastructure;
+using JalemosBackend.Modules.Vehicles.Application;
+using JalemosBackend.Modules.Vehicles.Infrastructure;
 using JalemosBackend.Modules.Trips.Application;
 using JalemosBackend.Modules.Trips.Domain;
 using JalemosBackend.Modules.Trips.Infrastructure;
@@ -93,6 +95,10 @@ builder.Services.AddScoped<BookingsRepository>();
 // Ratings module
 builder.Services.AddScoped<IRatingsService, RatingsService>();
 builder.Services.AddScoped<RatingsRepository>();
+
+// Vehicles module
+builder.Services.AddScoped<IVehiclesService, VehiclesService>();
+builder.Services.AddScoped<VehiclesRepository>();
 
 var app = builder.Build();
 

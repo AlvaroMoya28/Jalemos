@@ -9,6 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import { useLoading } from '@/contexts/loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import { useAuth } from '@/contexts/auth';
+import { get, post, ApiError } from '@/services/api';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import {
   Alert,
@@ -26,12 +29,48 @@ import {
 
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
-import PlaceSearchInput from '@/components/place-search-input';
+import PlaceSearchInput, { PlacePrediction } from '@/components/place-search-input';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
-// Offer screen — lets drivers publish a new trip with route, date/time, seats, price, and vehicle.
-// Shares the same calendar/time-picker pattern as the Search screen.
+const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? '';
+
+interface VehicleOption {
+  id: string;
+  name: string;
+  plate: string;
+  color: string;
+}
+
+interface PlaceCoords {
+  lat: number;
+  lng: number;
+}
+
+async function fetchPlaceCoords(placeId: string): Promise<PlaceCoords | null> {
+  if (!GOOGLE_PLACES_KEY || Platform.OS === 'web') return null;
+  try {
+    const params = new URLSearchParams({
+      place_id: placeId,
+      fields: 'geometry',
+      key: GOOGLE_PLACES_KEY,
+    });
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?${params}`
+    );
+    const json = await res.json();
+    const loc = json.result?.geometry?.location;
+    if (!loc) {
+      console.warn('[fetchPlaceCoords] no location in response', json.status);
+      return null;
+    }
+    console.log(`[fetchPlaceCoords] ${placeId} → lat=${loc.lat} lng=${loc.lng}`);
+    return { lat: loc.lat as number, lng: loc.lng as number };
+  } catch (e) {
+    console.warn('[fetchPlaceCoords] error', e);
+    return null;
+  }
+}
 
 const PICKER_ITEM_HEIGHT = 36;
 const PICKER_VISIBLE_ROWS = 5;
@@ -641,25 +680,46 @@ export default function OfferScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
   const { showLoader, hideLoader } = useLoading();
+  const { user, token } = useAuth();
+
   useEffect(() => {
     navigation.setOptions({ title: 'Ofrecer', icon: { sf: 'car' } });
   }, [navigation]);
 
-  const vehicles = [
-    { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },
-    { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
-  ];
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setVehiclesLoading(true);
+    get<{ vehicleId: string; model: string; numPlate: string; color: string }[]>(
+      `/api/vehicles/user/${user.id}`,
+      token ?? undefined,
+    )
+      .then((data) =>
+        setVehicles(
+          data.map((v) => ({ id: v.vehicleId, name: v.model, plate: v.numPlate, color: v.color })),
+        ),
+      )
+      .catch(() => setVehicles([]))
+      .finally(() => setVehiclesLoading(false));
+  }, [user?.id, token]);
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [from, setFrom] = useState('');
+  const [fromCoords, setFromCoords] = useState<PlaceCoords | null>(null);
   const [to, setTo] = useState('');
+  const [toCoords, setToCoords] = useState<PlaceCoords | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [seats, setSeats] = useState(2);
   const [price, setPrice] = useState(1500);
-  const [vehicleId, setVehicleId] = useState(vehicles[0].id);
+  const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
-  const [isRecurring, setIsRecurring] = useState(true);
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (vehicleId === null && vehicles.length > 0) setVehicleId(vehicles[0].id);
+  }, [vehicles, vehicleId]);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [cursorDate, setCursorDate] = useState(() => new Date());
@@ -670,7 +730,7 @@ export default function OfferScreen() {
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
-  const selectedVehicle = vehicles.find((v) => v.id === vehicleId) ?? vehicles[0];
+  const selectedVehicle = vehicles.find((v) => v.id === vehicleId) ?? null;
   const estimated = useMemo(() => seats * price, [price, seats]);
   const remaining = Math.max(0, 100 - notes.length);
   const calendarDays = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
@@ -720,16 +780,61 @@ export default function OfferScreen() {
     setCalendarOpen(false);
   };
 
-  const publish = () => {
+  const publish = async () => {
     if (!from || !to || !selectedDate) {
       Alert.alert('Campos incompletos', 'Completa origen, destino, fecha y hora.');
       return;
     }
+    if (!vehicleId) {
+      Alert.alert('Sin vehículo', 'Selecciona un vehículo para ofrecer el viaje.');
+      return;
+    }
+    if (!user?.id) {
+      Alert.alert('Sesión expirada', 'Vuelve a iniciar sesión.');
+      return;
+    }
+    if (!fromCoords) {
+      Alert.alert('Origen sin coordenadas', 'Selecciona el origen desde las sugerencias para obtener su ubicación.');
+      return;
+    }
+    if (!toCoords) {
+      Alert.alert('Destino sin coordenadas', 'Selecciona el destino desde las sugerencias para obtener su ubicación.');
+      return;
+    }
+    const payload = {
+      driverId: user.id,
+      vehicleId,
+      rate: price,
+      origin: from,
+      destination: to,
+      originLatitude: fromCoords.lat,
+      originLongitude: fromCoords.lng,
+      destinationLatitude: toCoords.lat,
+      destinationLongitude: toCoords.lng,
+      departureAt: selectedDate.toISOString(),
+      totalSeats: seats,
+      availableSeats: seats,
+      notes,
+      state: 0,
+    };
+    console.log('[publish] payload:', JSON.stringify(payload, null, 2));
     showLoader('Publicando viaje...');
-    setTimeout(() => {
+    try {
+      await post('/api/trips', payload, token ?? undefined);
       hideLoader();
-      Alert.alert('Listo', `Tu viaje se publicó correctamente con ${selectedVehicle.name}.`);
-    }, 700);
+      Alert.alert('¡Viaje publicado!', 'Tu viaje ya está disponible para los pasajeros.');
+      setFrom(''); setFromCoords(null);
+      setTo(''); setToCoords(null);
+      setSelectedDate(null);
+      setSeats(2); setPrice(1500); setNotes('');
+    } catch (err) {
+      hideLoader();
+      console.error('[publish] error:', err);
+      const msg = err instanceof ApiError
+        ? `[${(err as ApiError).status}] ${err.message}`
+        : 'No se pudo publicar el viaje.';
+      Alert.alert('Error al publicar', msg);
+    }
   };
 
   return (
@@ -759,8 +864,11 @@ export default function OfferScreen() {
                 <Text style={styles.fieldLabel}>Origen</Text>
                 <PlaceSearchInput
                   value={from}
-                  onChangeText={setFrom}
-                  onSelect={(pred) => setFrom(pred.description)}
+                  onChangeText={(t) => { setFrom(t); setFromCoords(null); }}
+                  onSelect={(pred: PlacePrediction) => {
+                    setFrom(pred.description);
+                    fetchPlaceCoords(pred.placeId).then(setFromCoords);
+                  }}
                   leadingIcon={<Ionicons name="radio-button-on" size={12} color={Brand.colors.green.dark} />}
                   fieldStyle={styles.searchField}
                   placeholder="¿De dónde sales?"
@@ -778,8 +886,11 @@ export default function OfferScreen() {
                   <Text style={styles.fieldLabel}>Destino</Text>
                   <PlaceSearchInput
                     value={to}
-                    onChangeText={setTo}
-                    onSelect={(pred) => setTo(pred.description)}
+                    onChangeText={(t) => { setTo(t); setToCoords(null); }}
+                    onSelect={(pred: PlacePrediction) => {
+                      setTo(pred.description);
+                      fetchPlaceCoords(pred.placeId).then(setToCoords);
+                    }}
                     leadingIcon={<Ionicons name="location-outline" size={13} color={Brand.colors.green.normal} />}
                     fieldStyle={styles.searchField}
                     placeholder="¿A dónde vas?"
@@ -850,20 +961,18 @@ export default function OfferScreen() {
               <Text style={styles.sectionLabel}>Vehículo</Text>
               <Pressable style={styles.vehiclePicker} onPress={() => setVehicleModalOpen(true)}>
                 <View>
-                  <Text style={styles.vehicleName}>{selectedVehicle.name}</Text>
-                  <Text style={styles.vehicleMeta}>{selectedVehicle.plate} · {selectedVehicle.color}</Text>
+                  {vehiclesLoading ? (
+                    <Text style={styles.vehicleName}>Cargando vehículos…</Text>
+                  ) : selectedVehicle ? (
+                    <>
+                      <Text style={styles.vehicleName}>{selectedVehicle.name}</Text>
+                      <Text style={styles.vehicleMeta}>{selectedVehicle.plate} · {selectedVehicle.color}</Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.vehicleName, { color: colors.textMuted }]}>Sin vehículos registrados</Text>
+                  )}
                 </View>
                 <Ionicons name="chevron-down" size={18} color={Brand.colors.green.dark} />
-              </Pressable>
-            </View>
-
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Viaje recurrente</Text>
-              <Pressable
-                style={[styles.toggle, isRecurring ? styles.toggleActive : styles.toggleInactive]}
-                onPress={() => setIsRecurring((v) => !v)}
-              >
-                <View style={[styles.toggleKnob, !isRecurring && styles.toggleKnobInactive]} />
               </Pressable>
             </View>
 
@@ -891,7 +1000,7 @@ export default function OfferScreen() {
             </View>
             <View>
               <Text style={styles.summaryMath}>{seats} x ₡{price.toLocaleString()}</Text>
-              <Text style={styles.summaryVehicle}>{selectedVehicle.name}</Text>
+              <Text style={styles.summaryVehicle}>{selectedVehicle?.name ?? '—'}</Text>
             </View>
           </GlassCard>
 
@@ -1045,7 +1154,7 @@ export default function OfferScreen() {
                       </View>
                       {active ? <Ionicons name="checkmark-circle" size={18} color={Brand.colors.green.normal} /> : null}
                     </View>
-                    <Text style={styles.vehicleTag}>{vehicle.primary ? 'Principal' : 'Disponible'}</Text>
+                    <Text style={styles.vehicleTag}>Disponible</Text>
                   </Pressable>
                 );
               })}

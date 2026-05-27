@@ -34,6 +34,14 @@ interface DriverResponse {
   createdAt: string;
 }
 
+interface VehicleResponse {
+  vehicleId: string;
+  model: string;
+  year: number;
+  numPlate: string;
+  color: string;
+}
+
 export interface Trip {
   id: string;
   driverName: string;
@@ -55,9 +63,11 @@ export interface Trip {
   driverRating: number;
   driverTripsCount?: number;
   driverMemberSince?: string;
+  vehicleModel?: string;
+  vehiclePlate?: string;
 }
 
-function mapTripResponseToTrip(tr: TripResponse, user: User | null): Trip {
+function mapTripResponseToTrip(tr: TripResponse, user: User | null, vehicle: VehicleResponse | null): Trip {
   const originLat = tr.originLat ?? tr.originLatitude ?? 0;
   const originLng = tr.originLng ?? tr.originLongitude ?? 0;
   const destinationLat = tr.destinationLat ?? tr.destinationLatitude ?? 0;
@@ -84,6 +94,8 @@ function mapTripResponseToTrip(tr: TripResponse, user: User | null): Trip {
     driverRating: user ? user.rating : 0,
     driverTripsCount: user ? (user.tripsCount ?? 0) : 0,
     driverMemberSince: user?.memberSince,
+    vehicleModel: vehicle?.model,
+    vehiclePlate: vehicle?.numPlate,
   };
 }
 
@@ -126,7 +138,13 @@ export function useTripsData() {
         try {
           const driverResponse = await get<DriverResponse>(`/api/users/${t.driverId}`);
           const driver = mapDriverResponseToUser(driverResponse);
-          const trip = mapTripResponseToTrip(t, driver);
+          let vehicle: VehicleResponse | null = null;
+          try {
+            vehicle = await get<VehicleResponse>(`/api/vehicles/${t.vehicleId}`);
+          } catch {
+            // vehicle info is non-critical — proceed without it
+          }
+          const trip = mapTripResponseToTrip(t, driver, vehicle);
           trip.driverName = `${driver.firstName} ${driver.lastName}`.trim();
           mappedTrips.push(trip);
         } catch (err) {

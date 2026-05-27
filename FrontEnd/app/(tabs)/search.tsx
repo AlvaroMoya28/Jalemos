@@ -7,7 +7,7 @@
 // floating NativeTabs bar without manual padding calculations.
 
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRouter } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
@@ -562,6 +562,12 @@ export default function SearchScreen() {
 
   const [hasSearched, setHasSearched] = useState(false);
   const { trips, isLoading: tripsLoading, refreshTrips } = useTrips();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshTrips();
+    }, [refreshTrips]),
+  );
 
   const rides: Ride[] = useMemo(() => {
     if (!trips) return [];

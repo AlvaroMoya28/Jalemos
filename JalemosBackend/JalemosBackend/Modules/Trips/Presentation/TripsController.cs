@@ -16,19 +16,29 @@ namespace JalemosBackend.Modules.Trips.Presentation;
 public sealed class TripsController : ControllerBase
 {
     private readonly ITripsService _ridesService;
+    private readonly ILogger<TripsController> _logger;
 
     /// <summary>Injects the trips application service.</summary>
-    public TripsController(ITripsService ridesService)
+    public TripsController(ITripsService ridesService, ILogger<TripsController> logger)
     {
         _ridesService = ridesService;
+        _logger = logger;
     }
 
     /// <summary>GET /api/rides — returns all available trips.</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Trip>>> GetAll(CancellationToken cancellationToken)
     {
-        var rides = await _ridesService.GetAllAsync(cancellationToken);
-        return Ok(rides);
+        try
+        {
+            var rides = await _ridesService.GetAllAsync(cancellationToken);
+            return Ok(rides);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Trips.GetAll] Failed to fetch trips");
+            return StatusCode(500, new { error = ex.Message });
+        }
     }
 
     /// <summary>GET /api/rides/{id} — returns a single trip. 404 if not found.</summary>
@@ -41,10 +51,29 @@ public sealed class TripsController : ControllerBase
 
     /// <summary>POST /api/rides — creates and publishes a new trip.</summary>
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Trip ride, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] Trip? ride, CancellationToken cancellationToken)
     {
-        await _ridesService.CreateAsync(ride, cancellationToken);
-        return NoContent();
+        if (ride is null)
+        {
+            _logger.LogWarning("[Trips.Create] Body deserialized as null — check Content-Type and JSON shape");
+            return BadRequest(new { error = "Request body is null or malformed" });
+        }
+
+        _logger.LogInformation(
+            "[Trips.Create] driverId={DriverId} vehicleId={VehicleId} origin={Origin} destination={Destination} departure={DepartureAt} seats={TotalSeats} rate={Rate}",
+            ride.DriverId, ride.VehicleId, ride.Origin, ride.Destination, ride.DepartureAt, ride.TotalSeats, ride.Rate);
+
+        try
+        {
+            await _ridesService.CreateAsync(ride, cancellationToken);
+            _logger.LogInformation("[Trips.Create] Trip created successfully, id={TripId}", ride.Id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Trips.Create] Failed to create trip for driverId={DriverId}", ride.DriverId);
+            return StatusCode(500, new { error = ex.Message });
+        }
     }
 
     /// <summary>PUT /api/rides/{id} — updates a trip. Route id takes precedence over body id.</summary>

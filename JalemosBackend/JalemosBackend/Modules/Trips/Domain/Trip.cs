@@ -13,8 +13,8 @@ public sealed class Trip
     public Guid DriverId { get; set; }
     public Guid VehicleId { get; set; }
     public decimal Rate { get; set; }
-    public string Origin { get; set; }
-    public string Destination { get; set; }
+    public string Origin { get; set; } = string.Empty;
+    public string Destination { get; set; } = string.Empty;
 
     public decimal OriginLatitude { get; set; }
     public decimal OriginLongitude { get; set; }
@@ -26,7 +26,7 @@ public sealed class Trip
     public short AvailableSeats { get; set; }
     public TripState State { get; set; }
     public DateTime CreatedAt { get; set; }
-    public string Notes { get; set; }
+    public string Notes { get; set; } = string.Empty;
 
 
 }
