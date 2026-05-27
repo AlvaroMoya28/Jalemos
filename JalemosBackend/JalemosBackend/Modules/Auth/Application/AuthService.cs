@@ -33,6 +33,12 @@ namespace JalemosBackend.Modules.Auth.Application
             if (user is null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 return null;
 
+            if (!user.IsActive)
+                throw new AccountBlockedException(isDeactivated: true);
+
+            if (user.SuspendedUntil.HasValue && user.SuspendedUntil.Value > DateTime.UtcNow)
+                throw new AccountBlockedException(isDeactivated: false, suspendedUntil: user.SuspendedUntil.Value);
+
             return BuildResponse(user);
         }
 
@@ -66,6 +72,14 @@ namespace JalemosBackend.Modules.Auth.Application
             return BuildResponse(entity);
         }
 
+        public async Task<AuthResponseDto?> RefreshAsync(Guid userId, CancellationToken ct = default)
+        {
+            var user = await _db.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == userId, ct);
+            return user is null ? null : BuildResponse(user);
+        }
+
         private AuthResponseDto BuildResponse(UserEntity user)
         {
             var avatar = $"{(user.FirstName.Length > 0 ? user.FirstName[0] : '?')}" +
@@ -83,17 +97,24 @@ namespace JalemosBackend.Modules.Auth.Application
                 new System.Globalization.CultureInfo("es-CR"));
 
             return new AuthResponseDto(
-                Token:       GenerateJwt(user),
-                Id:          user.UserId.ToString(),
-                Username:    user.Username,
-                Email:       user.Email,
-                FirstName:   user.FirstName,
-                LastName:    user.LastName,
-                Role:        role,
-                Avatar:      avatar.ToUpper(),
-                Rating:      user.MeanRating,
-                TripsCount:  user.TotalTrips,
-                MemberSince: memberSince
+                Token:               GenerateJwt(user),
+                Id:                  user.UserId.ToString(),
+                Username:            user.Username,
+                Email:               user.Email,
+                FirstName:           user.FirstName,
+                LastName:            user.LastName,
+                Role:                role,
+                Avatar:              avatar.ToUpper(),
+                ProfilePhotoUrl:     user.ProfilePhotoUrl,
+                ProfilePhotoLocked:  user.ProfilePhotoLocked,
+                Rating:              user.MeanRating,
+                TripsCount:          user.TotalTrips,
+                DriverTripsCount:    user.DriverTrips,
+                MemberSince:         memberSince,
+                LicenseExpiryMonth:  user.LicenseExpiryMonth,
+                LicenseExpiryYear:   user.LicenseExpiryYear,
+                DekraExpiryMonth:    user.DekraExpiryMonth,
+                DekraExpiryYear:     user.DekraExpiryYear
             );
         }
 

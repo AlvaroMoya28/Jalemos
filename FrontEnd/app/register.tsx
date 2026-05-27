@@ -168,6 +168,30 @@ function makeStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       color: '#ffffff',
       fontFamily: Fonts.heading,
     },
+    policiesRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 2,
+    },
+    checkbox: {
+      width: 22, height: 22, borderRadius: 6,
+      borderWidth: 2, borderColor: Brand.colors.green.normal,
+      alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+    },
+    checkboxChecked: {
+      backgroundColor: Brand.colors.green.normal,
+    },
+    policiesText: {
+      flex: 1, fontSize: 12, color: '#ffffff',
+      fontFamily: Fonts.sans, lineHeight: 18,
+    },
+    policiesLink: {
+      textDecorationLine: 'underline',
+      color: Brand.colors.green.light,
+      fontFamily: Fonts.heading,
+    },
     errorBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -202,6 +226,7 @@ export default function RegisterScreen() {
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
@@ -219,6 +244,10 @@ export default function RegisterScreen() {
     }
     if (password !== confirm) {
       setError('Las contraseñas no coinciden');
+      return;
+    }
+    if (!acceptedPolicies) {
+      setError('Debés aceptar las políticas de uso para continuar');
       return;
     }
     showLoader('Creando tu cuenta...');
@@ -357,6 +386,21 @@ export default function RegisterScreen() {
                   <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={18} color={Brand.colors.green.normal} />
                 </Pressable>
               </View>
+
+              {/* Aceptar políticas */}
+              <Pressable style={styles.policiesRow} onPress={() => setAcceptedPolicies(v => !v)}>
+                <View style={[styles.checkbox, acceptedPolicies && styles.checkboxChecked]}>
+                  {acceptedPolicies && <Ionicons name="checkmark" size={14} color={Brand.colors.black.b1} />}
+                </View>
+                <Text style={styles.policiesText}>
+                  He leído y acepto las{' '}
+                  <Text
+                    style={styles.policiesLink}
+                    onPress={() => router.push('/policies')}>
+                    Políticas de uso
+                  </Text>
+                </Text>
+              </Pressable>
 
               {error ? (
                 <View style={styles.errorBox}>

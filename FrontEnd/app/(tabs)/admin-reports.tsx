@@ -59,19 +59,19 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderTopLeftRadius: Brand.radius[24],
       borderTopRightRadius: Brand.radius[24],
       flex: 1,
-      paddingTop: 16,
     },
-    filterRow: {
-      flexDirection: 'row', gap: 8,
-      paddingHorizontal: Brand.grid.margin,
-      paddingBottom: 14,
+    scrollContent: { paddingTop: 16, paddingBottom: 40 },
+    chipsRow: {
+      flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+      paddingHorizontal: Brand.grid.margin, paddingBottom: 14,
     },
     filterChip: {
       borderRadius: 999, borderWidth: 1,
-      paddingHorizontal: 14, paddingVertical: 7,
+      paddingHorizontal: 12, paddingVertical: 6,
+      overflow: 'hidden',
     },
     filterChipText: { fontSize: 12, fontFamily: Fonts.heading },
-    list: { paddingHorizontal: Brand.grid.margin, gap: 10, paddingBottom: 24 },
+    list: { paddingHorizontal: Brand.grid.margin, gap: 10 },
     card: { borderRadius: Brand.radius[16], padding: Brand.spacing[16], gap: 10 },
     cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
     avatar: {
@@ -219,27 +219,30 @@ export default function AdminReportsScreen() {
       </View>
 
       <View style={styles.surface}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {filterList.map((f) => {
-            const active = filter === f.key;
-            return (
-              <Pressable
-                key={f.key}
-                style={[styles.filterChip, {
-                  backgroundColor: active ? Brand.colors.green.normal : colors.surfaceAlt,
-                  borderColor: active ? Brand.colors.green.normal : colors.border,
-                }]}
-                onPress={() => setFilter(f.key)}
-              >
-                <Text style={[styles.filterChipText, { color: active ? '#fff' : colors.textSecondary }]}>
-                  {f.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Filter chips */}
+          <View style={styles.chipsRow}>
+            {filterList.map((f) => {
+              const active = filter === f.key;
+              return (
+                <Pressable
+                  key={f.key}
+                  style={[styles.filterChip, {
+                    backgroundColor: active ? Brand.colors.green.normal : colors.surfaceAlt,
+                    borderColor: active ? Brand.colors.green.normal : colors.border,
+                  }]}
+                  onPress={() => setFilter(f.key)}
+                >
+                  <Text style={[styles.filterChipText, { color: active ? '#fff' : colors.textSecondary }]}>
+                    {f.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          {/* Cards */}
+          <View style={styles.list}>
           {filtered.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="flag-outline" size={40} color={colors.textMuted} />
@@ -301,6 +304,7 @@ export default function AdminReportsScreen() {
               );
             })
           )}
+          </View>
         </ScrollView>
       </View>
 

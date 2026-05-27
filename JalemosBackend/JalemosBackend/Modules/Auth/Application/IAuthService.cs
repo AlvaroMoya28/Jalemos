@@ -8,5 +8,6 @@ namespace JalemosBackend.Modules.Auth.Application
     {
         Task<AuthResponseDto?> LoginAsync(string identifier, string password, CancellationToken ct = default);
         Task<AuthResponseDto> RegisterAsync(RegisterRequestDto dto, CancellationToken ct = default);
+        Task<AuthResponseDto?> RefreshAsync(Guid userId, CancellationToken ct = default);
     }
 }

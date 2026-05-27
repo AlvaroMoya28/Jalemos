@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -21,8 +22,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
-import { REVIEW_ISSUES, ApplicationStatus } from '@/constants/mock-applications';
-import { useApplications } from '@/contexts/applications';
+import { REVIEW_ISSUES } from '@/constants/mock-applications';
+import { ApplicationStatus, useApplications } from '@/contexts/applications';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
 const STATUS_LABELS: Record<ApplicationStatus, { label: string; color: string }> = {
@@ -35,45 +36,89 @@ const STATUS_LABELS: Record<ApplicationStatus, { label: string; color: string }>
 
 function PhotoCard({
   label,
-  hasPhoto,
+  url,
   colors,
+  onPress,
 }: {
   label: string;
-  hasPhoto: boolean;
+  url: string | null;
   colors: ReturnType<typeof useAppTheme>['colors'];
+  onPress: () => void;
 }) {
   return (
-    <View style={{
-      flex: 1,
-      borderRadius: Brand.radius[12],
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceAlt,
-      aspectRatio: 1.5,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      overflow: 'hidden',
-    }}>
-      <Ionicons
-        name={hasPhoto ? 'document' : 'document-outline'}
-        size={28}
-        color={hasPhoto ? Brand.colors.green.normal : colors.textMuted}
-      />
-      <Text style={{ fontSize: 10, fontFamily: Fonts.sans, color: colors.textMuted, textAlign: 'center', paddingHorizontal: 8 }}>
-        {label}
-      </Text>
-      {hasPhoto && (
-        <View style={{
-          position: 'absolute', top: 6, right: 6,
-          width: 18, height: 18, borderRadius: 9,
-          backgroundColor: Brand.colors.green.normal,
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Ionicons name="checkmark" size={11} color="#fff" />
-        </View>
+    <Pressable
+      onPress={url ? onPress : undefined}
+      style={{
+        width: '47%',
+        borderRadius: Brand.radius[12],
+        borderWidth: 1,
+        borderColor: url ? Brand.colors.green.normal + '55' : colors.border,
+        backgroundColor: colors.surfaceAlt,
+        aspectRatio: 1.5,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        overflow: 'hidden',
+      }}
+    >
+      {url ? (
+        <>
+          <Image
+            source={{ uri: url }}
+            style={{ position: 'absolute', width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+          <View style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            backgroundColor: 'rgba(0,0,0,0.45)', paddingVertical: 4, paddingHorizontal: 6,
+          }}>
+            <Text style={{ fontSize: 9, fontFamily: Fonts.headingBold, color: '#fff', textAlign: 'center' }}>
+              {label}
+            </Text>
+          </View>
+          <View style={{
+            position: 'absolute', top: 5, right: 5,
+            width: 18, height: 18, borderRadius: 9,
+            backgroundColor: Brand.colors.green.normal,
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Ionicons name="expand-outline" size={10} color="#fff" />
+          </View>
+        </>
+      ) : (
+        <>
+          <Ionicons name="document-outline" size={26} color={colors.textMuted} />
+          <Text style={{ fontSize: 9, fontFamily: Fonts.sans, color: colors.textMuted, textAlign: 'center', paddingHorizontal: 6 }}>
+            {label}
+          </Text>
+        </>
       )}
-    </View>
+    </Pressable>
+  );
+}
+
+function PhotoViewer({ url, label, onClose }: { url: string; label: string; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: '#000', paddingTop: insets.top }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </Pressable>
+          <Text style={{ flex: 1, color: '#fff', fontFamily: Fonts.headingBold, fontSize: 15 }}>{label}</Text>
+        </View>
+        <Image
+          source={{ uri: url }}
+          style={{ flex: 1 }}
+          resizeMode="contain"
+        />
+      </View>
+    </Modal>
   );
 }
 
@@ -111,7 +156,7 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
     infoKey: { fontSize: 10, color: c.textMuted, fontFamily: Fonts.sans, textTransform: 'uppercase', marginBottom: 2 },
     infoValue: { fontSize: 13, color: c.textPrimary, fontFamily: Fonts.heading },
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.border },
-    photosRow: { flexDirection: 'row', gap: 10 },
+    photosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     issueItem: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border,
@@ -177,6 +222,7 @@ export default function ApplicationDetailScreen() {
 
   const [selectedIssues, setSelectedIssues] = useState<string[]>(app?.adminFeedback?.issueIds ?? []);
   const [notes, setNotes] = useState(app?.adminFeedback?.notes ?? '');
+  const [viewerPhoto, setViewerPhoto] = useState<{ url: string; label: string } | null>(null);
 
   const isEditable = app?.status === 'pending' || app?.status === 'under_review' || app?.status === 'needs_correction';
 
@@ -186,19 +232,23 @@ export default function ApplicationDetailScreen() {
     );
   };
 
-  const handleSetUnderReview = () => {
+  const handleSetUnderReview = async () => {
     if (!app) return;
-    setUnderReview(app.id);
+    try { await setUnderReview(app.id); } catch {}
   };
 
-  const handleRequestCorrection = () => {
+  const handleRequestCorrection = async () => {
     if (!app) return;
     if (selectedIssues.length === 0) {
       Alert.alert('Sin problemas seleccionados', 'Marcá al menos un problema para solicitar corrección.');
       return;
     }
-    requestCorrection(app.id, selectedIssues, notes);
-    router.back();
+    try {
+      await requestCorrection(app.id, selectedIssues, notes);
+      router.back();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'No se pudo actualizar la solicitud.');
+    }
   };
 
   const handleApprove = () => {
@@ -208,7 +258,13 @@ export default function ApplicationDetailScreen() {
       `¿Aprobar la solicitud de ${app.applicantName}? Se le habilitará el modo conductor.`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Aprobar', style: 'default', onPress: () => { approveApplication(app.id); router.back(); } },
+        {
+          text: 'Aprobar', style: 'default',
+          onPress: async () => {
+            try { await approveApplication(app.id); router.back(); }
+            catch (err: any) { Alert.alert('Error', err?.message ?? 'No se pudo aprobar.'); }
+          },
+        },
       ]
     );
   };
@@ -220,7 +276,13 @@ export default function ApplicationDetailScreen() {
       '¿Rechazar permanentemente esta solicitud? El usuario no podrá activar el modo conductor.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Rechazar', style: 'destructive', onPress: () => { rejectApplication(app.id, selectedIssues, notes); router.back(); } },
+        {
+          text: 'Rechazar', style: 'destructive',
+          onPress: async () => {
+            try { await rejectApplication(app.id, selectedIssues, notes); router.back(); }
+            catch (err: any) { Alert.alert('Error', err?.message ?? 'No se pudo rechazar.'); }
+          },
+        },
       ]
     );
   };
@@ -242,8 +304,15 @@ export default function ApplicationDetailScreen() {
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{app.applicantName}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '22', borderColor: statusCfg.color + '55' }]}>
-          <Text style={{ fontSize: 11, fontFamily: Fonts.headingBold, color: statusCfg.color }}>{statusCfg.label}</Text>
+        <View style={{ gap: 4, alignItems: 'flex-end' }}>
+          <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '22', borderColor: statusCfg.color + '55' }]}>
+            <Text style={{ fontSize: 11, fontFamily: Fonts.headingBold, color: statusCfg.color }}>{statusCfg.label}</Text>
+          </View>
+          {app.isRenewal && (
+            <View style={[styles.statusBadge, { backgroundColor: Brand.colors.blue.normal + '22', borderColor: Brand.colors.blue.normal + '55' }]}>
+              <Text style={{ fontSize: 10, fontFamily: Fonts.headingBold, color: Brand.colors.blue.normal }}>Renovación</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -307,14 +376,26 @@ export default function ApplicationDetailScreen() {
             </View>
             <View style={styles.infoRow}>
               <View style={styles.infoCell}>
-                <Text style={styles.infoKey}>Enviada</Text>
-                <Text style={styles.infoValue}>
-                  {new Date(app.submittedAt).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </Text>
+                <Text style={styles.infoKey}>Cédula</Text>
+                <Text style={styles.infoValue}>{app.cedula}</Text>
               </View>
               <View style={styles.infoCell}>
                 <Text style={styles.infoKey}>Intentos</Text>
                 <Text style={styles.infoValue}>{app.attempts}</Text>
+              </View>
+            </View>
+            <View style={styles.infoRow}>
+              <View style={[styles.infoCell, { flex: 2 }]}>
+                <Text style={styles.infoKey}>Dirección</Text>
+                <Text style={styles.infoValue}>{app.address}</Text>
+              </View>
+            </View>
+            <View style={styles.infoRow}>
+              <View style={styles.infoCell}>
+                <Text style={styles.infoKey}>Enviada</Text>
+                <Text style={styles.infoValue}>
+                  {new Date(app.submittedAt).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </Text>
               </View>
             </View>
           </GlassCard>
@@ -347,18 +428,73 @@ export default function ApplicationDetailScreen() {
           </GlassCard>
         </Animated.View>
 
+        {/* Expiry dates */}
+        {(app.licenseExpiryMonth || app.dekraExpiryMonth) && (
+          <Animated.View entering={FadeInDown.duration(200).delay(155)}>
+            <GlassCard style={styles.card} intensity={32}>
+              <Text style={styles.sectionLabel}>Vencimientos declarados</Text>
+              <View style={styles.infoRow}>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoKey}>Licencia vence</Text>
+                  <Text style={styles.infoValue}>
+                    {app.licenseExpiryMonth && app.licenseExpiryYear
+                      ? `${String(app.licenseExpiryMonth).padStart(2, '0')}/${app.licenseExpiryYear}`
+                      : '—'}
+                  </Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoKey}>Dekra vence</Text>
+                  <Text style={styles.infoValue}>
+                    {app.dekraExpiryMonth && app.dekraExpiryYear
+                      ? `${String(app.dekraExpiryMonth).padStart(2, '0')}/${app.dekraExpiryYear}`
+                      : '—'}
+                  </Text>
+                </View>
+              </View>
+            </GlassCard>
+          </Animated.View>
+        )}
+
         {/* Documents */}
         <Animated.View entering={FadeInDown.duration(200).delay(160)}>
           <GlassCard style={styles.card} intensity={32}>
             <Text style={styles.sectionLabel}>Documentos adjuntos</Text>
             <View style={styles.photosRow}>
-              <PhotoCard label="Licencia frontal" hasPhoto={!!app.licensePhotoFront} colors={colors} />
-              <PhotoCard label="Licencia trasera" hasPhoto={!!app.licensePhotoBack} colors={colors} />
-              <PhotoCard label="Dekra" hasPhoto={!!app.dekraPhoto} colors={colors} />
+              <PhotoCard
+                label="Foto de cara"
+                url={app.facePhoto}
+                colors={colors}
+                onPress={() => app.facePhoto && setViewerPhoto({ url: app.facePhoto, label: 'Foto de cara' })}
+              />
+              <PhotoCard
+                label="Licencia frontal"
+                url={app.licensePhotoFront}
+                colors={colors}
+                onPress={() => app.licensePhotoFront && setViewerPhoto({ url: app.licensePhotoFront, label: 'Licencia frontal' })}
+              />
+              <PhotoCard
+                label="Licencia trasera"
+                url={app.licensePhotoBack}
+                colors={colors}
+                onPress={() => app.licensePhotoBack && setViewerPhoto({ url: app.licensePhotoBack, label: 'Licencia trasera' })}
+              />
+              <PhotoCard
+                label="Dekra"
+                url={app.dekraPhoto}
+                colors={colors}
+                onPress={() => app.dekraPhoto && setViewerPhoto({ url: app.dekraPhoto, label: 'Dekra' })}
+              />
             </View>
-            <Text style={{ fontSize: 11, fontFamily: Fonts.sans, color: colors.textMuted, textAlign: 'center' }}>
-              Los documentos reales se mostrarán cuando el backend esté conectado
-            </Text>
+            {!app.facePhoto && !app.licensePhotoFront && !app.licensePhotoBack && !app.dekraPhoto && (
+              <Text style={{ fontSize: 11, fontFamily: Fonts.sans, color: colors.textMuted, textAlign: 'center' }}>
+                El solicitante no adjuntó fotos
+              </Text>
+            )}
+            {(app.facePhoto || app.licensePhotoFront || app.licensePhotoBack || app.dekraPhoto) && (
+              <Text style={{ fontSize: 10, fontFamily: Fonts.sans, color: colors.textMuted, textAlign: 'center' }}>
+                Tocá una foto para verla en pantalla completa
+              </Text>
+            )}
           </GlassCard>
         </Animated.View>
 
@@ -428,6 +564,14 @@ export default function ApplicationDetailScreen() {
         )}
 
       </ScrollView>
+
+      {viewerPhoto && (
+        <PhotoViewer
+          url={viewerPhoto.url}
+          label={viewerPhoto.label}
+          onClose={() => setViewerPhoto(null)}
+        />
+      )}
     </View>
   );
 }

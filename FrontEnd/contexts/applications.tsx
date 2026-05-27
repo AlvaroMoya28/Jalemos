@@ -1,45 +1,117 @@
-// Driver application pipeline context.
-// Manages the full lifecycle: submit → review → approve/reject/needs_correction → resubmit.
+// Driver application pipeline context — connected to the real API.
+// Reports section is still mock until the reports backend is built.
 
-import { createContext, ReactNode, useContext, useState } from 'react';
-import {
-  DriverApplication,
-  ApplicationStatus,
-  SEED_APPLICATIONS,
-} from '@/constants/mock-applications';
-import {
-  UserReport,
-  SEED_REPORTS,
-} from '@/constants/mock-reports';
+import { SEED_REPORTS, UserReport } from '@/constants/mock-reports';
+import { useAuth } from '@/contexts/auth';
+import { applicationsApi, DriverApplicationDTO } from '@/services/api';
+import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
-const appStore: DriverApplication[] = [...SEED_APPLICATIONS];
-const reportStore: UserReport[] = [...SEED_REPORTS];
+// Canonical type used throughout the frontend
 
-interface SubmitData {
+export type ApplicationStatus =
+  | 'pending'
+  | 'under_review'
+  | 'needs_correction'
+  | 'approved'
+  | 'rejected';
+
+export interface DriverApplication {
+  id: string;
   userId: string;
   applicantName: string;
   applicantEmail: string;
   applicantAvatar: string;
-  vehicle: DriverApplication['vehicle'];
+  submittedAt: string;
+  updatedAt: string;
+  status: ApplicationStatus;
+  attempts: number;
+  cedula: string;
+  address: string;
+  vehicle: { brand: string; model: string; year: string; plate: string; color: string };
+  facePhoto: string | null;
   licensePhotoFront: string | null;
   licensePhotoBack: string | null;
   dekraPhoto: string | null;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
+  isRenewal: boolean;
+  adminFeedback?: { issueIds: string[]; notes: string; reviewedAt: string };
 }
+
+export interface SubmitData {
+  cedula?: string;
+  address?: string;
+  vehicle?: DriverApplication['vehicle'];
+  facePhoto: string | null;
+  licensePhotoFront: string | null;
+  licensePhotoBack: string | null;
+  dekraPhoto: string | null;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
+  isRenewal?: boolean;
+}
+
+// DTO → local model
+
+function fromDTO(dto: DriverApplicationDTO): DriverApplication {
+  return {
+    id:                 dto.applicationId,
+    userId:             dto.userId,
+    applicantName:      dto.applicantName ?? '',
+    applicantEmail:     dto.applicantEmail ?? '',
+    applicantAvatar:    dto.applicantAvatar ?? '?',
+    submittedAt:        dto.submittedAt,
+    updatedAt:          dto.updatedAt,
+    status:             dto.status as ApplicationStatus,
+    attempts:           dto.attempts,
+    cedula:             dto.cedula,
+    address:            dto.address,
+    vehicle: {
+      brand: dto.vehicleBrand,
+      model: dto.vehicleModel,
+      year:  String(dto.vehicleYear),
+      plate: dto.vehiclePlate,
+      color: dto.vehicleColor,
+    },
+    facePhoto:           dto.facePhoto,
+    licensePhotoFront:   dto.licensePhotoFront,
+    licensePhotoBack:    dto.licensePhotoBack,
+    dekraPhoto:          dto.dekraPhoto,
+    licenseExpiryMonth:  dto.licenseExpiryMonth ?? null,
+    licenseExpiryYear:   dto.licenseExpiryYear ?? null,
+    dekraExpiryMonth:    dto.dekraExpiryMonth ?? null,
+    dekraExpiryYear:     dto.dekraExpiryYear ?? null,
+    isRenewal:           dto.isRenewal ?? false,
+    adminFeedback: dto.adminIssueIds
+      ? { issueIds: dto.adminIssueIds, notes: dto.adminNotes ?? '', reviewedAt: dto.reviewedAt ?? '' }
+      : undefined,
+  };
+}
+
+// Context type
 
 interface ApplicationsContextType {
   // User-facing
-  getMyApplication: (userId: string) => DriverApplication | undefined;
-  submitApplication: (data: SubmitData) => DriverApplication;
-  resubmitApplication: (applicationId: string, updates: Partial<Pick<DriverApplication, 'vehicle' | 'licensePhotoFront' | 'licensePhotoBack' | 'dekraPhoto'>>) => void;
+  myApplication: DriverApplication | null;
+  myApplicationLoading: boolean;
+  loadMyApplication: () => Promise<DriverApplication | null>;
+  submitApplication: (data: SubmitData) => Promise<DriverApplication>;
+  resubmitApplication: (applicationId: string, data: SubmitData) => Promise<void>;
 
   // Admin-facing — applications
   applications: DriverApplication[];
-  setUnderReview: (id: string) => void;
-  requestCorrection: (id: string, issueIds: string[], notes: string) => void;
-  approveApplication: (id: string) => void;
-  rejectApplication: (id: string, issueIds: string[], notes: string) => void;
+  applicationsLoading: boolean;
+  loadApplications: (statusFilter?: string) => Promise<void>;
+  setUnderReview: (id: string) => Promise<void>;
+  requestCorrection: (id: string, issueIds: string[], notes: string) => Promise<void>;
+  approveApplication: (id: string) => Promise<void>;
+  rejectApplication: (id: string, issueIds: string[], notes: string) => Promise<void>;
 
-  // Admin-facing — reports
+  // Admin-facing — reports (mock until backend is built)
   reports: UserReport[];
   suspendUserFromReport: (reportId: string, days: number) => void;
   deactivateUserFromReport: (reportId: string) => void;
@@ -47,123 +119,173 @@ interface ApplicationsContextType {
 }
 
 const ApplicationsContext = createContext<ApplicationsContextType>({
-  getMyApplication: () => undefined,
-  submitApplication: () => ({} as DriverApplication),
-  resubmitApplication: () => {},
-  applications: [],
-  setUnderReview: () => {},
-  requestCorrection: () => {},
-  approveApplication: () => {},
-  rejectApplication: () => {},
-  reports: [],
-  suspendUserFromReport: () => {},
+  myApplication:           null,
+  myApplicationLoading:    false,
+  loadMyApplication:       async () => null,
+  submitApplication:       async () => ({} as DriverApplication),
+  resubmitApplication:     async () => {},
+  applications:            [],
+  applicationsLoading:     false,
+  loadApplications:        async () => {},
+  setUnderReview:          async () => {},
+  requestCorrection:       async () => {},
+  approveApplication:      async () => {},
+  rejectApplication:       async () => {},
+  reports:                 [],
+  suspendUserFromReport:   () => {},
   deactivateUserFromReport: () => {},
-  dismissReport: () => {},
+  dismissReport:           () => {},
 });
 
-function now() {
-  return new Date().toISOString();
-}
+// Provider
 
 export function ApplicationsProvider({ children }: { children: ReactNode }) {
-  const [applications, setApplications] = useState<DriverApplication[]>([...appStore]);
-  const [reports, setReports] = useState<UserReport[]>([...reportStore]);
+  const { token } = useAuth();
 
-  const sync = (updated: DriverApplication[]) => {
-    // Keep module store in sync so lookups outside React also see updates
-    updated.forEach((a) => {
-      const i = appStore.findIndex((x) => x.id === a.id);
-      if (i !== -1) appStore[i] = a; else appStore.push(a);
-    });
-    setApplications([...appStore]);
+  const [myApplication,        setMyApplication]        = useState<DriverApplication | null>(null);
+  const [myApplicationLoading, setMyApplicationLoading] = useState(false);
+  const [applications,         setApplications]         = useState<DriverApplication[]>([]);
+  const [applicationsLoading,  setApplicationsLoading]  = useState(false);
+  const [reports,              setReports]              = useState<UserReport[]>([...SEED_REPORTS]);
+
+  const requireToken = (): string => {
+    if (!token) throw new Error('Sesión expirada. Por favor iniciá sesión de nuevo.');
+    return token;
   };
 
-  const syncReports = (updated: UserReport[]) => {
-    updated.forEach((r) => {
-      const i = reportStore.findIndex((x) => x.id === r.id);
-      if (i !== -1) reportStore[i] = r; else reportStore.push(r);
-    });
-    setReports([...reportStore]);
-  };
+  // User-facing
 
-  const getMyApplication = (userId: string) =>
-    appStore.filter((a) => a.userId === userId).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0];
+  const loadMyApplication = useCallback(async (): Promise<DriverApplication | null> => {
+    setMyApplicationLoading(true);
+    try {
+      const dto = await applicationsApi.getMy(requireToken());
+      const app = dto ? fromDTO(dto) : null;
+      setMyApplication(app);
+      return app;
+    } finally {
+      setMyApplicationLoading(false);
+    }
+  }, [token]);
 
-  const submitApplication = (data: SubmitData): DriverApplication => {
-    const app: DriverApplication = {
-      id: `app-${Date.now()}`,
-      userId: data.userId,
-      applicantName: data.applicantName,
-      applicantEmail: data.applicantEmail,
-      applicantAvatar: data.applicantAvatar,
-      submittedAt: now(),
-      updatedAt: now(),
-      status: 'pending',
-      attempts: 1,
-      vehicle: data.vehicle,
-      licensePhotoFront: data.licensePhotoFront,
-      licensePhotoBack: data.licensePhotoBack,
-      dekraPhoto: data.dekraPhoto,
-    };
-    sync([app]);
+  const submitApplication = async (data: SubmitData): Promise<DriverApplication> => {
+    const dto = await applicationsApi.submit(
+      {
+        cedula:             data.cedula,
+        address:            data.address,
+        vehicleBrand:       data.vehicle?.brand,
+        vehicleModel:       data.vehicle?.model,
+        vehicleYear:        data.vehicle ? Number(data.vehicle.year) : undefined,
+        vehiclePlate:       data.vehicle?.plate,
+        vehicleColor:       data.vehicle?.color,
+        facePhoto:          data.facePhoto,
+        licensePhotoFront:  data.licensePhotoFront,
+        licensePhotoBack:   data.licensePhotoBack,
+        dekraPhoto:         data.dekraPhoto,
+        licenseExpiryMonth: data.licenseExpiryMonth,
+        licenseExpiryYear:  data.licenseExpiryYear,
+        dekraExpiryMonth:   data.dekraExpiryMonth,
+        dekraExpiryYear:    data.dekraExpiryYear,
+        isRenewal:          data.isRenewal ?? false,
+      },
+      requireToken()
+    );
+    const app = fromDTO(dto);
+    setMyApplication(app);
     return app;
   };
 
-  const resubmitApplication = (id: string, updates: Partial<Pick<DriverApplication, 'vehicle' | 'licensePhotoFront' | 'licensePhotoBack' | 'dekraPhoto'>>) => {
-    const app = appStore.find((a) => a.id === id);
-    if (!app) return;
-    const updated: DriverApplication = {
-      ...app,
-      ...updates,
-      status: 'pending',
-      adminFeedback: undefined,
-      attempts: app.attempts + 1,
-      updatedAt: now(),
-    };
-    sync([updated]);
+  const resubmitApplication = async (applicationId: string, data: SubmitData): Promise<void> => {
+    const dto = await applicationsApi.resubmit(
+      applicationId,
+      {
+        cedula:             data.cedula,
+        address:            data.address,
+        vehicleBrand:       data.vehicle?.brand,
+        vehicleModel:       data.vehicle?.model,
+        vehicleYear:        data.vehicle ? Number(data.vehicle.year) : undefined,
+        vehiclePlate:       data.vehicle?.plate,
+        vehicleColor:       data.vehicle?.color,
+        facePhoto:          data.facePhoto,
+        licensePhotoFront:  data.licensePhotoFront,
+        licensePhotoBack:   data.licensePhotoBack,
+        dekraPhoto:         data.dekraPhoto,
+        licenseExpiryMonth: data.licenseExpiryMonth,
+        licenseExpiryYear:  data.licenseExpiryYear,
+        dekraExpiryMonth:   data.dekraExpiryMonth,
+        dekraExpiryYear:    data.dekraExpiryYear,
+        isRenewal:          data.isRenewal ?? false,
+      },
+      requireToken()
+    );
+    setMyApplication(fromDTO(dto));
   };
 
-  const updateStatus = (id: string, status: ApplicationStatus, extra?: Partial<DriverApplication>) => {
-    const app = appStore.find((a) => a.id === id);
-    if (!app) return;
-    sync([{ ...app, status, updatedAt: now(), ...extra }]);
+  // Admin-facing
+
+  const loadApplications = useCallback(async (statusFilter?: string) => {
+    setApplicationsLoading(true);
+    try {
+      const list = await applicationsApi.getAll(requireToken(), statusFilter);
+      setApplications(list.map(fromDTO));
+    } finally {
+      setApplicationsLoading(false);
+    }
+  }, [token]);
+
+  const optimisticUpdate = (id: string, patch: Partial<DriverApplication>) => {
+    setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   };
 
-  const setUnderReview = (id: string) => updateStatus(id, 'under_review');
+  const setUnderReview = async (id: string) => {
+    await applicationsApi.setUnderReview(id, requireToken());
+    optimisticUpdate(id, { status: 'under_review' });
+  };
 
-  const requestCorrection = (id: string, issueIds: string[], notes: string) =>
-    updateStatus(id, 'needs_correction', {
-      adminFeedback: { issueIds, notes, reviewedAt: now() },
+  const requestCorrection = async (id: string, issueIds: string[], notes: string) => {
+    await applicationsApi.requestCorrection(id, { issueIds, notes }, requireToken());
+    optimisticUpdate(id, {
+      status: 'needs_correction',
+      adminFeedback: { issueIds, notes, reviewedAt: new Date().toISOString() },
     });
+  };
 
-  const approveApplication = (id: string) => updateStatus(id, 'approved');
+  const approveApplication = async (id: string) => {
+    await applicationsApi.approve(id, requireToken());
+    optimisticUpdate(id, { status: 'approved' });
+  };
 
-  const rejectApplication = (id: string, issueIds: string[], notes: string) =>
-    updateStatus(id, 'rejected', {
-      adminFeedback: { issueIds, notes, reviewedAt: now() },
+  const rejectApplication = async (id: string, issueIds: string[], notes: string) => {
+    await applicationsApi.reject(id, { issueIds, notes }, requireToken());
+    optimisticUpdate(id, {
+      status: 'rejected',
+      adminFeedback: { issueIds, notes, reviewedAt: new Date().toISOString() },
     });
+  };
 
   const resolveReport = (reportId: string, action: UserReport['adminAction']) => {
-    const report = reportStore.find((r) => r.id === reportId);
-    if (!report) return;
-    syncReports([{ ...report, status: action?.type === 'dismissed' ? 'dismissed' : 'resolved', adminAction: action }]);
+    setReports((prev) => prev.map((r) =>
+      r.id !== reportId ? r :
+      { ...r, status: action?.type === 'dismissed' ? 'dismissed' : 'resolved', adminAction: action }
+    ));
   };
 
-  const suspendUserFromReport = (reportId: string, days: number) =>
-    resolveReport(reportId, { type: 'suspended', suspensionDays: days, resolvedAt: now() });
-
-  const deactivateUserFromReport = (reportId: string) =>
-    resolveReport(reportId, { type: 'deactivated', resolvedAt: now() });
-
-  const dismissReport = (reportId: string) =>
-    resolveReport(reportId, { type: 'dismissed', resolvedAt: now() });
+  const suspendUserFromReport   = (id: string, days: number) =>
+    resolveReport(id, { type: 'suspended', suspensionDays: days, resolvedAt: new Date().toISOString() });
+  const deactivateUserFromReport = (id: string) =>
+    resolveReport(id, { type: 'deactivated', resolvedAt: new Date().toISOString() });
+  const dismissReport            = (id: string) =>
+    resolveReport(id, { type: 'dismissed',   resolvedAt: new Date().toISOString() });
 
   return (
     <ApplicationsContext.Provider value={{
-      getMyApplication,
+      myApplication,
+      myApplicationLoading,
+      loadMyApplication,
       submitApplication,
       resubmitApplication,
       applications,
+      applicationsLoading,
+      loadApplications,
       setUnderReview,
       requestCorrection,
       approveApplication,

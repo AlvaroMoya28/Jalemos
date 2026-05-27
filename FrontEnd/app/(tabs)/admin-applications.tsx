@@ -3,7 +3,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,7 +16,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
-import { ApplicationStatus, DriverApplication } from '@/constants/mock-applications';
+import { ApplicationStatus, DriverApplication } from '@/contexts/applications';
 import { useApplications } from '@/contexts/applications';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
@@ -58,23 +58,19 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderTopLeftRadius: Brand.radius[24],
       borderTopRightRadius: Brand.radius[24],
       flex: 1,
-      paddingTop: 16,
     },
-    filterRow: {
-      flexDirection: 'row',
-      gap: 8,
-      paddingHorizontal: Brand.grid.margin,
-      paddingBottom: 14,
-      flexWrap: 'wrap',
+    scrollContent: { paddingTop: 16, paddingBottom: 40 },
+    chipsRow: {
+      flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+      paddingHorizontal: Brand.grid.margin, paddingBottom: 14,
     },
     filterChip: {
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      borderRadius: 999, borderWidth: 1,
+      paddingHorizontal: 12, paddingVertical: 6,
+      overflow: 'hidden',
     },
     filterChipText: { fontSize: 12, fontFamily: Fonts.heading },
-    list: { paddingHorizontal: Brand.grid.margin, gap: 10, paddingBottom: 24 },
+    list: { paddingHorizontal: Brand.grid.margin, gap: 10 },
     card: { borderRadius: Brand.radius[16], padding: Brand.spacing[16] },
     cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
     avatar: {
@@ -107,8 +103,10 @@ export default function AdminApplicationsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
   const router = useRouter();
-  const { applications } = useApplications();
+  const { applications, loadApplications, applicationsLoading } = useApplications();
   const [filter, setFilter] = useState<Filter>('all');
+
+  useEffect(() => { loadApplications(); }, []);
 
   useEffect(() => {
     navigation.setOptions({ title: 'Solicitudes', icon: { sf: 'doc.text' } });
@@ -145,74 +143,78 @@ export default function AdminApplicationsScreen() {
       </View>
 
       <View style={styles.surface}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {filters.map((f) => {
-            const active = filter === f.key;
-            return (
-              <Pressable
-                key={f.key}
-                style={[styles.filterChip, {
-                  backgroundColor: active ? Brand.colors.green.normal : colors.surfaceAlt,
-                  borderColor: active ? Brand.colors.green.normal : colors.border,
-                }]}
-                onPress={() => setFilter(f.key)}
-              >
-                <Text style={[styles.filterChipText, { color: active ? '#fff' : colors.textSecondary }]}>
-                  {f.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {filtered.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="documents-outline" size={40} color={colors.textMuted} />
-              <Text style={styles.emptyText}>No hay solicitudes en esta categoría</Text>
-            </View>
-          ) : (
-            filtered.map((app, idx) => (
-              <Animated.View key={app.id} entering={FadeInDown.duration(200).delay(idx * 40)}>
-                <AnimatedPressable
-                  pressedScale={0.99}
-                  onPress={() => router.push({ pathname: '/application-detail', params: { id: app.id } })}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Filter chips */}
+          <View style={styles.chipsRow}>
+            {filters.map((f) => {
+              const active = filter === f.key;
+              return (
+                <Pressable
+                  key={f.key}
+                  style={[styles.filterChip, {
+                    backgroundColor: active ? Brand.colors.green.normal : colors.surfaceAlt,
+                    borderColor: active ? Brand.colors.green.normal : colors.border,
+                  }]}
+                  onPress={() => setFilter(f.key)}
                 >
-                  <GlassCard style={styles.card} intensity={32}>
-                    <View style={styles.cardTop}>
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{app.applicantAvatar}</Text>
-                      </View>
-                      <View style={styles.nameBlock}>
-                        <Text style={styles.name}>{app.applicantName}</Text>
-                        <Text style={styles.email}>{app.applicantEmail}</Text>
-                      </View>
-                      <StatusBadge status={app.status} />
-                    </View>
+                  <Text style={[styles.filterChipText, { color: active ? '#fff' : colors.textSecondary }]}>
+                    {f.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-                    <View style={styles.divider} />
+          {/* Cards */}
+          <View style={styles.list}>
+            {filtered.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="documents-outline" size={40} color={colors.textMuted} />
+                <Text style={styles.emptyText}>No hay solicitudes en esta categoría</Text>
+              </View>
+            ) : (
+              filtered.map((app, idx) => (
+                <Animated.View key={app.id} entering={FadeInDown.duration(200).delay(idx * 40)}>
+                  <AnimatedPressable
+                    pressedScale={0.99}
+                    onPress={() => router.push({ pathname: '/application-detail', params: { id: app.id } })}
+                  >
+                    <GlassCard style={styles.card} intensity={32}>
+                      <View style={styles.cardTop}>
+                        <View style={styles.avatar}>
+                          <Text style={styles.avatarText}>{app.applicantAvatar}</Text>
+                        </View>
+                        <View style={styles.nameBlock}>
+                          <Text style={styles.name}>{app.applicantName}</Text>
+                          <Text style={styles.email}>{app.applicantEmail}</Text>
+                        </View>
+                        <StatusBadge status={app.status} />
+                      </View>
 
-                    <View style={styles.detailRow}>
-                      <Text style={styles.vehicleText}>
-                        {app.vehicle.brand} {app.vehicle.model} {app.vehicle.year}
-                      </Text>
-                      <Text style={styles.plateText}>{app.vehicle.plate}</Text>
-                    </View>
-                    <View style={styles.metaRow}>
-                      <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
-                      <Text style={styles.metaText}>{formatDate(app.submittedAt)}</Text>
-                      {app.attempts > 1 && (
-                        <>
-                          <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textMuted }} />
-                          <Text style={styles.metaText}>Intento #{app.attempts}</Text>
-                        </>
-                      )}
-                    </View>
-                  </GlassCard>
-                </AnimatedPressable>
-              </Animated.View>
-            ))
-          )}
+                      <View style={styles.divider} />
+
+                      <View style={styles.detailRow}>
+                        <Text style={styles.vehicleText}>
+                          {app.vehicle.brand} {app.vehicle.model} {app.vehicle.year}
+                        </Text>
+                        <Text style={styles.plateText}>{app.vehicle.plate}</Text>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
+                        <Text style={styles.metaText}>{formatDate(app.submittedAt)}</Text>
+                        {app.attempts > 1 && (
+                          <>
+                            <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textMuted }} />
+                            <Text style={styles.metaText}>Intento #{app.attempts}</Text>
+                          </>
+                        )}
+                      </View>
+                    </GlassCard>
+                  </AnimatedPressable>
+                </Animated.View>
+              ))
+            )}
+          </View>
         </ScrollView>
       </View>
     </View>

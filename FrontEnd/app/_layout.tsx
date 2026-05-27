@@ -3,16 +3,16 @@
 // and wraps the entire app in the React Navigation theme provider.
 
 import {
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-    Poppins_900Black,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_900Black,
 } from "@expo-google-fonts/poppins";
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -22,6 +22,7 @@ import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 
+import { AdminUsersProvider } from "@/contexts/admin-users";
 import { ApplicationsProvider } from "@/contexts/applications";
 import { AuthProvider } from "@/contexts/auth";
 import { LoadingProvider } from "@/contexts/loading";
@@ -65,79 +66,89 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <ApplicationsProvider>
-          <UserModeProvider>
-            <ThemeProvider
-              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-            >
-              <TripsProvider>
-                <LoadingProvider>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      animation: "fade",
-                      animationDuration: 220,
-                      gestureEnabled: true,
-                    }}
-                  >
-                    {/* Login / landing screen — no header needed */}
-                    <Stack.Screen
-                      name="index"
-                      options={{ headerShown: false }}
-                    />
-                    {/* Tab navigator group — no header, tabs manage their own titles */}
-                    <Stack.Screen
-                      name="(tabs)"
-                      options={{ headerShown: false }}
-                    />
-                    {/* Registration screen */}
-                    <Stack.Screen
-                      name="register"
-                      options={{ headerShown: false }}
-                    />
-                    {/* Driver registration */}
-                    <Stack.Screen
-                      name="driver-registration"
-                      options={{ headerShown: false }}
-                    />
-                    {/* Ride detail — drill-down from search results */}
-                    <Stack.Screen
-                      name="ride-detail"
-                      options={{
+          <AdminUsersProvider>
+            <UserModeProvider>
+              <ThemeProvider
+                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+              >
+                <TripsProvider>
+                  <LoadingProvider>
+                    <Stack
+                      screenOptions={{
                         headerShown: false,
-                        animation: "slide_from_right",
+                        animation: "fade",
+                        animationDuration: 220,
+                        gestureEnabled: true,
                       }}
-                    />
-                    {/* Driver application status — shown after submitting driver registration */}
-                    <Stack.Screen
-                      name="driver-status"
-                      options={{
-                        headerShown: false,
-                        animation: "slide_from_right",
-                      }}
-                    />
-                    {/* Admin: full application review */}
-                    <Stack.Screen
-                      name="application-detail"
-                      options={{
-                        headerShown: false,
-                        animation: "slide_from_right",
-                      }}
-                    />
-                    {/* Transparent modal overlay that slides up from the bottom */}
-                    <Stack.Screen
-                      name="modal"
-                      options={{
-                        presentation: "transparentModal",
-                        title: "Modal",
-                        animation: "fade_from_bottom",
-                      }}
-                    />
-                  </Stack>
-                  <StatusBar style="auto" />
-                </LoadingProvider>
-              </TripsProvider>
-            </ThemeProvider>
-          </UserModeProvider>
+                    >
+                      {/* Login / landing screen — no header needed */}
+                      <Stack.Screen
+                        name="index"
+                        options={{ headerShown: false }}
+                      />
+                      {/* Tab navigator group — no header, tabs manage their own titles */}
+                      <Stack.Screen
+                        name="(tabs)"
+                        options={{ headerShown: false }}
+                      />
+                      {/* Registration screen */}
+                      <Stack.Screen
+                        name="register"
+                        options={{ headerShown: false }}
+                      />
+                      {/* Driver registration */}
+                      <Stack.Screen
+                        name="driver-registration"
+                        options={{ headerShown: false }}
+                      />
+                      {/* Ride detail — drill-down from search results */}
+                      <Stack.Screen
+                        name="ride-detail"
+                        options={{
+                          headerShown: false,
+                          animation: "slide_from_right",
+                        }}
+                      />
+                      {/* Driver application status — shown after submitting driver registration */}
+                      <Stack.Screen
+                        name="driver-status"
+                        options={{
+                          headerShown: false,
+                          animation: "slide_from_right",
+                        }}
+                      />
+                      {/* Admin: full application review */}
+                      <Stack.Screen
+                        name="application-detail"
+                        options={{
+                          headerShown: false,
+                          animation: "slide_from_right",
+                        }}
+                      />
+                      {/* Políticas de uso */}
+                      <Stack.Screen
+                        name="policies"
+                        options={{
+                          headerShown: false,
+                          animation: "slide_from_right",
+                        }}
+                      />
+                      {/* Transparent modal overlay that slides up from the bottom */}
+                      <Stack.Screen
+                        name="modal"
+                        options={{
+                          presentation: "transparentModal",
+                          title: "Modal",
+                          animation: "fade_from_bottom",
+                        }}
+                      />
+                    </Stack>
+                    <StatusBar style="auto" />
+                  </LoadingProvider>
+                </TripsProvider>
+              </ThemeProvider>
+            </UserModeProvider>
+          </AdminUsersProvider>
         </ApplicationsProvider>
       </AuthProvider>
     </GestureHandlerRootView>

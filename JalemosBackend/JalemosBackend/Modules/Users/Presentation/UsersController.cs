@@ -1,76 +1,109 @@
-// HTTP presentation layer for the Users module.
-// Maps REST requests to IUsersService use cases and returns appropriate HTTP status codes.
+// Admin user management endpoints.
+// All routes require an authenticated admin JWT.
 
 using JalemosBackend.Modules.Users.Application;
-using JalemosBackend.Modules.Users.Domain;
+using JalemosBackend.Modules.Users.Application.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JalemosBackend.Modules.Users.Presentation;
 
-// Controller for user-related endpoints, e.g. to manage user profiles and retrieve user information. 
 [ApiController]
 [Route("api/users")]
+[Authorize(Roles = "admin")]
 public sealed class UsersController : ControllerBase
 {
     private readonly IUsersService _usersService;
 
-    public UsersController(IUsersService usersService)
-    {
-        _usersService = usersService;
-    }
+    public UsersController(IUsersService usersService) => _usersService = usersService;
 
-    // Get that returns a list of all users.
-    // TODO: Should be protected by an admin policy so only admins can access the full list of users.
+    // GET /api/users?search=&role=&status=&sortBy=name_asc&page=1&pageSize=30
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<User>>> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaged([FromQuery] UserQueryParams query, CancellationToken ct)
     {
         try
         {
-            var users = await _usersService.GetAllAsync(cancellationToken);
-            return Ok(users);
+            var result = await _usersService.GetPagedAsync(query, ct);
+            return Ok(result);
         }
         catch (Exception ex)
         {
-            return Problem(detail: ex.ToString(), statusCode: 500);
+            return Problem(detail: ex.Message, statusCode: 500);
         }
     }
 
-    // Get that returns a single user by id, or 404 if not found.
-    // TODO: Should be protected by an auth policy so users can only access their own profile (or admins can access any profile).
+    // GET /api/users/{id}
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<User>> GetById(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var user = await _usersService.GetByIdAsync(id, cancellationToken);
-        return user is null ? NotFound() : Ok(user);
+        var user = await _usersService.GetByIdAsync(id, ct);
+        if (user is null) return NotFound();
+
+        var dto = new UserSummaryDto
+        {
+            Id             = user.Id,
+            Username       = user.Username,
+            Email          = user.Email,
+            FirstName      = user.FirstName,
+            LastName       = user.LastName,
+            Role           = user.Role.ToString(),
+            MeanRating     = user.MeanRating,
+            TotalTrips     = user.TotalTrips,
+            Kms            = user.Kms,
+            IsActive       = user.IsActive,
+            SuspendedUntil = user.SuspendedUntil,
+            CreatedAt      = user.CreatedAt,
+        };
+        return Ok(dto);
     }
 
-    // Post that creates a new user. The request body should contain the user profile data, including a plaintext password that will be hashed in the service layer.
-    // TODO: this endpoint should be protected by an admin policy, or we need to implement a public registration flow with email verification and password hashing here in the controller instead of the service layer.
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] User user, CancellationToken cancellationToken)
+    // PATCH /api/users/{id}/role  — body: { "role": "passenger" }
+    [HttpPatch("{id:guid}/role")]
+    public async Task<IActionResult> ChangeRole(Guid id, [FromBody] ChangeRoleRequest dto, CancellationToken ct)
     {
-        await _usersService.CreateAsync(user, cancellationToken);
-        return NoContent();
+        try
+        {
+            await _usersService.ChangeRoleAsync(id, dto.Role, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)       { return NotFound(); }
+        catch (ArgumentException ex)       { return Problem(detail: ex.Message, statusCode: 400); }
     }
 
-    // Put that updates an existing user. 
-    // TODO: Should be protected by an auth policy so users can only update their own profile (or admins can update any profile).
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] User user, CancellationToken cancellationToken)
+    // PATCH /api/users/{id}/ban  — body: { "days": 7 }  (0 = permanent)
+    [HttpPatch("{id:guid}/ban")]
+    public async Task<IActionResult> Ban(Guid id, [FromBody] BanUserRequest dto, CancellationToken ct)
     {
-        // Enforce the route id so the primary key cannot be changed via the request body
-        user.Id = id;
-        await _usersService.UpdateAsync(user, cancellationToken);
-        return NoContent();
+        try
+        {
+            await _usersService.BanAsync(id, dto.Days, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)  { return NotFound(); }
+        catch (ArgumentException ex)  { return Problem(detail: ex.Message, statusCode: 400); }
     }
 
-    // Delete that removes a user by id.
-    // TODO: Should be protected by an auth policy so users can only delete their own account (or admins can delete any account).
-    // TODO: We should also consider whether to implement soft deletes here instead of hard deletes in the repository layer.
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    // PATCH /api/users/{id}/lift-ban
+    [HttpPatch("{id:guid}/lift-ban")]
+    public async Task<IActionResult> LiftBan(Guid id, CancellationToken ct)
     {
-        await _usersService.DeleteAsync(id, cancellationToken);
-        return NoContent();
+        try   { await _usersService.LiftBanAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    // PATCH /api/users/{id}/deactivate
+    [HttpPatch("{id:guid}/deactivate")]
+    public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
+    {
+        try   { await _usersService.DeactivateAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    // PATCH /api/users/{id}/activate
+    [HttpPatch("{id:guid}/activate")]
+    public async Task<IActionResult> Activate(Guid id, CancellationToken ct)
+    {
+        try   { await _usersService.ActivateAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 }

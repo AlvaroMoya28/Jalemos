@@ -2,7 +2,7 @@
 // Stores the JWT token in expo-secure-store so the session survives app restarts.
 // Run `npx expo install expo-secure-store` if it isn't installed yet.
 
-import { ApiError, post } from "@/services/api";
+import { ApiError, get, post } from "@/services/api";
 import * as SecureStore from "expo-secure-store";
 import {
   createContext,
@@ -13,6 +13,7 @@ import {
 } from "react";
 
 const TOKEN_KEY = "jalemos_token";
+const DRIVER_ACTIVATED_KEY = "jalemos_driver_activated";
 
 export interface User {
   id: string;
@@ -22,9 +23,16 @@ export interface User {
   lastName: string;
   role: "admin" | "passenger" | "passenger+driver";
   avatar: string;
+  profilePhotoUrl: string | null;
+  profilePhotoLocked: boolean;
   rating: number;
   tripsCount: number;
+  driverTripsCount: number;
   memberSince: string;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
 }
 
 interface AuthResponse {
@@ -36,9 +44,16 @@ interface AuthResponse {
   lastName: string;
   role: string;
   avatar: string;
+  profilePhotoUrl: string | null;
+  profilePhotoLocked: boolean;
   rating: number;
   tripsCount: number;
+  driverTripsCount: number;
   memberSince: string;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
 }
 
 export interface RegisterData {
@@ -53,6 +68,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  driverActivated: boolean;
   login: (
     identifier: string,
     password: string,
@@ -61,17 +77,20 @@ interface AuthContextType {
   register: (
     data: RegisterData,
   ) => Promise<{ success: boolean; error?: string }>;
-  upgradeToDriver: () => void;
+  upgradeToDriver: () => Promise<string>;
+  setDriverActivated: (v: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   isLoading: true,
+  driverActivated: false,
   login: async () => ({ success: false }),
   logout: async () => {},
   register: async () => ({ success: false }),
-  upgradeToDriver: () => {},
+  upgradeToDriver: async () => "passenger",
+  setDriverActivated: async () => {},
 });
 
 function mapResponse(r: AuthResponse): User {
@@ -83,9 +102,16 @@ function mapResponse(r: AuthResponse): User {
     lastName: r.lastName,
     role: r.role as User["role"],
     avatar: r.avatar,
+    profilePhotoUrl: r.profilePhotoUrl ?? null,
+    profilePhotoLocked: r.profilePhotoLocked ?? false,
     rating: r.rating,
     tripsCount: r.tripsCount,
+    driverTripsCount: r.driverTripsCount ?? 0,
     memberSince: r.memberSince,
+    licenseExpiryMonth: r.licenseExpiryMonth ?? null,
+    licenseExpiryYear: r.licenseExpiryYear ?? null,
+    dekraExpiryMonth: r.dekraExpiryMonth ?? null,
+    dekraExpiryYear: r.dekraExpiryYear ?? null,
   };
 }
 
@@ -93,14 +119,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [driverActivated, _setDriverActivated] = useState(false);
 
-  // Restore session on startup
+  // Restore session on startup — refresh the JWT to get the current user profile and role
   useEffect(() => {
-    SecureStore.getItemAsync(TOKEN_KEY)
-      .then((stored) => {
-        if (stored) {
-          // Token exists but we don't re-fetch the profile yet — just mark as loaded.
-          // A full implementation would call GET /api/auth/me here.
+    Promise.all([
+      SecureStore.getItemAsync(TOKEN_KEY),
+      SecureStore.getItemAsync(DRIVER_ACTIVATED_KEY),
+    ])
+      .then(async ([stored, activated]) => {
+        if (!stored) return;
+        try {
+          const res = await get<AuthResponse>("/api/auth/refresh", stored);
+          await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+          setToken(res.token);
+          setUser(mapResponse(res));
+          // Sync driverActivated with actual role from server
+          if (res.role === "passenger+driver" && activated === "1") {
+            _setDriverActivated(true);
+          } else if (res.role !== "passenger+driver" && activated === "1") {
+            // Admin removed driver role — clear the flag
+            await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
+          }
+        } catch {
+          // Server unavailable — restore flag from SecureStore and keep token
+          if (activated === "1") _setDriverActivated(true);
           setToken(stored);
         }
       })
@@ -117,6 +160,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = mapResponse(res);
       setToken(res.token);
       setUser(u);
+      // Sync driverActivated with SecureStore + actual role
+      if (u.role !== "passenger+driver") {
+        await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
+        _setDriverActivated(false);
+      } else {
+        const activated = await SecureStore.getItemAsync(DRIVER_ACTIVATED_KEY);
+        _setDriverActivated(activated === "1");
+      }
       return { success: true, user: u };
     } catch (err) {
       const msg =
@@ -131,6 +182,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    _setDriverActivated(false);
+    // driverActivated NOT cleared from SecureStore on logout — it survives sessions
+    // so the onboarding pipeline doesn't repeat. It only clears if the admin
+    // removes the driver role (handled in login and startup refresh).
+  };
+
+  const setDriverActivated = async (v: boolean) => {
+    if (v) {
+      await SecureStore.setItemAsync(DRIVER_ACTIVATED_KEY, "1");
+    } else {
+      await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
+    }
+    _setDriverActivated(v);
   };
 
   const register = async (data: RegisterData) => {
@@ -156,13 +220,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Called after the admin approves the driver application — updates local state only.
-  // The real role change happens via the admin panel (backend sets role='driver').
-  const upgradeToDriver = () => {
-    setUser((prev) => {
-      if (!prev || prev.role !== "passenger") return prev;
-      return { ...prev, role: "passenger+driver" };
-    });
+  // Fetches a fresh JWT from the server (role may have changed to 'driver' after admin approval)
+  // then updates local state. Navigates to offer tab on success.
+  const upgradeToDriver = async (): Promise<string> => {
+    if (!token) return "passenger";
+    try {
+      const res = await get<AuthResponse>("/api/auth/refresh", token);
+      await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+      setToken(res.token);
+      setUser(mapResponse(res));
+      return res.role; // 'passenger+driver' if still approved, 'passenger' if role was removed
+    } catch {
+      // Offline fallback — assume role unchanged
+      setUser((prev) => (prev ? { ...prev, role: "passenger+driver" } : prev));
+      return "passenger+driver";
+    }
   };
 
   return (
@@ -171,10 +243,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         isLoading,
+        driverActivated,
         login,
         logout,
         register,
         upgradeToDriver,
+        setDriverActivated,
       }}
     >
       {children}

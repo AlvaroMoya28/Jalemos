@@ -1,0 +1,24 @@
+{
+  "AWS": {
+    "BucketName": "jalemos-media",
+    "Region": "us-east-2",
+    "AccessKey": "YOUR_AWS_ACCESS_KEY",
+    "SecretKey": "YOUR_AWS_SECRET_KEY"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Information"
+    }
+  },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://0.0.0.0:5000"
+      }
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=jalemos;Username=postgres;Password=YOUR_DB_PASSWORD"
+  }
+}

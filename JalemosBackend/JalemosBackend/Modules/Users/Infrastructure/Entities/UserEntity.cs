@@ -14,7 +14,16 @@ namespace JalemosBackend.Modules.Users.Infrastructure.Entities
         public UserRole Role { get; set; }
         public decimal MeanRating { get; set; }
         public int TotalTrips { get; set; }
+        public int DriverTrips { get; set; }
         public decimal Kms { get; set; }
+        public string? ProfilePhotoUrl { get; set; }
+        public bool ProfilePhotoLocked { get; set; }
+        public short? LicenseExpiryMonth { get; set; }
+        public short? LicenseExpiryYear { get; set; }
+        public short? DekraExpiryMonth { get; set; }
+        public short? DekraExpiryYear { get; set; }
+        public DateTime? SuspendedUntil { get; set; }
+        public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

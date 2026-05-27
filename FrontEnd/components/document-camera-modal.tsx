@@ -7,6 +7,7 @@
 //                           The oval guides the user to keep their face centred and visible.
 // EXIF rotation is normalised on every capture so the preview always appears upright.
 
+import { Brand, Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -21,7 +22,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Brand, Fonts } from '@/constants/theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -285,7 +285,7 @@ const s = StyleSheet.create({
   overlaySide: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.62)' },
   frame: { position: 'absolute', borderWidth: 2, borderColor: Brand.colors.green.normal },
   framePreview: { borderColor: Brand.colors.green.normal, borderWidth: 2.5 },
-  // ── Corner brackets (rectangular frames only) ─────────────────────────────
+  // Corner brackets (rectangular frames only)
   corner: { position: 'absolute', width: CORNER_SIZE, height: CORNER_SIZE },
   cornerTL: {
     top: -CORNER_BORDER, left: -CORNER_BORDER,
@@ -307,7 +307,7 @@ const s = StyleSheet.create({
     borderBottomWidth: CORNER_BORDER + 1, borderRightWidth: CORNER_BORDER + 1,
     borderColor: '#fff', borderBottomRightRadius: 10,
   },
-  // ── UI chrome ─────────────────────────────────────────────────────────────
+  // UI chrome
   topBar: {
     position: 'absolute', top: 54, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center',
@@ -328,7 +328,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 6,
     borderRadius: 20, overflow: 'hidden',
   },
-  // ── Bottom action bar ─────────────────────────────────────────────────────
+  // Bottom action bar
   bottomBar: {
     position: 'absolute', bottom: 60, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
@@ -343,7 +343,7 @@ const s = StyleSheet.create({
   captureInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff' },
   actionBtn: { width: 72, alignItems: 'center', gap: 4 },
   actionText: { color: '#fff', fontFamily: Fonts.heading, fontSize: 11 },
-  // ── Permissions screen ────────────────────────────────────────────────────
+  // Permissions screen
   permText: { color: '#fff', fontFamily: Fonts.heading, fontSize: 15, textAlign: 'center' },
   permBtn: {
     backgroundColor: Brand.colors.green.normal,

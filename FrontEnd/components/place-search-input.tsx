@@ -20,6 +20,7 @@ import {
 
 import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useCurrentLocation } from '@/hooks/use-current-location';
 
 const PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? '';
 
@@ -37,6 +38,8 @@ interface Props extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onFocus
   onSelect: (pred: PlacePrediction) => void;
   leadingIcon?: React.ReactNode;
   fieldStyle?: object;
+  /** Show "Mi ubicación actual" as the first dropdown option. Defaults to true. */
+  showCurrentLocation?: boolean;
 }
 
 async function fetchPredictions(query: string): Promise<PlacePrediction[]> {
@@ -77,6 +80,7 @@ export default function PlaceSearchInput({
   fieldStyle,
   placeholder,
   placeholderTextColor,
+  showCurrentLocation = true,
   ...rest
 }: Props) {
   const { colors } = useAppTheme();
@@ -86,6 +90,9 @@ export default function PlaceSearchInput({
   const [dropdownTop, setDropdownTop] = useState(0);
   const [dropdownLeft, setDropdownLeft] = useState(0);
   const [dropdownWidth, setDropdownWidth] = useState(0);
+
+  const { state: locState, fetch: fetchLocation } = useCurrentLocation();
+  const locLoading = locState.status === 'loading';
 
   const wrapRef = useRef<View>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,11 +155,30 @@ export default function PlaceSearchInput({
     onSelect(pred);
   };
 
+  const handleSelectLocation = async () => {
+    setSuggestions([]);
+    const address = await fetchLocation();
+    if (address) {
+      lastTypedRef.current = address;
+      skipFetchRef.current = true;
+      onChangeText(address);
+      onSelect({
+        placeId: '__current_location__',
+        description: address,
+        mainText: 'Mi ubicación actual',
+        secondaryText: address,
+      });
+    }
+  };
+
   const clearField = () => {
     lastTypedRef.current = '';
     onChangeText('');
     setSuggestions([]);
   };
+
+  const showLocationOption = showCurrentLocation && suggestions.length > 0 && !locLoading;
+  const showDropdown = suggestions.length > 0 && dropdownTop > 0;
 
   return (
     <>
@@ -169,7 +195,7 @@ export default function PlaceSearchInput({
           autoCapitalize="none"
           {...rest}
         />
-        {loading ? (
+        {loading || locLoading ? (
           <ActivityIndicator size="small" color={Brand.colors.green.normal} />
         ) : value.length > 0 ? (
           <Pressable hitSlop={8} onPress={clearField}>
@@ -179,7 +205,7 @@ export default function PlaceSearchInput({
       </View>
 
       {/* Modal dropdown — renders above everything, no overflow:hidden or blur issues */}
-      {suggestions.length > 0 && dropdownTop > 0 && (
+      {showDropdown && (
         <Modal transparent visible animationType="none" statusBarTranslucent>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setSuggestions([])} />
           <View style={[
@@ -192,13 +218,30 @@ export default function PlaceSearchInput({
               borderColor: colors.border,
             },
           ]}>
+            {/* Pinned "Mi ubicación actual" option */}
+            {showLocationOption && (
+              <Pressable
+                style={[s.item, { backgroundColor: colors.inputBg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+                onPress={handleSelectLocation}
+              >
+                <Ionicons name="navigate" size={14} color={Brand.colors.green.dark} style={{ marginTop: 2 }} />
+                <View style={s.itemTexts}>
+                  <Text style={[s.mainText, { color: Brand.colors.green.dark }]} numberOfLines={1}>
+                    Mi ubicación actual
+                  </Text>
+                  <Text style={[s.secondaryText, { color: colors.textMuted }]} numberOfLines={1}>
+                    Usar GPS del dispositivo
+                  </Text>
+                </View>
+              </Pressable>
+            )}
             {suggestions.slice(0, 5).map((pred, idx) => (
               <Pressable
                 key={pred.placeId}
                 style={[
                   s.item,
                   { backgroundColor: colors.inputBg },
-                  idx > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                  (showLocationOption || idx > 0) && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
                 ]}
                 onPress={() => handleSelect(pred)}
               >
@@ -250,6 +293,7 @@ const s = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 12,
   },
+  locationItem: {},
   itemTexts: {
     flex: 1,
     gap: 1,

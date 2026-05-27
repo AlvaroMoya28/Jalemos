@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Users.Application.DTOs;
 using JalemosBackend.Modules.Users.Domain;
 using JalemosBackend.Modules.Users.Infrastructure.Entities;
 
@@ -12,18 +13,20 @@ namespace JalemosBackend.Modules.Users.Infrastructure
 
         private static User MapToDomain(UserEntity e) => new User
         {
-            Id          = e.UserId,
-            Username    = e.Username,
-            Email       = e.Email,
-            PasswordHash = e.PasswordHash,
-            FirstName   = e.FirstName,
-            LastName    = e.LastName,
-            Role        = e.Role,
-            MeanRating  = e.MeanRating,
-            TotalTrips  = e.TotalTrips,
-            Kms         = e.Kms,
-            CreatedAt   = e.CreatedAt,
-            UpdatedAt   = e.UpdatedAt,
+            Id             = e.UserId,
+            Username       = e.Username,
+            Email          = e.Email,
+            PasswordHash   = e.PasswordHash,
+            FirstName      = e.FirstName,
+            LastName       = e.LastName,
+            Role           = e.Role,
+            MeanRating     = e.MeanRating,
+            TotalTrips     = e.TotalTrips,
+            Kms            = e.Kms,
+            SuspendedUntil = e.SuspendedUntil,
+            IsActive       = e.IsActive,
+            CreatedAt      = e.CreatedAt,
+            UpdatedAt      = e.UpdatedAt,
         };
 
         private static void MapToEntity(UserEntity e, User u)
@@ -34,9 +37,11 @@ namespace JalemosBackend.Modules.Users.Infrastructure
             e.LastName  = u.LastName;
             e.Role      = u.Role;
             if (!string.IsNullOrWhiteSpace(u.PasswordHash)) e.PasswordHash = u.PasswordHash;
-            e.MeanRating = u.MeanRating;
-            e.TotalTrips = u.TotalTrips;
-            e.Kms        = u.Kms;
+            e.MeanRating     = u.MeanRating;
+            e.TotalTrips     = u.TotalTrips;
+            e.Kms            = u.Kms;
+            e.SuspendedUntil = u.SuspendedUntil;
+            e.IsActive       = u.IsActive;
         }
 
         public async Task<IEnumerable<User>> GetAllAsync(CancellationToken ct = default)
@@ -49,6 +54,56 @@ namespace JalemosBackend.Modules.Users.Infrastructure
         {
             var e = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == id, ct);
             return e is null ? null : MapToDomain(e);
+        }
+
+        public async Task<(IEnumerable<User> Users, int TotalCount)> GetPagedAsync(
+            UserQueryParams p, CancellationToken ct = default)
+        {
+            var query = _dbContext.Users.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(p.Search))
+            {
+                var s = p.Search.Trim().ToLower();
+                query = query.Where(u =>
+                    u.FirstName.ToLower().Contains(s) ||
+                    u.LastName.ToLower().Contains(s) ||
+                    u.Username.ToLower().Contains(s) ||
+                    u.Email.ToLower().Contains(s));
+            }
+
+            if (!string.IsNullOrWhiteSpace(p.Role) && Enum.TryParse<UserRole>(p.Role, out var roleEnum))
+                query = query.Where(u => u.Role == roleEnum);
+
+            var now = DateTime.UtcNow;
+            if (p.Status == "active")
+                query = query.Where(u => u.IsActive && (u.SuspendedUntil == null || u.SuspendedUntil < now));
+            else if (p.Status == "suspended")
+                query = query.Where(u => u.SuspendedUntil != null && u.SuspendedUntil > now);
+            else if (p.Status == "deactivated")
+                query = query.Where(u => !u.IsActive);
+
+            query = p.SortBy switch
+            {
+                "name_desc"   => query.OrderByDescending(u => u.FirstName).ThenByDescending(u => u.LastName),
+                "rating_asc"  => query.OrderBy(u => u.MeanRating),
+                "rating_desc" => query.OrderByDescending(u => u.MeanRating),
+                "trips_asc"   => query.OrderBy(u => u.TotalTrips),
+                "trips_desc"  => query.OrderByDescending(u => u.TotalTrips),
+                "newest"      => query.OrderByDescending(u => u.CreatedAt),
+                "oldest"      => query.OrderBy(u => u.CreatedAt),
+                _             => query.OrderBy(u => u.FirstName).ThenBy(u => u.LastName),
+            };
+
+            var total    = await query.CountAsync(ct);
+            var page     = Math.Max(1, p.Page);
+            var pageSize = Math.Clamp(p.PageSize, 1, 100);
+
+            var entities = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return (entities.Select(MapToDomain), total);
         }
 
         public async Task CreateAsync(User user, CancellationToken ct = default)
@@ -65,6 +120,7 @@ namespace JalemosBackend.Modules.Users.Infrastructure
                 MeanRating   = user.MeanRating,
                 TotalTrips   = user.TotalTrips,
                 Kms          = user.Kms,
+                IsActive     = true,
                 CreatedAt    = DateTime.UtcNow,
                 UpdatedAt    = DateTime.UtcNow,
             };
@@ -87,6 +143,56 @@ namespace JalemosBackend.Modules.Users.Infrastructure
             var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct);
             if (entity is null) return;
             _dbContext.Users.Remove(entity);
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        public async Task UpdateRoleAsync(Guid id, UserRole role, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
+                ?? throw new KeyNotFoundException("User not found");
+            entity.Role      = role;
+            if (role == UserRole.passenger)
+                entity.ProfilePhotoLocked = false;
+            entity.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        public async Task BanAsync(Guid id, int days, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
+                ?? throw new KeyNotFoundException("User not found");
+            entity.SuspendedUntil = days == 0
+                ? new DateTime(9999, 12, 31, 23, 59, 59, DateTimeKind.Utc)
+                : DateTime.UtcNow.AddDays(days);
+            entity.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        public async Task LiftBanAsync(Guid id, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
+                ?? throw new KeyNotFoundException("User not found");
+            entity.SuspendedUntil = null;
+            entity.UpdatedAt      = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        public async Task DeactivateAsync(Guid id, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
+                ?? throw new KeyNotFoundException("User not found");
+            entity.IsActive  = false;
+            entity.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        public async Task ActivateAsync(Guid id, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
+                ?? throw new KeyNotFoundException("User not found");
+            entity.IsActive       = true;
+            entity.SuspendedUntil = null;
+            entity.UpdatedAt      = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(ct);
         }
     }
