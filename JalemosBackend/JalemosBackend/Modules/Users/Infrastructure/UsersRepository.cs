@@ -148,6 +148,8 @@ namespace JalemosBackend.Modules.Users.Infrastructure
             var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
                 ?? throw new KeyNotFoundException("User not found");
             entity.Role      = role;
+            if (role == UserRole.passenger)
+                entity.ProfilePhotoLocked = false;
             entity.UpdatedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(ct);
         }
