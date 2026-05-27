@@ -1,5 +1,6 @@
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
-const TIMEOUT_MS = 15_000;
+const TIMEOUT_MS        = 15_000;
+const UPLOAD_TIMEOUT_MS = 60_000;
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -8,9 +9,9 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit): Promise<T> {
+async function request<T>(path: string, options: RequestInit, timeoutMs = TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
@@ -20,7 +21,7 @@ async function request<T>(path: string, options: RequestInit): Promise<T> {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new ApiError(res.status, body.error ?? `Error ${res.status}`);
+      throw new ApiError(res.status, body.error ?? body.detail ?? `Error ${res.status}`);
     }
 
     if (res.status === 204) return undefined as T;
@@ -81,9 +82,15 @@ export interface DriverApplicationDTO {
   vehicleYear: number;
   vehiclePlate: string;
   vehicleColor: string;
+  facePhoto: string | null;
   licensePhotoFront: string | null;
   licensePhotoBack: string | null;
   dekraPhoto: string | null;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
+  isRenewal: boolean;
   adminIssueIds: string[] | null;
   adminNotes: string | null;
   reviewedAt: string | null;
@@ -95,16 +102,22 @@ export interface DriverApplicationDTO {
 }
 
 export interface SubmitApplicationPayload {
-  cedula: string;
-  address: string;
-  vehicleBrand: string;
-  vehicleModel: string;
-  vehicleYear: number;
-  vehiclePlate: string;
-  vehicleColor: string;
+  cedula?: string;
+  address?: string;
+  vehicleBrand?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehiclePlate?: string;
+  vehicleColor?: string;
+  facePhoto: string | null;
   licensePhotoFront: string | null;
   licensePhotoBack: string | null;
   dekraPhoto: string | null;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
+  isRenewal?: boolean;
 }
 
 export interface ReviewActionPayload {
@@ -194,10 +207,18 @@ export const applicationsApi = {
     get<DriverApplicationDTO>(`/api/driver-applications/${id}`, token),
 
   submit: (payload: SubmitApplicationPayload, token: string) =>
-    post<DriverApplicationDTO>('/api/driver-applications', payload, token),
+    request<DriverApplicationDTO>('/api/driver-applications', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    }, UPLOAD_TIMEOUT_MS),
 
   resubmit: (id: string, payload: SubmitApplicationPayload, token: string) =>
-    post<DriverApplicationDTO>(`/api/driver-applications/${id}/resubmit`, payload, token),
+    request<DriverApplicationDTO>(`/api/driver-applications/${id}/resubmit`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    }, UPLOAD_TIMEOUT_MS),
 
   setUnderReview: (id: string, token: string) =>
     patch<void>(`/api/driver-applications/${id}/under-review`, {}, token),

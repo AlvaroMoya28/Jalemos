@@ -7,7 +7,9 @@
 // and a full-frame capture for the Dekra document.
 
 import DocumentCameraModal from '@/components/document-camera-modal';
+import ExpiryInput, { parseExpiry } from '@/components/expiry-input';
 import GlassCard from '@/components/glass-card';
+import PlaceSearchInput from '@/components/place-search-input';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
@@ -15,6 +17,7 @@ import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -185,6 +188,12 @@ export default function DriverRegistrationScreen() {
   const [placa, setPlaca] = useState(myApplication?.vehicle.plate ?? '');
   const [vehicleColor, setVehicleColor] = useState(myApplication?.vehicle.color ?? '');
 
+  // Expiry dates stored as "MM/YY" string
+  const initExpiry = (month?: number | null, year?: number | null) =>
+    month && year ? `${String(month).padStart(2, '0')}/${String(year).slice(-2)}` : '';
+  const [licenseExpiry, setLicenseExpiry] = useState(initExpiry(myApplication?.licenseExpiryMonth, myApplication?.licenseExpiryYear));
+  const [dekraExpiry,   setDekraExpiry]   = useState(initExpiry(myApplication?.dekraExpiryMonth,   myApplication?.dekraExpiryYear));
+
   // Photo slots
   const [facePhoto, setFacePhotoState] = useState<PhotoSlot>(null);
   const [licenciaFront, setLicenciaFront] = useState<PhotoSlot>(null);
@@ -233,6 +242,13 @@ export default function DriverRegistrationScreen() {
     }
   };
 
+  const toBase64 = async (uri: string | null): Promise<string | null> => {
+    if (!uri) return null;
+    const ref    = await ImageManipulator.manipulate(uri).resize({ width: 1024 }).renderAsync();
+    const result = await ref.saveAsync({ format: SaveFormat.JPEG, compress: 0.78, base64: true });
+    return result.base64 ? `data:image/jpeg;base64,${result.base64}` : null;
+  };
+
   const handleRegister = async () => {
     if (!cedula.trim()) {
       Alert.alert('Campos requeridos', 'Ingresá tu número de cédula.');
@@ -242,15 +258,30 @@ export default function DriverRegistrationScreen() {
       Alert.alert('Campos requeridos', 'Ingresá tu dirección de domicilio.');
       return;
     }
-    showLoader('Enviando solicitud...');
+    showLoader('Subiendo imágenes...');
     try {
+      const [faceB64, frontB64, backB64, dekraB64] = await Promise.all([
+        toBase64(facePhoto?.uri ?? null),
+        toBase64(licenciaFront?.uri ?? null),
+        toBase64(licenciaBack?.uri ?? null),
+        toBase64(dekraPhoto?.uri ?? null),
+      ]);
+
+      showLoader('Enviando solicitud...');
+      const { month: licM, year: licY } = parseExpiry(licenseExpiry);
+      const { month: dkM,  year: dkY  } = parseExpiry(dekraExpiry);
       const payload = {
-        cedula:  cedula.trim(),
-        address: address.trim(),
-        vehicle: { brand: marca, model: modelo, year: año, plate: placa, color: vehicleColor },
-        licensePhotoFront: licenciaFront?.uri ?? null,
-        licensePhotoBack:  licenciaBack?.uri ?? null,
-        dekraPhoto:        dekraPhoto?.uri ?? null,
+        cedula:             cedula.trim(),
+        address:            address.trim(),
+        vehicle:            { brand: marca, model: modelo, year: año, plate: placa, color: vehicleColor },
+        facePhoto:          faceB64,
+        licensePhotoFront:  frontB64,
+        licensePhotoBack:   backB64,
+        dekraPhoto:         dekraB64,
+        licenseExpiryMonth: licM,
+        licenseExpiryYear:  licY,
+        dekraExpiryMonth:   dkM,
+        dekraExpiryYear:    dkY,
       };
       if (isResubmit && myApplication) {
         await resubmitApplication(myApplication.id, payload);
@@ -321,16 +352,16 @@ export default function DriverRegistrationScreen() {
                 />
               </View>
 
-              <View style={styles.inputWrap}>
-                <Ionicons name="location-outline" size={18} color={Brand.colors.green.normal} />
-                <TextInput
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="Dirección de domicilio"
-                  placeholderTextColor={colors.textPlaceholder}
-                  style={styles.input}
-                />
-              </View>
+              <PlaceSearchInput
+                value={address}
+                onChangeText={setAddress}
+                onSelect={(pred) => setAddress(pred.description)}
+                leadingIcon={<Ionicons name="location-outline" size={18} color={Brand.colors.green.normal} />}
+                fieldStyle={styles.inputWrap}
+                placeholder="Dirección de domicilio"
+                placeholderTextColor={colors.textPlaceholder}
+                style={styles.input}
+              />
             </GlassCard>
           </View>
 
@@ -398,6 +429,9 @@ export default function DriverRegistrationScreen() {
                   onPress={() => openPhotoOptions('licenciaBack')}
                 />
               </View>
+
+              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA)</Text>
+              <ExpiryInput value={licenseExpiry} onChangeText={setLicenseExpiry} fieldStyle={styles.inputWrap} inputStyle={styles.input} />
             </GlassCard>
           </View>
 
@@ -413,6 +447,9 @@ export default function DriverRegistrationScreen() {
                 onPress={() => openPhotoOptions('dekra')}
                 style={styles.photoBtnFull}
               />
+
+              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA)</Text>
+              <ExpiryInput value={dekraExpiry} onChangeText={setDekraExpiry} fieldStyle={styles.inputWrap} inputStyle={styles.input} />
             </GlassCard>
           </View>
 

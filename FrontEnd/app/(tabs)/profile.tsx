@@ -42,6 +42,24 @@ const preferencesSections = [
 
 const HERO_HEIGHT = 200;
 
+type ExpiryState = 'ok' | 'soon' | 'expired';
+
+function expiryState(month: number | null, year: number | null): ExpiryState {
+  if (!month || !year) return 'ok';
+  const now = new Date();
+  const expiry = new Date(year, month - 1, 1); // first day of expiry month
+  const diffMs = expiry.getTime() - now.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  if (diffDays < 0) return 'expired';
+  if (diffDays <= 60) return 'soon';
+  return 'ok';
+}
+
+function expiryLabel(month: number | null, year: number | null): string {
+  if (!month || !year) return 'Sin fecha';
+  return `Vence ${String(month).padStart(2, '0')}/${year}`;
+}
+
 function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.screenBg },
@@ -244,8 +262,26 @@ export default function ProfileScreen() {
     { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
   ];
 
+  const licenseState = expiryState(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null);
+  const dekraState   = expiryState(user?.dekraExpiryMonth   ?? null, user?.dekraExpiryYear   ?? null);
+  const docsExpired  = licenseState === 'expired' || dekraState === 'expired';
+  const docsSoon     = licenseState === 'soon'    || dekraState === 'soon';
+
+  const expiryIconName = (state: ExpiryState) =>
+    state === 'expired' ? 'close-circle'     as const :
+    state === 'soon'    ? 'warning'           as const :
+                          'checkmark-circle'  as const;
+  const expiryIconColor = (state: ExpiryState) =>
+    state === 'expired' ? Brand.colors.alerts.error :
+    state === 'soon'    ? '#f7a900' :
+                          Brand.colors.green.normal;
+
   /** Opens ActionSheet / Alert so the user can retake or pick a new profile photo. */
   const handleEditPhoto = () => {
+    if (user?.profilePhotoLocked && user.role === 'passenger+driver') {
+      Alert.alert('Foto bloqueada', 'La foto de perfil fue establecida al aprobar tu solicitud de conductor y no se puede cambiar.');
+      return;
+    }
     const takePhoto = () =>
       ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1] })
         .then(r => { if (!r.canceled) setProfilePhoto(r.assets[0].uri); });
@@ -339,15 +375,20 @@ export default function ProfileScreen() {
           {/* Profile card */}
           <GlassCard style={styles.profileCard}>
             <View style={styles.profileTop}>
-              {/* Avatar — tappable to edit; shows photo when set, initials otherwise */}
-              <Pressable style={styles.avatar} onPress={handleEditPhoto}>
-                {profilePhoto
-                  ? <Image source={{ uri: profilePhoto }} style={styles.avatarPhoto} />
-                  : <Text style={styles.avatarText}>{user?.avatar ?? '?'}</Text>}
-                <View style={styles.avatarEditBadge}>
-                  <Ionicons name="camera-outline" size={12} color="#fff" />
-                </View>
-              </Pressable>
+              {/* Avatar — local override first, then server photo, then initials */}
+              {(() => {
+                const displayPhoto = profilePhoto ?? user?.profilePhotoUrl ?? null;
+                return (
+                  <Pressable style={styles.avatar} onPress={handleEditPhoto}>
+                    {displayPhoto
+                      ? <Image source={{ uri: displayPhoto }} style={styles.avatarPhoto} />
+                      : <Text style={styles.avatarText}>{user?.avatar ?? '?'}</Text>}
+                    <View style={styles.avatarEditBadge}>
+                      <Ionicons name={user?.profilePhotoLocked && user.role === 'passenger+driver' ? 'lock-closed-outline' : 'camera-outline'} size={12} color="#fff" />
+                    </View>
+                  </Pressable>
+                );
+              })()}
               <View style={styles.profileMain}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name}>{user ? `${user.firstName} ${user.lastName}` : '—'}</Text>
@@ -366,7 +407,7 @@ export default function ProfileScreen() {
                   <View style={styles.ratingRow}>
                     <Ionicons name="star" size={13} color="#f7a900" />
                     <Text style={styles.rating}>{user?.rating?.toFixed(1) ?? '—'}</Text>
-                    <Text style={styles.ratingSub}>· {isDriver ? `${user?.tripsCount ?? 0} viajes ofrecidos` : `${user?.tripsCount ?? 0} viajes`}</Text>
+                    <Text style={styles.ratingSub}>· {isDriver ? `${user?.driverTripsCount ?? 0} viajes ofrecidos` : `${user?.tripsCount ?? 0} viajes`}</Text>
                   </View>
                 )}
               </View>
@@ -386,12 +427,12 @@ export default function ProfileScreen() {
               ) : isDriver ? (
                 <>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{user?.tripsCount ?? 0}</Text>
+                    <Text style={styles.statValue}>{user?.driverTripsCount ?? 0}</Text>
                     <Text style={styles.statLabel}>Ofrecidos</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{user?.memberSince ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Miembro desde</Text>
+                    <Text style={styles.statValue}>{user?.tripsCount ?? 0}</Text>
+                    <Text style={styles.statLabel}>Tomados</Text>
                   </View>
                   <View style={styles.statItem}>
                     <Text style={styles.statValueGreen}>{user?.rating?.toFixed(1) ?? '—'}</Text>
@@ -524,26 +565,56 @@ export default function ProfileScreen() {
 
               <View style={styles.sectionWrap}>
                 <Text style={styles.sectionTitle}>Documentos</Text>
+                {(docsExpired || docsSoon) && (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                    backgroundColor: docsExpired ? Brand.colors.alerts.error + '18' : '#f7a90018',
+                    borderRadius: Brand.radius[12], borderWidth: 1,
+                    borderColor: docsExpired ? Brand.colors.alerts.error + '55' : '#f7a90055',
+                    padding: 10, marginBottom: 8,
+                  }}>
+                    <Ionicons name={docsExpired ? 'warning' : 'time-outline'} size={16} color={docsExpired ? Brand.colors.alerts.error : '#f7a900'} />
+                    <Text style={{ flex: 1, fontSize: 12, fontFamily: Fonts.sans, color: docsExpired ? Brand.colors.alerts.error : '#f7a900', lineHeight: 17 }}>
+                      {docsExpired
+                        ? 'Tenés documentos vencidos. Actualizalos para seguir usando el modo conductor.'
+                        : 'Algunos documentos vencen pronto. Actualizalos antes de que expiren.'}
+                    </Text>
+                  </View>
+                )}
                 <GlassCard style={styles.sectionCard}>
-                  <Pressable style={[styles.sectionItem, styles.sectionItemBorder]}>
+                  <Pressable style={[styles.sectionItem, styles.sectionItemBorder]} onPress={() => router.push('/driver-documents')}>
                     <View style={styles.itemIconWrap}>
                       <Ionicons name="id-card-outline" size={16} color={Brand.colors.green.darkActive} />
                     </View>
                     <View style={styles.itemTextWrap}>
                       <Text style={styles.itemLabel}>Licencia de conducir</Text>
-                      <Text style={styles.itemDesc}>Vence 03/27</Text>
+                      <Text style={[styles.itemDesc, { color: expiryIconColor(licenseState) }]}>
+                        {expiryLabel(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null)}
+                      </Text>
                     </View>
-                    <Ionicons name="checkmark-circle" size={16} color={Brand.colors.green.normal} />
+                    <Ionicons name={expiryIconName(licenseState)} size={16} color={expiryIconColor(licenseState)} />
                   </Pressable>
-                  <Pressable style={styles.sectionItem}>
+                  <Pressable style={styles.sectionItem} onPress={() => router.push('/driver-documents')}>
                     <View style={styles.itemIconWrap}>
-                      <Ionicons name="checkmark-circle-outline" size={16} color={Brand.colors.green.darkActive} />
+                      <Ionicons name="car-sport-outline" size={16} color={Brand.colors.green.darkActive} />
                     </View>
                     <View style={styles.itemTextWrap}>
                       <Text style={styles.itemLabel}>Revisión técnica Dekra</Text>
-                      <Text style={styles.itemDesc}>Vence 09/25</Text>
+                      <Text style={[styles.itemDesc, { color: expiryIconColor(dekraState) }]}>
+                        {expiryLabel(user?.dekraExpiryMonth ?? null, user?.dekraExpiryYear ?? null)}
+                      </Text>
                     </View>
-                    <Ionicons name="checkmark-circle" size={16} color={Brand.colors.green.normal} />
+                    <Ionicons name={expiryIconName(dekraState)} size={16} color={expiryIconColor(dekraState)} />
+                  </Pressable>
+                  <Pressable style={[styles.sectionItem, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSubtle }]} onPress={() => router.push('/driver-documents')}>
+                    <View style={[styles.itemIconWrap, { backgroundColor: Brand.colors.green.normal + '22' }]}>
+                      <Ionicons name="refresh-outline" size={16} color={Brand.colors.green.normal} />
+                    </View>
+                    <View style={styles.itemTextWrap}>
+                      <Text style={[styles.itemLabel, { color: Brand.colors.green.normal }]}>Actualizar documentos</Text>
+                      <Text style={styles.itemDesc}>Renovar licencia o Dekra</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
                   </Pressable>
                 </GlassCard>
               </View>
