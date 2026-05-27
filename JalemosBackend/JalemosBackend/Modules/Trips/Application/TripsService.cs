@@ -24,8 +24,13 @@ public sealed class TripsService : ITripsService
     /// <inheritdoc/>
     public Task<IEnumerable<Trip>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        // TODO: add filtering by origin, destination, date, and available seats
         return _repository.GetAllAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<TripDto>> GetAllWithDriverAsync(CancellationToken cancellationToken = default)
+    {
+        return _repository.GetAllWithDriverAsync(cancellationToken);
     }
 
     /// <inheritdoc/>

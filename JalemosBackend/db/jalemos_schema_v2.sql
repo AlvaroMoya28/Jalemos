@@ -386,10 +386,7 @@ BEGIN
         (v_pasajero_id, 'sinpe', 'Mi SINPE personal'),
         (v_carlos_id,   'cash',  'Efectivo');
 
-    INSERT INTO trips (driver_user_id, vehicle_id, rate, from_location, to_location,
-                       start_date_time, total_seats, available_seats, notes)
-    VALUES (v_carlos_id, v_vehicle_id, 1500.00, 'Cartago Centro', 'UCR San Pedro',
-            NOW() + INTERVAL '1 day', 3, 3, 'Salgo puntual. No fumar.');
+    
 END;
 $$;
 

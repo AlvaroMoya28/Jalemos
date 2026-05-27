@@ -4,6 +4,7 @@
 
 using JalemosBackend.Modules.Trips.Application;
 using JalemosBackend.Modules.Trips.Domain;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JalemosBackend.Modules.Trips.Presentation;
@@ -25,13 +26,14 @@ public sealed class TripsController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>GET /api/rides — returns all available trips.</summary>
+    /// <summary>GET /api/trips — returns all trips with embedded driver info. Requires authentication.</summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Trip>>> GetAll(CancellationToken cancellationToken)
+    [Authorize]
+    public async Task<ActionResult<IEnumerable<TripDto>>> GetAll(CancellationToken cancellationToken)
     {
         try
         {
-            var rides = await _ridesService.GetAllAsync(cancellationToken);
+            var rides = await _ridesService.GetAllWithDriverAsync(cancellationToken);
             return Ok(rides);
         }
         catch (Exception ex)

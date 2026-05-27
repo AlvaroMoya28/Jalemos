@@ -36,10 +36,8 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   const { trips, isLoading, error, refreshTrips } = useTripsData();
 
   useEffect(() => {
-    // Load trips on mount
     refreshTrips();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshTrips]);
 
   return (
     <TripsContext.Provider value={{ trips, isLoading, error, refreshTrips }}>

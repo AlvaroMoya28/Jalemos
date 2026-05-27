@@ -13,6 +13,9 @@ public interface ITripsService
     /// <summary>Returns all available trips.</summary>
     Task<IEnumerable<Trip>> GetAllAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Returns all trips enriched with embedded driver info (avoids N+1 on the client).</summary>
+    Task<IEnumerable<TripDto>> GetAllWithDriverAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Returns the trip with the given id, or null if it does not exist.</summary>
     Task<Trip?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 

@@ -1,37 +1,30 @@
-import { User } from '@/contexts/auth';
+import { useAuth } from '@/contexts/auth';
 import { ApiError, get } from '@/services/api';
 import { useCallback, useState } from 'react';
 
+// Shape returned by GET /api/trips (TripDto with embedded driver info)
 interface TripResponse {
   id: string;
   driverId: string;
+  driverFirstName: string;
+  driverLastName: string;
+  driverMeanRating: number;
+  driverTotalTrips: number;
+  driverCreatedAt: string;
   vehicleId: string;
   rate: number;
   origin: string;
   destination: string;
-  originLat?: number;
-  originLng?: number;
-  destinationLat?: number;
-  destinationLng?: number;
-  originLatitude?: number;
-  originLongitude?: number;
-  destinationLatitude?: number;
-  destinationLongitude?: number;
+  originLatitude: number;
+  originLongitude: number;
+  destinationLatitude: number;
+  destinationLongitude: number;
   departureAt: string;
   totalSeats: number;
   availableSeats: number;
-  state: number;
+  state: string;
   createdAt: string;
   notes: string;
-}
-
-interface DriverResponse {
-  id: string;
-  firstName: string;
-  lastName: string;
-  meanRating: number;
-  totalTrips: number;
-  createdAt: string;
 }
 
 interface VehicleResponse {
@@ -67,89 +60,60 @@ export interface Trip {
   vehiclePlate?: string;
 }
 
-function mapTripResponseToTrip(tr: TripResponse, user: User | null, vehicle: VehicleResponse | null): Trip {
-  const originLat = tr.originLat ?? tr.originLatitude ?? 0;
-  const originLng = tr.originLng ?? tr.originLongitude ?? 0;
-  const destinationLat = tr.destinationLat ?? tr.destinationLatitude ?? 0;
-  const destinationLng = tr.destinationLng ?? tr.destinationLongitude ?? 0;
+function formatMemberSince(dateValue: string): string {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return dateValue;
+  return new Intl.DateTimeFormat('es-CR', { month: 'long', year: 'numeric' }).format(date);
+}
 
+function mapTripResponse(tr: TripResponse, vehicle: VehicleResponse | null): Trip {
   return {
     id: tr.id,
     driverId: tr.driverId,
-    driverName: user ? `${user.firstName} ${user.lastName}` : 'Conductor desconocido',
+    driverName: `${tr.driverFirstName} ${tr.driverLastName}`.trim() || 'Conductor desconocido',
     vehicleId: tr.vehicleId,
     rate: tr.rate,
     origin: tr.origin,
     destination: tr.destination,
-    originLat,
-    originLng,
-    destinationLat,
-    destinationLng,
+    originLat: tr.originLatitude,
+    originLng: tr.originLongitude,
+    destinationLat: tr.destinationLatitude,
+    destinationLng: tr.destinationLongitude,
     departureAt: tr.departureAt,
     totalSeats: tr.totalSeats,
     availableSeats: tr.availableSeats,
-    state: tr.state,
+    state: 0,
     createdAt: tr.createdAt,
     notes: tr.notes,
-    driverRating: user ? user.rating : 0,
-    driverTripsCount: user ? (user.tripsCount ?? 0) : 0,
-    driverMemberSince: user?.memberSince,
+    driverRating: tr.driverMeanRating,
+    driverTripsCount: tr.driverTotalTrips,
+    driverMemberSince: formatMemberSince(tr.driverCreatedAt),
     vehicleModel: vehicle?.model,
     vehiclePlate: vehicle?.numPlate,
   };
 }
 
-function formatMemberSince(dateValue: string): string {
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return dateValue;
-  return new Intl.DateTimeFormat('es-CR', {
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
-}
-
-function mapDriverResponseToUser(driver: DriverResponse): User {
-  return {
-    id: driver.id,
-    username: '',
-    email: '',
-    firstName: driver.firstName,
-    lastName: driver.lastName,
-    role: 'passenger+driver',
-    avatar: `${driver.firstName[0] ?? ''}${driver.lastName[0] ?? ''}`.toUpperCase(),
-    rating: driver.meanRating,
-    tripsCount: driver.totalTrips,
-    memberSince: formatMemberSince(driver.createdAt),
-  };
-}
-
 export function useTripsData() {
+  const { token } = useAuth();
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refreshTrips = useCallback(async () => {
+    if (!token) return;
     setIsLoading(true);
     setError(null);
     try {
-      const tripsResponse = await get<TripResponse[]>('/api/trips');
+      const tripsResponse = await get<TripResponse[]>('/api/trips', token);
       const mappedTrips: Trip[] = [];
       for (const t of tripsResponse) {
+        let vehicle: VehicleResponse | null = null;
         try {
-          const driverResponse = await get<DriverResponse>(`/api/users/${t.driverId}`);
-          const driver = mapDriverResponseToUser(driverResponse);
-          let vehicle: VehicleResponse | null = null;
-          try {
-            vehicle = await get<VehicleResponse>(`/api/vehicles/${t.vehicleId}`);
-          } catch {
-            // vehicle info is non-critical — proceed without it
-          }
-          const trip = mapTripResponseToTrip(t, driver, vehicle);
-          trip.driverName = `${driver.firstName} ${driver.lastName}`.trim();
-          mappedTrips.push(trip);
-        } catch (err) {
-          console.error(`Error fetching driver for trip ${t.id}:`, err);
+          vehicle = await get<VehicleResponse>(`/api/vehicles/${t.vehicleId}`, token);
+        } catch {
+          // vehicle info is non-critical — proceed without it
         }
+        mappedTrips.push(mapTripResponse(t, vehicle));
       }
       setTrips(mappedTrips);
     } catch (err) {
@@ -162,7 +126,7 @@ export function useTripsData() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [token]);
 
   return { trips, isLoading, error, refreshTrips } as const;
 }

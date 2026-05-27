@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Trips.Application;
 using JalemosBackend.Modules.Trips.Domain;
 //using JalemosBackend.Modules.Trips.Infrastructure.Entities;
 
@@ -64,6 +65,46 @@ public sealed class TripsRepository
     {
         var entities = await _dbContext.Trips.AsNoTracking().ToListAsync(cancellationToken);
         return entities.Select(MapToDomain).ToList();
+    }
+
+    /// <summary>Fetches all trips joined with their driver's user record.</summary>
+    public async Task<IEnumerable<TripDto>> GetAllWithDriverAsync(CancellationToken cancellationToken = default)
+    {
+        var trips = await _dbContext.Trips.AsNoTracking().ToListAsync(cancellationToken);
+        var driverIds = trips.Select(t => t.DriverUserId).Distinct().ToList();
+        var users = await _dbContext.Users.AsNoTracking()
+            .Where(u => driverIds.Contains(u.UserId))
+            .ToListAsync(cancellationToken);
+        var userMap = users.ToDictionary(u => u.UserId);
+
+        return trips.Select(t =>
+        {
+            userMap.TryGetValue(t.DriverUserId, out var u);
+            return new TripDto
+            {
+                Id                   = t.TripId,
+                DriverId             = t.DriverUserId,
+                DriverFirstName      = u?.FirstName  ?? string.Empty,
+                DriverLastName       = u?.LastName   ?? string.Empty,
+                DriverMeanRating     = u?.MeanRating ?? 0,
+                DriverTotalTrips     = u?.TotalTrips ?? 0,
+                DriverCreatedAt      = u?.CreatedAt  ?? DateTime.MinValue,
+                VehicleId            = t.VehicleId,
+                Rate                 = t.Rate,
+                Origin               = t.FromLocation,
+                Destination          = t.ToLocation,
+                OriginLatitude       = t.FromLatitude,
+                OriginLongitude      = t.FromLongitude,
+                DestinationLatitude  = t.ToLatitude,
+                DestinationLongitude = t.ToLongitude,
+                DepartureAt          = t.StartDateTime,
+                TotalSeats           = t.TotalSeats,
+                AvailableSeats       = t.AvailableSeats,
+                Notes                = t.Notes ?? string.Empty,
+                State                = t.State.ToString(),
+                CreatedAt            = t.CreatedAt,
+            };
+        }).ToList();
     }
 
     /// <summary>Finds a trip by its primary key. Returns null when not found.</summary>
