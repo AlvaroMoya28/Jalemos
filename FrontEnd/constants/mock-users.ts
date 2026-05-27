@@ -13,6 +13,7 @@ export interface MockUser {
   avatar: string;
   rating: number;
   tripsCount: number;
+  driverTripsCount: number;
   memberSince: string;
 }
 
@@ -28,6 +29,7 @@ export const SEED_USERS: MockUser[] = [
     avatar: 'AJ',
     rating: 5.0,
     tripsCount: 120,
+    driverTripsCount: 0,
     memberSince: 'Enero 2024',
   },
   {
@@ -41,6 +43,7 @@ export const SEED_USERS: MockUser[] = [
     avatar: 'AM',
     rating: 4.8,
     tripsCount: 38,
+    driverTripsCount: 0,
     memberSince: 'Febrero 2024',
   },
   {
@@ -53,7 +56,8 @@ export const SEED_USERS: MockUser[] = [
     role: 'passenger+driver',
     avatar: 'CM',
     rating: 4.8,
-    tripsCount: 52,
+    tripsCount: 15,
+    driverTripsCount: 52,
     memberSince: 'Enero 2024',
   },
   {
@@ -66,7 +70,8 @@ export const SEED_USERS: MockUser[] = [
     role: 'passenger+driver',
     avatar: 'MR',
     rating: 4.9,
-    tripsCount: 91,
+    tripsCount: 22,
+    driverTripsCount: 91,
     memberSince: 'Agosto 2023',
   },
   {
@@ -79,7 +84,8 @@ export const SEED_USERS: MockUser[] = [
     role: 'passenger+driver',
     avatar: 'JL',
     rating: 4.7,
-    tripsCount: 38,
+    tripsCount: 10,
+    driverTripsCount: 38,
     memberSince: 'Marzo 2024',
   },
   {
@@ -92,7 +98,8 @@ export const SEED_USERS: MockUser[] = [
     role: 'passenger+driver',
     avatar: 'AP',
     rating: 5.0,
-    tripsCount: 30,
+    tripsCount: 8,
+    driverTripsCount: 30,
     memberSince: 'Octubre 2024',
   },
 ];

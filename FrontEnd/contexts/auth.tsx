@@ -17,9 +17,16 @@ export interface User {
   lastName: string;
   role: 'admin' | 'passenger' | 'passenger+driver';
   avatar: string;
+  profilePhotoUrl: string | null;
+  profilePhotoLocked: boolean;
   rating: number;
   tripsCount: number;
+  driverTripsCount: number;
   memberSince: string;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
 }
 
 interface AuthResponse {
@@ -31,9 +38,16 @@ interface AuthResponse {
   lastName: string;
   role: string;
   avatar: string;
+  profilePhotoUrl: string | null;
+  profilePhotoLocked: boolean;
   rating: number;
   tripsCount: number;
+  driverTripsCount: number;
   memberSince: string;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
 }
 
 export interface RegisterData {
@@ -70,16 +84,23 @@ const AuthContext = createContext<AuthContextType>({
 
 function mapResponse(r: AuthResponse): User {
   return {
-    id:          r.id,
-    username:    r.username,
-    email:       r.email,
-    firstName:   r.firstName,
-    lastName:    r.lastName,
-    role:        r.role as User['role'],
-    avatar:      r.avatar,
-    rating:      r.rating,
-    tripsCount:  r.tripsCount,
-    memberSince: r.memberSince,
+    id:                  r.id,
+    username:            r.username,
+    email:               r.email,
+    firstName:           r.firstName,
+    lastName:            r.lastName,
+    role:                r.role as User['role'],
+    avatar:              r.avatar,
+    profilePhotoUrl:     r.profilePhotoUrl ?? null,
+    profilePhotoLocked:  r.profilePhotoLocked ?? false,
+    rating:              r.rating,
+    tripsCount:          r.tripsCount,
+    driverTripsCount:    r.driverTripsCount ?? 0,
+    memberSince:         r.memberSince,
+    licenseExpiryMonth:  r.licenseExpiryMonth ?? null,
+    licenseExpiryYear:   r.licenseExpiryYear ?? null,
+    dekraExpiryMonth:    r.dekraExpiryMonth ?? null,
+    dekraExpiryYear:     r.dekraExpiryYear ?? null,
   };
 }
 

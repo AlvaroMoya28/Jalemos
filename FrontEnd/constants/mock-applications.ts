@@ -14,15 +14,17 @@ export interface ReviewIssue {
 }
 
 export const REVIEW_ISSUES: ReviewIssue[] = [
-  { id: 'license_unreadable',      label: 'La foto de la licencia no es legible' },
-  { id: 'name_mismatch',           label: 'El nombre no coincide con la licencia' },
-  { id: 'cedula_mismatch',         label: 'La cédula no coincide con la información de la licencia' },
-  { id: 'license_expired',         label: 'La licencia está vencida' },
-  { id: 'dekra_vehicle_mismatch',  label: 'El Dekra no coincide con el vehículo registrado' },
-  { id: 'dekra_failed',            label: 'El vehículo no pasó la revisión técnica (Dekra)' },
-  { id: 'dekra_expired',           label: 'El Dekra está vencido' },
-  { id: 'vehicle_info_mismatch',   label: 'La información del vehículo no coincide' },
-  { id: 'plate_mismatch',          label: 'La placa ingresada no coincide' },
+  { id: 'license_unreadable',        label: 'La foto de la licencia no es legible' },
+  { id: 'name_mismatch',             label: 'El nombre no coincide con la licencia' },
+  { id: 'cedula_mismatch',           label: 'La cédula no coincide con la información de la licencia' },
+  { id: 'license_expired',           label: 'La licencia está vencida' },
+  { id: 'license_expiry_mismatch',   label: 'La fecha de vencimiento de la licencia no coincide con la foto' },
+  { id: 'dekra_vehicle_mismatch',    label: 'El Dekra no coincide con el vehículo registrado' },
+  { id: 'dekra_failed',              label: 'El vehículo no pasó la revisión técnica (Dekra)' },
+  { id: 'dekra_expired',             label: 'El Dekra está vencido' },
+  { id: 'dekra_expiry_mismatch',     label: 'La fecha de vencimiento del Dekra no coincide con la foto' },
+  { id: 'vehicle_info_mismatch',     label: 'La información del vehículo no coincide' },
+  { id: 'plate_mismatch',            label: 'La placa ingresada no coincide' },
 ];
 
 export interface DriverApplication {

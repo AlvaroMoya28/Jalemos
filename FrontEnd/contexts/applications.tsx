@@ -28,36 +28,48 @@ export interface DriverApplication {
   cedula: string;
   address: string;
   vehicle: { brand: string; model: string; year: string; plate: string; color: string };
+  facePhoto: string | null;
   licensePhotoFront: string | null;
   licensePhotoBack: string | null;
   dekraPhoto: string | null;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
+  isRenewal: boolean;
   adminFeedback?: { issueIds: string[]; notes: string; reviewedAt: string };
 }
 
 export interface SubmitData {
-  cedula: string;
-  address: string;
-  vehicle: DriverApplication['vehicle'];
+  cedula?: string;
+  address?: string;
+  vehicle?: DriverApplication['vehicle'];
+  facePhoto: string | null;
   licensePhotoFront: string | null;
   licensePhotoBack: string | null;
   dekraPhoto: string | null;
+  licenseExpiryMonth: number | null;
+  licenseExpiryYear: number | null;
+  dekraExpiryMonth: number | null;
+  dekraExpiryYear: number | null;
+  isRenewal?: boolean;
 }
 
 // DTO → local model
 
 function fromDTO(dto: DriverApplicationDTO): DriverApplication {
   return {
-    id:               dto.applicationId,
-    userId:           dto.userId,
-    applicantName:    dto.applicantName ?? '',
-    applicantEmail:   dto.applicantEmail ?? '',
-    applicantAvatar:  dto.applicantAvatar ?? '?',
-    submittedAt:      dto.submittedAt,
-    updatedAt:        dto.updatedAt,
-    status:           dto.status as ApplicationStatus,
-    attempts:         dto.attempts,
-    cedula:           dto.cedula,
-    address:          dto.address,
+    id:                 dto.applicationId,
+    userId:             dto.userId,
+    applicantName:      dto.applicantName ?? '',
+    applicantEmail:     dto.applicantEmail ?? '',
+    applicantAvatar:    dto.applicantAvatar ?? '?',
+    submittedAt:        dto.submittedAt,
+    updatedAt:          dto.updatedAt,
+    status:             dto.status as ApplicationStatus,
+    attempts:           dto.attempts,
+    cedula:             dto.cedula,
+    address:            dto.address,
     vehicle: {
       brand: dto.vehicleBrand,
       model: dto.vehicleModel,
@@ -65,9 +77,15 @@ function fromDTO(dto: DriverApplicationDTO): DriverApplication {
       plate: dto.vehiclePlate,
       color: dto.vehicleColor,
     },
-    licensePhotoFront: dto.licensePhotoFront,
-    licensePhotoBack:  dto.licensePhotoBack,
-    dekraPhoto:        dto.dekraPhoto,
+    facePhoto:           dto.facePhoto,
+    licensePhotoFront:   dto.licensePhotoFront,
+    licensePhotoBack:    dto.licensePhotoBack,
+    dekraPhoto:          dto.dekraPhoto,
+    licenseExpiryMonth:  dto.licenseExpiryMonth ?? null,
+    licenseExpiryYear:   dto.licenseExpiryYear ?? null,
+    dekraExpiryMonth:    dto.dekraExpiryMonth ?? null,
+    dekraExpiryYear:     dto.dekraExpiryYear ?? null,
+    isRenewal:           dto.isRenewal ?? false,
     adminFeedback: dto.adminIssueIds
       ? { issueIds: dto.adminIssueIds, notes: dto.adminNotes ?? '', reviewedAt: dto.reviewedAt ?? '' }
       : undefined,
@@ -152,16 +170,22 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
   const submitApplication = async (data: SubmitData): Promise<DriverApplication> => {
     const dto = await applicationsApi.submit(
       {
-        cedula:           data.cedula,
-        address:          data.address,
-        vehicleBrand:     data.vehicle.brand,
-        vehicleModel:     data.vehicle.model,
-        vehicleYear:      Number(data.vehicle.year),
-        vehiclePlate:     data.vehicle.plate,
-        vehicleColor:     data.vehicle.color,
-        licensePhotoFront: data.licensePhotoFront,
-        licensePhotoBack:  data.licensePhotoBack,
-        dekraPhoto:        data.dekraPhoto,
+        cedula:             data.cedula,
+        address:            data.address,
+        vehicleBrand:       data.vehicle?.brand,
+        vehicleModel:       data.vehicle?.model,
+        vehicleYear:        data.vehicle ? Number(data.vehicle.year) : undefined,
+        vehiclePlate:       data.vehicle?.plate,
+        vehicleColor:       data.vehicle?.color,
+        facePhoto:          data.facePhoto,
+        licensePhotoFront:  data.licensePhotoFront,
+        licensePhotoBack:   data.licensePhotoBack,
+        dekraPhoto:         data.dekraPhoto,
+        licenseExpiryMonth: data.licenseExpiryMonth,
+        licenseExpiryYear:  data.licenseExpiryYear,
+        dekraExpiryMonth:   data.dekraExpiryMonth,
+        dekraExpiryYear:    data.dekraExpiryYear,
+        isRenewal:          data.isRenewal ?? false,
       },
       requireToken()
     );
@@ -174,16 +198,22 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
     const dto = await applicationsApi.resubmit(
       applicationId,
       {
-        cedula:           data.cedula,
-        address:          data.address,
-        vehicleBrand:     data.vehicle.brand,
-        vehicleModel:     data.vehicle.model,
-        vehicleYear:      Number(data.vehicle.year),
-        vehiclePlate:     data.vehicle.plate,
-        vehicleColor:     data.vehicle.color,
-        licensePhotoFront: data.licensePhotoFront,
-        licensePhotoBack:  data.licensePhotoBack,
-        dekraPhoto:        data.dekraPhoto,
+        cedula:             data.cedula,
+        address:            data.address,
+        vehicleBrand:       data.vehicle?.brand,
+        vehicleModel:       data.vehicle?.model,
+        vehicleYear:        data.vehicle ? Number(data.vehicle.year) : undefined,
+        vehiclePlate:       data.vehicle?.plate,
+        vehicleColor:       data.vehicle?.color,
+        facePhoto:          data.facePhoto,
+        licensePhotoFront:  data.licensePhotoFront,
+        licensePhotoBack:   data.licensePhotoBack,
+        dekraPhoto:         data.dekraPhoto,
+        licenseExpiryMonth: data.licenseExpiryMonth,
+        licenseExpiryYear:  data.licenseExpiryYear,
+        dekraExpiryMonth:   data.dekraExpiryMonth,
+        dekraExpiryYear:    data.dekraExpiryYear,
+        isRenewal:          data.isRenewal ?? false,
       },
       requireToken()
     );
