@@ -69,7 +69,9 @@ export const Brand = {
       success: '#3AE975',
       info: '#027CF7',
     },
-    shadow: '#18274B',
+    // Base shadow color (Transparent).
+    // It fixes the issue in Android where shadows doesnt render well.
+    shadow: 'rgba(0,0,0,0.0)',
   },
   grid: {
     margin: 24,
