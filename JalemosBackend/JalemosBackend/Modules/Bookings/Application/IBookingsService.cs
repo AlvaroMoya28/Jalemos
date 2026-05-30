@@ -18,12 +18,13 @@ public interface IBookingsService
     /// <summary>Retrieves a single booking by its unique identifier, or null if not found.</summary>
     Task<Booking?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>Persists a new booking after applying domain validation rules.</summary>
-    Task CreateAsync(Booking booking, CancellationToken cancellationToken = default);
+    /// <summary>Creates a new booking from a client DTO. CallerId is the authenticated passenger creating the booking.
+    /// Returns a DTO representing the created booking.</summary>
+    Task<BookingDto> CreateAsync(CreateBookingDto dto, Guid callerId, CancellationToken cancellationToken = default);
 
-    /// <summary>Updates an existing booking's data.</summary>
-    Task UpdateAsync(Booking booking, CancellationToken cancellationToken = default);
+    /// <summary>Updates an existing booking's data. CallerId is used to enforce ownership.</summary>
+    Task UpdateAsync(Booking booking, Guid callerId, CancellationToken cancellationToken = default);
 
-    /// <summary>Deletes the booking with the specified identifier.</summary>
-    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Deletes the booking with the specified identifier. CallerId is used to enforce ownership.</summary>
+    Task DeleteAsync(Guid id, Guid callerId, CancellationToken cancellationToken = default);
 }
