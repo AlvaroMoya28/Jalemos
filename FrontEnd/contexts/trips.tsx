@@ -23,6 +23,7 @@ interface TripsContextType {
   isLoading: boolean;
   error: string | null;
   refreshTrips: () => Promise<void>;
+  updateTripAvailableSeats?: (tripId: string, delta: number) => void;
 }
 
 const TripsContext = createContext<TripsContextType>({
@@ -33,14 +34,14 @@ const TripsContext = createContext<TripsContextType>({
 });
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
-  const { trips, isLoading, error, refreshTrips } = useTripsData();
+  const { trips, isLoading, error, refreshTrips, updateTripAvailableSeats } = useTripsData();
 
   useEffect(() => {
     refreshTrips();
   }, [refreshTrips]);
 
   return (
-    <TripsContext.Provider value={{ trips, isLoading, error, refreshTrips }}>
+    <TripsContext.Provider value={{ trips, isLoading, error, refreshTrips, updateTripAvailableSeats }}>
       {children}
     </TripsContext.Provider>
   );
