@@ -1,27 +1,37 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
-const TIMEOUT_MS        = 15_000;
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:5000";
+const TIMEOUT_MS = 15_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
-async function request<T>(path: string, options: RequestInit, timeoutMs = TIMEOUT_MS): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestInit,
+  timeoutMs = TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', ...options.headers },
+      headers: { "Content-Type": "application/json", ...options.headers },
     });
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new ApiError(res.status, body.error ?? body.detail ?? `Error ${res.status}`);
+      throw new ApiError(
+        res.status,
+        body.error ?? body.detail ?? `Error ${res.status}`,
+      );
     }
 
     if (res.status === 204) return undefined as T;
@@ -33,22 +43,30 @@ async function request<T>(path: string, options: RequestInit, timeoutMs = TIMEOU
 
 export function get<T>(path: string, token?: string): Promise<T> {
   return request<T>(path, {
-    method: 'GET',
+    method: "GET",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 }
 
-export function post<T>(path: string, body: object, token?: string): Promise<T> {
+export function post<T>(
+  path: string,
+  body: object,
+  token?: string,
+): Promise<T> {
   return request<T>(path, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(body),
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 }
 
-export function patch<T>(path: string, body: object, token?: string): Promise<T> {
+export function patch<T>(
+  path: string,
+  body: object,
+  token?: string,
+): Promise<T> {
   return request<T>(path, {
-    method: 'PATCH',
+    method: "PATCH",
     body: JSON.stringify(body),
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
@@ -73,7 +91,12 @@ export interface ApplicationFeedback {
 export interface DriverApplicationDTO {
   applicationId: string;
   userId: string;
-  status: 'pending' | 'under_review' | 'needs_correction' | 'approved' | 'rejected';
+  status:
+    | "pending"
+    | "under_review"
+    | "needs_correction"
+    | "approved"
+    | "rejected";
   attempts: number;
   cedula: string;
   address: string;
@@ -133,7 +156,7 @@ export interface AdminUserDTO {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'admin' | 'passenger' | 'driver';
+  role: "admin" | "passenger" | "driver";
   meanRating: number;
   totalTrips: number;
   kms: number;
@@ -152,9 +175,17 @@ export interface PagedUsersResponse {
 
 export interface UsersQueryParams {
   search?: string;
-  role?: 'admin' | 'passenger' | 'driver';
-  status?: 'active' | 'suspended' | 'deactivated';
-  sortBy?: 'name_asc' | 'name_desc' | 'rating_asc' | 'rating_desc' | 'trips_asc' | 'trips_desc' | 'newest' | 'oldest';
+  role?: "admin" | "passenger" | "driver";
+  status?: "active" | "suspended" | "deactivated";
+  sortBy?:
+    | "name_asc"
+    | "name_desc"
+    | "rating_asc"
+    | "rating_desc"
+    | "trips_asc"
+    | "trips_desc"
+    | "newest"
+    | "oldest";
   page?: number;
   pageSize?: number;
 }
@@ -162,21 +193,24 @@ export interface UsersQueryParams {
 export const usersApi = {
   getAll: (params: UsersQueryParams, token: string) => {
     const qs = new URLSearchParams();
-    if (params.search)   qs.set('search',   params.search);
-    if (params.role)     qs.set('role',     params.role);
-    if (params.status)   qs.set('status',   params.status);
-    if (params.sortBy)   qs.set('sortBy',   params.sortBy);
-    if (params.page)     qs.set('page',     String(params.page));
-    if (params.pageSize) qs.set('pageSize', String(params.pageSize));
+    if (params.search) qs.set("search", params.search);
+    if (params.role) qs.set("role", params.role);
+    if (params.status) qs.set("status", params.status);
+    if (params.sortBy) qs.set("sortBy", params.sortBy);
+    if (params.page) qs.set("page", String(params.page));
+    if (params.pageSize) qs.set("pageSize", String(params.pageSize));
     const q = qs.toString();
-    return get<PagedUsersResponse>(`/api/users${q ? `?${q}` : ''}`, token);
+    return get<PagedUsersResponse>(`/api/users${q ? `?${q}` : ""}`, token);
   },
 
   getById: (id: string, token: string) =>
     get<AdminUserDTO>(`/api/users/${id}`, token),
 
-  changeRole: (id: string, role: 'admin' | 'passenger' | 'driver', token: string) =>
-    patch<void>(`/api/users/${id}/role`, { role }, token),
+  changeRole: (
+    id: string,
+    role: "admin" | "passenger" | "driver",
+    token: string,
+  ) => patch<void>(`/api/users/${id}/role`, { role }, token),
 
   ban: (id: string, days: number, token: string) =>
     patch<void>(`/api/users/${id}/ban`, { days }, token),
@@ -195,36 +229,58 @@ export const usersApi = {
 
 export const applicationsApi = {
   getMy: (token: string) =>
-    get<DriverApplicationDTO | null>('/api/driver-applications/my', token),
+    get<DriverApplicationDTO | null>("/api/driver-applications/my", token),
 
   getAll: (token: string, status?: string) =>
     get<DriverApplicationDTO[]>(
-      `/api/driver-applications${status ? `?status=${status}` : ''}`,
-      token
+      `/api/driver-applications${status ? `?status=${status}` : ""}`,
+      token,
     ),
 
   getById: (id: string, token: string) =>
     get<DriverApplicationDTO>(`/api/driver-applications/${id}`, token),
 
   submit: (payload: SubmitApplicationPayload, token: string) =>
-    request<DriverApplicationDTO>('/api/driver-applications', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    }, UPLOAD_TIMEOUT_MS),
+    request<DriverApplicationDTO>(
+      "/api/driver-applications",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      UPLOAD_TIMEOUT_MS,
+    ),
 
   resubmit: (id: string, payload: SubmitApplicationPayload, token: string) =>
-    request<DriverApplicationDTO>(`/api/driver-applications/${id}/resubmit`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    }, UPLOAD_TIMEOUT_MS),
+    request<DriverApplicationDTO>(
+      `/api/driver-applications/${id}/resubmit`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      UPLOAD_TIMEOUT_MS,
+    ),
 
   setUnderReview: (id: string, token: string) =>
     patch<void>(`/api/driver-applications/${id}/under-review`, {}, token),
 
-  requestCorrection: (id: string, payload: ReviewActionPayload, token: string) =>
-    patch<void>(`/api/driver-applications/${id}/request-correction`, payload, token),
+  requestCorrection: (
+    id: string,
+    payload: ReviewActionPayload,
+    token: string,
+  ) =>
+    patch<void>(
+      `/api/driver-applications/${id}/request-correction`,
+      payload,
+      token,
+    ),
 
   approve: (id: string, token: string) =>
     patch<void>(`/api/driver-applications/${id}/approve`, {}, token),
@@ -233,5 +289,25 @@ export const applicationsApi = {
     patch<void>(`/api/driver-applications/${id}/reject`, payload, token),
 };
 
-
-
+// Bookings
+export const bookingsApi = {
+  create: (
+    tripId: string,
+    seatsReserved: number,
+    estimatedAmount: number | null,
+    token?: string,
+  ) =>
+    post<any>(
+      `/api/bookings`,
+      { tripId, seatsReserved, estimatedAmount },
+      token,
+    ),
+  getAll: (token?: string) => get<any[]>(`/api/bookings`, token),
+  getById: (id: string, token?: string) =>
+    get<any>(`/api/bookings/${id}`, token),
+  delete: (id: string, token?: string) =>
+    request<void>(`/api/bookings/${id}`, {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+};
