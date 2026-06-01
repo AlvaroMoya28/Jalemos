@@ -13,6 +13,7 @@ public sealed class VehiclesRepository
     {
         VehicleId = e.VehicleId,
         UserId    = e.UserId,
+        Brand     = e.Brand,
         Model     = e.Model,
         Year      = e.Year,
         NumPlate  = e.NumPlate,

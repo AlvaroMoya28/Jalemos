@@ -14,4 +14,5 @@ public sealed class UserSummaryDto
     public bool   IsActive       { get; set; }
     public DateTime? SuspendedUntil { get; set; }
     public DateTime  CreatedAt   { get; set; }
+    public string? ProfilePhotoUrl { get; set; }
 }

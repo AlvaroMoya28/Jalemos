@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -637,9 +638,16 @@ export default function AdminUsersScreen() {
                   <AnimatedPressable pressedScale={0.99} onPress={() => setSelectedUser(u)}>
                     <GlassCard style={styles.card} intensity={32}>
                       <View style={styles.cardTop}>
-                        <View style={[styles.avatar, { backgroundColor: Brand.colors.green.light + '44' }]}>
-                          <Text style={styles.avatarText}>{u.avatar}</Text>
-                        </View>
+                        {u.profilePhotoUrl ? (
+                          <Image
+                            source={{ uri: u.profilePhotoUrl }}
+                            style={[styles.avatar, { backgroundColor: Brand.colors.green.light + '44' }]}
+                          />
+                        ) : (
+                          <View style={[styles.avatar, { backgroundColor: Brand.colors.green.light + '44' }]}>
+                            <Text style={styles.avatarText}>{u.avatar}</Text>
+                          </View>
+                        )}
                         <View style={styles.nameBlock}>
                           <Text style={styles.name}>{u.firstName} {u.lastName}</Text>
                           <Text style={styles.username}>@{u.username}</Text>

@@ -5,6 +5,7 @@ public sealed class Vehicle
 {
     public Guid VehicleId { get; set; }
     public Guid UserId { get; set; }
+    public string Brand { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public short Year { get; set; }
     public string NumPlate { get; set; } = string.Empty;

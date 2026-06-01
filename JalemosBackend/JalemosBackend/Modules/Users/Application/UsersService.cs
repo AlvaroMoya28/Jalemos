@@ -41,9 +41,10 @@ public sealed class UsersService : IUsersService
             MeanRating     = u.MeanRating,
             TotalTrips     = u.TotalTrips,
             Kms            = u.Kms,
-            IsActive       = u.IsActive,
-            SuspendedUntil = u.SuspendedUntil,
-            CreatedAt      = u.CreatedAt,
+            IsActive        = u.IsActive,
+            SuspendedUntil  = u.SuspendedUntil,
+            CreatedAt       = u.CreatedAt,
+            ProfilePhotoUrl = u.ProfilePhotoUrl,
         });
 
         return new PagedUsersResponse
