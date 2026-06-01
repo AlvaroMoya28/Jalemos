@@ -129,25 +129,107 @@ export const Brand = {
 
 // Tint colors for light and dark mode (used by the React Navigation theme)
 const tintColorLight = Brand.colors.green.normal;
-const tintColorDark = Brand.colors.black.b1;
+const tintColorDark = Brand.colors.green.normal;
 
-/** Light/dark semantic color map consumed by useThemeColor and the navigation theme. */
+/** Light/dark semantic color map consumed by useThemeColor, useAppTheme, and the navigation theme. */
 export const Colors = {
   light: {
+    // React Navigation tokens
     text: Brand.colors.black.b10,
     background: Brand.colors.black.b3,
     tint: tintColorLight,
     icon: Brand.colors.black.b8,
     tabIconDefault: Brand.colors.black.b8,
     tabIconSelected: tintColorLight,
+    // Screen & surface backgrounds
+    screenBg: Brand.colors.black.b3,
+    surface: Brand.colors.black.b1,
+    surfaceAlt: Brand.colors.black.b2,
+    bottomSurface: Brand.colors.black.b1,
+    // Text
+    textPrimary: Brand.colors.black.b10,
+    textSecondary: Brand.colors.black.b8,
+    textMuted: Brand.colors.black.b7,
+    textPlaceholder: '#758783',
+    // Borders
+    border: Brand.colors.green.light,
+    borderSubtle: 'rgba(186, 226, 221, 0.82)',
+    // Inputs
+    inputBg: Brand.colors.black.b1,
+    inputText: Brand.colors.black.b10,
+    // Tab bar
+    tabBarBg: Brand.colors.black.b2,
+    tabBarBorder: Brand.colors.green.light,
+    // Header banner
+    headerBg: Brand.colors.green.dark,
+    // Calendar / modal cards
+    calendarBg: 'rgba(245, 253, 250, 0.95)',
+    calendarBorder: 'rgba(186, 226, 221, 0.95)',
+    // GlassCard layers
+    glassBg: 'rgba(255, 255, 255, 0.17)',
+    glassBorder: 'rgba(186, 226, 221, 0.82)',
+    glassSurface: 'rgba(255, 255, 255, 0.16)',
+    glassHighlight: 'rgba(255, 255, 255, 0.24)',
+    // Component-specific
+    clearBtnBg: 'rgba(255, 255, 255, 0.82)',
+    seatCompactBg: 'rgba(255, 255, 255, 0.68)',
+    wheelBg: 'rgba(255, 255, 255, 0.9)',
+    vehicleCardBg: 'rgba(255, 255, 255, 0.66)',
+    vehicleCardActiveBg: 'rgba(255, 255, 255, 0.86)',
+    walletCounterBg: 'rgba(255, 255, 255, 0.62)',
+    logoutBg: '#fff0f1',
+    segmentBg: Brand.colors.green.light,
+    segmentActiveBg: Brand.colors.black.b1,
+    radioOuterBg: Brand.colors.black.b1,
   },
   dark: {
+    // React Navigation tokens
     text: Brand.colors.black.b2,
-    background: Brand.colors.black.b12,
+    background: '#060e0d',
     tint: tintColorDark,
     icon: Brand.colors.black.b6,
     tabIconDefault: Brand.colors.black.b6,
     tabIconSelected: tintColorDark,
+    // Screen & surface backgrounds — deep dark teal, significantly darker than before
+    screenBg: '#060e0d',
+    surface: '#0a1916',
+    surfaceAlt: '#081412',
+    bottomSurface: '#0a1916',
+    // Text
+    textPrimary: Brand.colors.black.b2,
+    textSecondary: Brand.colors.black.b5,
+    textMuted: Brand.colors.black.b6,
+    textPlaceholder: '#3d5c58',
+    // Borders
+    border: 'rgba(26, 158, 143, 0.4)',
+    borderSubtle: 'rgba(26, 158, 143, 0.22)',
+    // Inputs
+    inputBg: '#091513',
+    inputText: Brand.colors.black.b2,
+    // Tab bar
+    tabBarBg: '#091412',
+    tabBarBorder: 'rgba(26, 158, 143, 0.28)',
+    // Header banner
+    headerBg: Brand.colors.green.darkActive,
+    // Calendar / modal cards
+    calendarBg: 'rgba(6, 16, 14, 0.98)',
+    calendarBorder: 'rgba(26, 158, 143, 0.4)',
+    // GlassCard layers
+    glassBg: 'rgba(10, 38, 34, 0.32)',
+    glassBorder: 'rgba(26, 158, 143, 0.3)',
+    glassSurface: 'rgba(10, 38, 34, 0.2)',
+    glassHighlight: 'rgba(255, 255, 255, 0.06)',
+    // Component-specific
+    clearBtnBg: 'rgba(8, 20, 18, 0.92)',
+    seatCompactBg: 'rgba(8, 20, 18, 0.92)',
+    wheelBg: 'rgba(7, 17, 15, 0.96)',
+    vehicleCardBg: 'rgba(9, 25, 22, 0.88)',
+    vehicleCardActiveBg: 'rgba(12, 34, 30, 0.95)',
+    walletCounterBg: 'rgba(7, 17, 15, 0.9)',
+    logoutBg: 'rgba(60, 15, 15, 0.6)',
+    segmentBg: 'rgba(26, 158, 143, 0.18)',
+    segmentActiveBg: '#0a1916',
+    radioOuterBg: '#0a1916',
   },
 };
 

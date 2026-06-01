@@ -8,6 +8,7 @@ node_modules/
 **/bin/
 **/obj/
 *.user
+**/appsettings.Development.json
 *.suo
 # Expo
 .expo/

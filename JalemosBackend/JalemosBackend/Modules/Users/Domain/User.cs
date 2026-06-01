@@ -1,15 +1,21 @@
-// Domain entity for the Users module.
-// Represents a registered Jalemos user who can act as a driver, a passenger, or both.
-
-namespace JalemosBackend.Modules.Users.Domain;
-
-/// <summary>
-/// Represents an application user with profile data and role information.
-/// </summary>
-public sealed class User
+namespace JalemosBackend.Modules.Users.Domain
 {
-    // TODO: Add FullName, Email, PhoneNumber, Role (Driver/Passenger/Both),
-    //       AvatarUrl, AverageRating, TotalTrips, and domain validation methods
-    //       such as Verify() and UpdateProfile().
-    public Guid Id { get; set; }
+    public sealed class User
+    {
+        public Guid Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? PasswordHash { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public UserRole Role { get; set; } = UserRole.passenger;
+        public decimal MeanRating { get; set; }
+        public int TotalTrips { get; set; }
+        public decimal Kms { get; set; }
+        public string? ProfilePhotoUrl { get; set; }
+        public DateTime? SuspendedUntil { get; set; }
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
 }

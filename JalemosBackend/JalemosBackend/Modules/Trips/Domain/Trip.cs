@@ -1,15 +1,32 @@
 // Domain entity for the Trips (Rides) module.
 // Holds all business rules and state for a single offered trip.
+using JalemosBackend.Infrastructure.Persistence;
+namespace JalemosBackend.Modules.Trips.Domain;
 
-namespace JalemosBackend.Modules.Rides.Domain;
 
 /// <summary>
 /// Represents a trip offered by a driver, including route, schedule, capacity, and price.
 /// </summary>
 public sealed class Trip
 {
-    // TODO: Add DriverId, Origin, Destination, DepartureAt, AvailableSeats, PricePerSeat,
-    //       IsRecurring, Status (Draft/Published/Completed/Cancelled),
-    //       and domain methods such as Publish(), Cancel(), BookSeat().
     public Guid Id { get; set; }
+    public Guid DriverId { get; set; }
+    public Guid VehicleId { get; set; }
+    public decimal Rate { get; set; }
+    public string Origin { get; set; } = string.Empty;
+    public string Destination { get; set; } = string.Empty;
+
+    public decimal OriginLatitude { get; set; }
+    public decimal OriginLongitude { get; set; }
+    public decimal DestinationLatitude { get; set; }
+    public decimal DestinationLongitude { get; set; }
+
+    public DateTime DepartureAt { get; set; }
+    public short TotalSeats { get; set; }
+    public short AvailableSeats { get; set; }
+    public TripState State { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string Notes { get; set; } = string.Empty;
+
+
 }

@@ -1,66 +1,110 @@
-// HTTP presentation layer for the Users module.
-// Maps REST requests to IUsersService use cases and returns appropriate HTTP status codes.
+// Admin user management endpoints.
+// All routes require an authenticated admin JWT.
 
 using JalemosBackend.Modules.Users.Application;
-using JalemosBackend.Modules.Users.Domain;
+using JalemosBackend.Modules.Users.Application.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JalemosBackend.Modules.Users.Presentation;
 
-/// <summary>
-/// Exposes CRUD endpoints for users under the /api/users route.
-/// </summary>
 [ApiController]
 [Route("api/users")]
+[Authorize(Roles = "admin")]
 public sealed class UsersController : ControllerBase
 {
     private readonly IUsersService _usersService;
 
-    /// <summary>Injects the users application service.</summary>
-    public UsersController(IUsersService usersService)
-    {
-        _usersService = usersService;
-    }
+    public UsersController(IUsersService usersService) => _usersService = usersService;
 
-    /// <summary>GET /api/users — returns all users. Should be protected by an admin policy.</summary>
+    // GET /api/users?search=&role=&status=&sortBy=name_asc&page=1&pageSize=30
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<User>>> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaged([FromQuery] UserQueryParams query, CancellationToken ct)
     {
-        var users = await _usersService.GetAllAsync(cancellationToken);
-        return Ok(users);
+        try
+        {
+            var result = await _usersService.GetPagedAsync(query, ct);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return Problem(detail: ex.Message, statusCode: 500);
+        }
     }
 
-    /// <summary>GET /api/users/{id} — returns a single user, or 404 if not found.</summary>
+    // GET /api/users/{id}
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<User>> GetById(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var user = await _usersService.GetByIdAsync(id, cancellationToken);
-        return user is null ? NotFound() : Ok(user);
+        var user = await _usersService.GetByIdAsync(id, ct);
+        if (user is null) return NotFound();
+
+        var dto = new UserSummaryDto
+        {
+            Id             = user.Id,
+            Username       = user.Username,
+            Email          = user.Email,
+            FirstName      = user.FirstName,
+            LastName       = user.LastName,
+            Role           = user.Role.ToString(),
+            MeanRating     = user.MeanRating,
+            TotalTrips     = user.TotalTrips,
+            Kms            = user.Kms,
+            IsActive        = user.IsActive,
+            SuspendedUntil  = user.SuspendedUntil,
+            CreatedAt       = user.CreatedAt,
+            ProfilePhotoUrl = user.ProfilePhotoUrl,
+        };
+        return Ok(dto);
     }
 
-    /// <summary>POST /api/users — registers a new user account.</summary>
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] User user, CancellationToken cancellationToken)
+    // PATCH /api/users/{id}/role  — body: { "role": "passenger" }
+    [HttpPatch("{id:guid}/role")]
+    public async Task<IActionResult> ChangeRole(Guid id, [FromBody] ChangeRoleRequest dto, CancellationToken ct)
     {
-        await _usersService.CreateAsync(user, cancellationToken);
-        return NoContent();
+        try
+        {
+            await _usersService.ChangeRoleAsync(id, dto.Role, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)       { return NotFound(); }
+        catch (ArgumentException ex)       { return Problem(detail: ex.Message, statusCode: 400); }
     }
 
-    /// <summary>PUT /api/users/{id} — updates user profile. Route id overrides body id.</summary>
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] User user, CancellationToken cancellationToken)
+    // PATCH /api/users/{id}/ban  — body: { "days": 7 }  (0 = permanent)
+    [HttpPatch("{id:guid}/ban")]
+    public async Task<IActionResult> Ban(Guid id, [FromBody] BanUserRequest dto, CancellationToken ct)
     {
-        // Enforce the route id so the primary key cannot be changed via the request body
-        user.Id = id;
-        await _usersService.UpdateAsync(user, cancellationToken);
-        return NoContent();
+        try
+        {
+            await _usersService.BanAsync(id, dto.Days, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)  { return NotFound(); }
+        catch (ArgumentException ex)  { return Problem(detail: ex.Message, statusCode: 400); }
     }
 
-    /// <summary>DELETE /api/users/{id} — removes the specified user account.</summary>
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    // PATCH /api/users/{id}/lift-ban
+    [HttpPatch("{id:guid}/lift-ban")]
+    public async Task<IActionResult> LiftBan(Guid id, CancellationToken ct)
     {
-        await _usersService.DeleteAsync(id, cancellationToken);
-        return NoContent();
+        try   { await _usersService.LiftBanAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    // PATCH /api/users/{id}/deactivate
+    [HttpPatch("{id:guid}/deactivate")]
+    public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
+    {
+        try   { await _usersService.DeactivateAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    // PATCH /api/users/{id}/activate
+    [HttpPatch("{id:guid}/activate")]
+    public async Task<IActionResult> Activate(Guid id, CancellationToken ct)
+    {
+        try   { await _usersService.ActivateAsync(id, ct); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 }

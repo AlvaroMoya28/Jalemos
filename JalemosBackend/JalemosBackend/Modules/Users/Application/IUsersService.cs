@@ -1,6 +1,7 @@
 // Application contract for the Users module.
 // Declares the user management use cases exposed to the presentation layer.
 
+using JalemosBackend.Modules.Users.Application.DTOs;
 using JalemosBackend.Modules.Users.Domain;
 
 namespace JalemosBackend.Modules.Users.Application;
@@ -16,6 +17,9 @@ public interface IUsersService
     /// <summary>Returns the user with the specified id, or null if not found.</summary>
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns a paginated, filtered, sorted list of users for admin management.</summary>
+    Task<PagedUsersResponse> GetPagedAsync(UserQueryParams queryParams, CancellationToken cancellationToken = default);
+
     /// <summary>Registers a new user after validating email uniqueness and required fields.</summary>
     Task CreateAsync(User user, CancellationToken cancellationToken = default);
 
@@ -24,4 +28,19 @@ public interface IUsersService
 
     /// <summary>Removes the user account with the specified identifier.</summary>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Changes the role of a user (admin action).</summary>
+    Task ChangeRoleAsync(Guid id, string role, CancellationToken cancellationToken = default);
+
+    /// <summary>Suspends a user for the given number of days. 0 = permanent.</summary>
+    Task BanAsync(Guid id, int days, CancellationToken cancellationToken = default);
+
+    /// <summary>Lifts an active suspension from a user.</summary>
+    Task LiftBanAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Deactivates a user account (sets is_active = false).</summary>
+    Task DeactivateAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Reactivates a user account and clears any suspension.</summary>
+    Task ActivateAsync(Guid id, CancellationToken cancellationToken = default);
 }

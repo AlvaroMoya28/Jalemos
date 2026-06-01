@@ -1,0 +1,474 @@
+// Driver registration screen — reached from the profile mode-toggle when the user has
+// never registered as a driver. Collects vehicle details (make, model, year, plate, colour),
+// driver's licence photos (front and back), and Dekra technical-inspection photo.
+// On successful submission it sets isDriverRegistered = true, switches mode to 'driver',
+// and redirects to the Offer tab.
+// Photo capture uses DocumentCameraModal with a card-shaped guide overlay for the licence
+// and a full-frame capture for the Dekra document.
+
+import DocumentCameraModal from '@/components/document-camera-modal';
+import ExpiryInput, { parseExpiry } from '@/components/expiry-input';
+import GlassCard from '@/components/glass-card';
+import PlaceSearchInput from '@/components/place-search-input';
+import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { useApplications } from '@/contexts/applications';
+import { useAuth } from '@/contexts/auth';
+import { useLoading } from '@/contexts/loading';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { router } from 'expo-router';
+import { useMemo, useState } from 'react';
+import {
+  ActionSheetIOS,
+  Alert,
+  Image,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
+  return StyleSheet.create({
+    bg: { flex: 1 },
+    overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10, 63, 57, 0.35)' },
+    keyboard: { flex: 1 },
+    container: {
+      flexGrow: 1,
+      paddingHorizontal: Brand.grid.margin,
+      paddingTop: 60,
+      paddingBottom: Brand.spacing[24],
+      gap: 14,
+    },
+    backBtn: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: 6, alignSelf: 'flex-start', marginBottom: 4,
+    },
+    backText: { color: '#ffffff', fontFamily: Fonts.heading, fontSize: 14 },
+    header: { marginBottom: 4 },
+    title: { color: '#ffffff', fontFamily: Fonts.headingHeavy, fontSize: 28 },
+    subtitle: { color: 'rgba(255,255,255,0.75)', fontFamily: Fonts.sans, fontSize: 13, marginTop: 4 },
+    cardWrap: { ...withElevation(400) },
+    card: { borderRadius: Brand.radius[24], padding: Brand.spacing[16], gap: 10 },
+    sectionLabel: {
+      fontSize: 11, color: c.textPrimary, fontFamily: Fonts.heading,
+      textTransform: 'uppercase', marginBottom: 2, marginTop: 4,
+    },
+    row: { flexDirection: 'row', gap: 10 },
+    inputWrap: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      borderRadius: Brand.radius[12], borderWidth: 1,
+      borderColor: c.border, backgroundColor: c.inputBg,
+      paddingHorizontal: 12, paddingVertical: 12,
+    },
+    inputFlex: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+      borderRadius: Brand.radius[12], borderWidth: 1,
+      borderColor: c.border, backgroundColor: c.inputBg,
+      paddingHorizontal: 12, paddingVertical: 12,
+    },
+    input: { flex: 1, fontSize: 14, color: c.inputText, fontFamily: Fonts.sans },
+    // Photo picker
+    photoRow: { flexDirection: 'row', gap: 10 },
+    photoBtn: {
+      flex: 1, height: 110, borderRadius: Brand.radius[12],
+      borderWidth: 1.5, borderColor: c.border, borderStyle: 'dashed',
+      backgroundColor: c.inputBg,
+      alignItems: 'center', justifyContent: 'center', gap: 6,
+      overflow: 'hidden',
+    },
+    photoBtnFull: {
+      height: 110, borderRadius: Brand.radius[12],
+      borderWidth: 1.5, borderColor: c.border, borderStyle: 'dashed',
+      backgroundColor: c.inputBg,
+      alignItems: 'center', justifyContent: 'center', gap: 6,
+      overflow: 'hidden',
+    },
+    photoBtnDone: { borderColor: Brand.colors.green.normal, borderStyle: 'solid' },
+    photoThumb: { width: '100%', height: '100%', resizeMode: 'cover' },
+    photoLabel: { fontSize: 12, fontFamily: Fonts.heading, color: c.textMuted },
+    photoSublabel: { fontSize: 10, fontFamily: Fonts.sans, color: c.textMuted },
+    photoDoneIcon: { position: 'absolute', top: 6, right: 6 },
+    retakeOverlay: {
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      backgroundColor: 'rgba(0,0,0,0.4)', paddingVertical: 4,
+      alignItems: 'center',
+    },
+    // Info box
+    infoBox: {
+      flexDirection: 'row', gap: 10,
+      backgroundColor: Brand.colors.green.light + '33',
+      borderRadius: Brand.radius[12], padding: 12,
+      borderWidth: 1, borderColor: Brand.colors.green.light,
+    },
+    infoText: { flex: 1, color: '#ffffff', fontFamily: Fonts.sans, fontSize: 12, lineHeight: 18 },
+    cta: {
+      backgroundColor: Brand.colors.green.normal,
+      borderRadius: 999, paddingVertical: 14, alignItems: 'center',
+      ...withElevation(400),
+    },
+    ctaText: { color: Brand.colors.black.b1, fontSize: 15, fontFamily: Fonts.headingBold },
+  });
+}
+
+type PhotoSlot = { uri: string } | null;
+
+function PhotoPickerBtn({
+  photo, label, sublabel, onPress, style,
+}: {
+  photo: PhotoSlot;
+  label: string;
+  sublabel?: string;
+  onPress: () => void;
+  style?: object;
+}) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  return (
+    <Pressable
+      style={[style ?? styles.photoBtn, photo && styles.photoBtnDone]}
+      onPress={onPress}>
+      {photo ? (
+        <>
+          <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
+          <View style={styles.photoDoneIcon}>
+            <Ionicons name="checkmark-circle" size={20} color={Brand.colors.green.normal} />
+          </View>
+          <View style={styles.retakeOverlay}>
+            <Ionicons name="camera-outline" size={18} color="#fff" />
+          </View>
+        </>
+      ) : (
+        <>
+          <Ionicons name="camera-outline" size={26} color={Brand.colors.green.normal} />
+          <Text style={styles.photoLabel}>{label}</Text>
+          {sublabel ? <Text style={styles.photoSublabel}>{sublabel}</Text> : null}
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+async function pickFromGallery(): Promise<PhotoSlot> {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') return null;
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 0.85,
+    allowsEditing: false,
+  });
+  if (result.canceled) return null;
+  return { uri: result.assets[0].uri };
+}
+
+export default function DriverRegistrationScreen() {
+  const { isDark, colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { submitApplication, resubmitApplication, myApplication } = useApplications();
+  const { showLoader, hideLoader } = useLoading();
+  const { user } = useAuth();
+  const isResubmit = myApplication?.status === 'needs_correction';
+
+  // Personal info
+  const [cedula, setCedula]   = useState(myApplication?.cedula ?? '');
+  const [address, setAddress] = useState(myApplication?.address ?? '');
+
+  // Vehicle form fields
+  const [marca, setMarca] = useState(myApplication?.vehicle.brand ?? '');
+  const [modelo, setModelo] = useState(myApplication?.vehicle.model ?? '');
+  const [año, setAño] = useState(myApplication?.vehicle.year ?? '');
+  const [placa, setPlaca] = useState(myApplication?.vehicle.plate ?? '');
+  const [vehicleColor, setVehicleColor] = useState(myApplication?.vehicle.color ?? '');
+
+  // Expiry dates stored as "MM/YY" string
+  const initExpiry = (month?: number | null, year?: number | null) =>
+    month && year ? `${String(month).padStart(2, '0')}/${String(year).slice(-2)}` : '';
+  const [licenseExpiry, setLicenseExpiry] = useState(initExpiry(myApplication?.licenseExpiryMonth, myApplication?.licenseExpiryYear));
+  const [dekraExpiry,   setDekraExpiry]   = useState(initExpiry(myApplication?.dekraExpiryMonth,   myApplication?.dekraExpiryYear));
+
+  // Photo slots
+  const [facePhoto, setFacePhotoState] = useState<PhotoSlot>(null);
+  const [licenciaFront, setLicenciaFront] = useState<PhotoSlot>(null);
+  const [licenciaBack, setLicenciaBack] = useState<PhotoSlot>(null);
+  const [dekraPhoto, setDekraPhoto] = useState<PhotoSlot>(null);
+
+  // Which camera slot is currently open; null means the modal is closed
+  type CameraTarget = 'face' | 'licenciaFront' | 'licenciaBack' | 'dekra';
+  const [cameraOpen, setCameraOpen] = useState<CameraTarget | null>(null);
+
+  const cameraConfig: Record<CameraTarget, { label: string; type: 'face' | 'license' | 'document' }> = {
+    face:          { label: 'Foto de perfil',          type: 'face'     },
+    licenciaFront: { label: 'Licencia — Lado frontal', type: 'license'  },
+    licenciaBack:  { label: 'Licencia — Lado trasero', type: 'license'  },
+    dekra:         { label: 'Revisión técnica Dekra',  type: 'document' },
+  };
+
+  const setPhoto = (target: CameraTarget, uri: string) => {
+    if (target === 'face')               setFacePhotoState({ uri });
+    else if (target === 'licenciaFront') setLicenciaFront({ uri });
+    else if (target === 'licenciaBack')  setLicenciaBack({ uri });
+    else                                 setDekraPhoto({ uri });
+  };
+
+  const openPhotoOptions = (target: CameraTarget) => {
+    const openCamera = () => setCameraOpen(target);
+    const openGallery = async () => {
+      const photo = await pickFromGallery();
+      if (photo) setPhoto(target, photo.uri);
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancelar', 'Tomar foto', 'Elegir de galería'], cancelButtonIndex: 0 },
+        (index) => {
+          if (index === 1) openCamera();
+          if (index === 2) openGallery();
+        }
+      );
+    } else {
+      Alert.alert('Adjuntar foto', '', [
+        { text: 'Tomar foto', onPress: openCamera },
+        { text: 'Elegir de galería', onPress: openGallery },
+        { text: 'Cancelar', style: 'cancel' },
+      ]);
+    }
+  };
+
+  const toBase64 = async (uri: string | null): Promise<string | null> => {
+    if (!uri) return null;
+    const ref    = await ImageManipulator.manipulate(uri).resize({ width: 1024 }).renderAsync();
+    const result = await ref.saveAsync({ format: SaveFormat.JPEG, compress: 0.78, base64: true });
+    return result.base64 ? `data:image/jpeg;base64,${result.base64}` : null;
+  };
+
+  const handleRegister = async () => {
+    if (!cedula.trim()) {
+      Alert.alert('Campos requeridos', 'Ingresá tu número de cédula.');
+      return;
+    }
+    if (!address.trim()) {
+      Alert.alert('Campos requeridos', 'Ingresá tu dirección de domicilio.');
+      return;
+    }
+    showLoader('Subiendo imágenes...');
+    try {
+      const [faceB64, frontB64, backB64, dekraB64] = await Promise.all([
+        toBase64(facePhoto?.uri ?? null),
+        toBase64(licenciaFront?.uri ?? null),
+        toBase64(licenciaBack?.uri ?? null),
+        toBase64(dekraPhoto?.uri ?? null),
+      ]);
+
+      showLoader('Enviando solicitud...');
+      const { month: licM, year: licY } = parseExpiry(licenseExpiry);
+      const { month: dkM,  year: dkY  } = parseExpiry(dekraExpiry);
+      const payload = {
+        cedula:             cedula.trim(),
+        address:            address.trim(),
+        vehicle:            { brand: marca, model: modelo, year: año, plate: placa, color: vehicleColor },
+        facePhoto:          faceB64,
+        licensePhotoFront:  frontB64,
+        licensePhotoBack:   backB64,
+        dekraPhoto:         dekraB64,
+        licenseExpiryMonth: licM,
+        licenseExpiryYear:  licY,
+        dekraExpiryMonth:   dkM,
+        dekraExpiryYear:    dkY,
+      };
+      if (isResubmit && myApplication) {
+        await resubmitApplication(myApplication.id, payload);
+      } else {
+        await submitApplication(payload);
+      }
+      router.replace('/driver-status');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'No se pudo enviar la solicitud. Intentá de nuevo.');
+    } finally {
+      hideLoader();
+    }
+  };
+
+  return (
+    <ImageBackground
+      source={isDark ? require('../assets/images/tropical-bg-dark.jpg') : require('../assets/images/tropical-bg.jpg')}
+      style={styles.bg}
+      resizeMode="cover">
+      <View style={styles.overlay} />
+      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={18} color="#ffffff" />
+            <Text style={styles.backText}>Volver</Text>
+          </Pressable>
+
+          <View style={styles.header}>
+            <Text style={styles.title}>Registro de conductor</Text>
+            <Text style={styles.subtitle}>Completa tu perfil para poder ofrecer viajes</Text>
+          </View>
+
+          <View style={styles.infoBox}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={Brand.colors.green.dark} />
+            <Text style={styles.infoText}>
+              Tu información es verificada para garantizar la seguridad de todos los usuarios. El proceso puede tomar hasta 24 horas.
+            </Text>
+          </View>
+
+          {/* Personal info — name read-only (pulled from profile), cedula and address required */}
+          <View style={styles.cardWrap}>
+            <GlassCard style={styles.card} intensity={48}>
+              <Text style={styles.sectionLabel}>Información personal</Text>
+
+              {/* Registered name shown as read-only reference for license verification */}
+              <View style={[styles.inputWrap, { opacity: 0.65 }]}>
+                <Ionicons name="person-outline" size={18} color={Brand.colors.green.normal} />
+                <Text style={[styles.input, { color: 'rgba(255,255,255,0.7)' }]}>
+                  {user ? `${user.firstName} ${user.lastName}` : '—'}
+                </Text>
+                <Ionicons name="lock-closed-outline" size={14} color="rgba(255,255,255,0.4)" />
+              </View>
+              <Text style={[styles.photoSublabel, { marginTop: -6, marginLeft: 2 }]}>
+                Este nombre se verificará contra tu licencia
+              </Text>
+
+              <View style={styles.inputWrap}>
+                <Ionicons name="card-outline" size={18} color={Brand.colors.green.normal} />
+                <TextInput
+                  value={cedula}
+                  onChangeText={setCedula}
+                  placeholder="Número de cédula"
+                  placeholderTextColor={colors.textPlaceholder}
+                  style={styles.input}
+                  keyboardType="numeric"
+                  maxLength={15}
+                />
+              </View>
+
+              <PlaceSearchInput
+                value={address}
+                onChangeText={setAddress}
+                onSelect={(pred) => setAddress(pred.description)}
+                leadingIcon={<Ionicons name="location-outline" size={18} color={Brand.colors.green.normal} />}
+                fieldStyle={styles.inputWrap}
+                placeholder="Dirección de domicilio"
+                placeholderTextColor={colors.textPlaceholder}
+                style={styles.input}
+              />
+            </GlassCard>
+          </View>
+
+          {/* Foto de perfil — required for drivers, face must be clearly visible */}
+          <View style={styles.cardWrap}>
+            <GlassCard style={styles.card} intensity={48}>
+              <Text style={styles.sectionLabel}>Foto de perfil</Text>
+              <PhotoPickerBtn
+                photo={facePhoto}
+                label="Tu foto de perfil"
+                sublabel="Debe mostrar tu rostro claramente"
+                onPress={() => openPhotoOptions('face')}
+                style={styles.photoBtnFull}
+              />
+            </GlassCard>
+          </View>
+
+          {/* Vehículo */}
+          <View style={styles.cardWrap}>
+            <GlassCard style={styles.card} intensity={48}>
+              <Text style={styles.sectionLabel}>Vehículo</Text>
+
+              <View style={styles.row}>
+                <View style={styles.inputFlex}>
+                  <Ionicons name="car-outline" size={18} color={Brand.colors.green.normal} />
+                  <TextInput value={marca} onChangeText={setMarca} placeholder="Marca" placeholderTextColor={colors.textPlaceholder} style={styles.input} />
+                </View>
+                <View style={styles.inputFlex}>
+                  <TextInput value={modelo} onChangeText={setModelo} placeholder="Modelo" placeholderTextColor={colors.textPlaceholder} style={styles.input} />
+                </View>
+              </View>
+
+              <View style={styles.row}>
+                <View style={styles.inputFlex}>
+                  <TextInput value={año} onChangeText={setAño} placeholder="Año" placeholderTextColor={colors.textPlaceholder} style={styles.input} keyboardType="numeric" maxLength={4} />
+                </View>
+                <View style={styles.inputFlex}>
+                  <TextInput value={vehicleColor} onChangeText={setVehicleColor} placeholder="Color" placeholderTextColor={colors.textPlaceholder} style={styles.input} />
+                </View>
+              </View>
+
+              <View style={styles.inputWrap}>
+                <Ionicons name="document-text-outline" size={18} color={Brand.colors.green.normal} />
+                <TextInput value={placa} onChangeText={setPlaca} placeholder="Placa (ej. CR-1234)" placeholderTextColor={colors.textPlaceholder} style={styles.input} autoCapitalize="characters" />
+              </View>
+            </GlassCard>
+          </View>
+
+          {/* Licencia */}
+          <View style={styles.cardWrap}>
+            <GlassCard style={styles.card} intensity={48}>
+              <Text style={styles.sectionLabel}>Licencia de conducir</Text>
+
+              <View style={styles.photoRow}>
+                <PhotoPickerBtn
+                  photo={licenciaFront}
+                  label="Lado frontal"
+                  sublabel="Toca para adjuntar"
+                  onPress={() => openPhotoOptions('licenciaFront')}
+                />
+                <PhotoPickerBtn
+                  photo={licenciaBack}
+                  label="Lado trasero"
+                  sublabel="Toca para adjuntar"
+                  onPress={() => openPhotoOptions('licenciaBack')}
+                />
+              </View>
+
+              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA)</Text>
+              <ExpiryInput value={licenseExpiry} onChangeText={setLicenseExpiry} fieldStyle={styles.inputWrap} inputStyle={styles.input} />
+            </GlassCard>
+          </View>
+
+          {/* Revisión técnica Dekra */}
+          <View style={styles.cardWrap}>
+            <GlassCard style={styles.card} intensity={48}>
+              <Text style={styles.sectionLabel}>Revisión técnica Dekra</Text>
+
+              <PhotoPickerBtn
+                photo={dekraPhoto}
+                label="Foto de la revisión técnica"
+                sublabel="Toca para adjuntar"
+                onPress={() => openPhotoOptions('dekra')}
+                style={styles.photoBtnFull}
+              />
+
+              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA)</Text>
+              <ExpiryInput value={dekraExpiry} onChangeText={setDekraExpiry} fieldStyle={styles.inputWrap} inputStyle={styles.input} />
+            </GlassCard>
+          </View>
+
+          <Pressable style={styles.cta} onPress={handleRegister}>
+            <Text style={styles.ctaText}>Registrarme como conductor</Text>
+          </Pressable>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {cameraOpen && (
+        <DocumentCameraModal
+          visible
+          documentType={cameraConfig[cameraOpen].type}
+          label={cameraConfig[cameraOpen].label}
+          onCapture={(uri) => setPhoto(cameraOpen, uri)}
+          onClose={() => setCameraOpen(null)}
+        />
+      )}
+    </ImageBackground>
+  );
+}

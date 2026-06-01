@@ -1,0 +1,33 @@
+namespace JalemosBackend.Modules.DriverApplications.Application.DTOs;
+
+public sealed record ApplicationResponse(
+    Guid      ApplicationId,
+    Guid      UserId,
+    string    Status,
+    string    ApplicationType,
+    int       Attempts,
+    string    Cedula,
+    string    Address,
+    string    VehicleBrand,
+    string    VehicleModel,
+    short     VehicleYear,
+    string    VehiclePlate,
+    string    VehicleColor,
+    string?   FacePhoto,
+    string?   LicensePhotoFront,
+    string?   LicensePhotoBack,
+    string?   DekraPhoto,
+    short?    LicenseExpiryMonth,
+    short?    LicenseExpiryYear,
+    short?    DekraExpiryMonth,
+    short?    DekraExpiryYear,
+    bool      IsRenewal,
+    string[]? AdminIssueIds,
+    string?   AdminNotes,
+    string?   ReviewedAt,
+    string    SubmittedAt,
+    string    UpdatedAt,
+    string?   ApplicantName,
+    string?   ApplicantEmail,
+    string?   ApplicantAvatar
+);

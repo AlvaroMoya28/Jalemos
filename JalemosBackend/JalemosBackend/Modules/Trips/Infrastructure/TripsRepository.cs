@@ -1,11 +1,10 @@
-// Data access layer for the Trips module.
-// All database queries for the Trip aggregate live here.
-// Replace stub implementations with real EF Core calls once ApplicationDbContext is configured.
-
+using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
-using JalemosBackend.Modules.Rides.Domain;
+using JalemosBackend.Modules.Trips.Application;
+using JalemosBackend.Modules.Trips.Domain;
+//using JalemosBackend.Modules.Trips.Infrastructure.Entities;
 
-namespace JalemosBackend.Modules.Rides.Infrastructure;
+namespace JalemosBackend.Modules.Trips.Infrastructure;
 
 /// <summary>
 /// Provides raw CRUD operations against the trips table in the shared database.
@@ -20,23 +19,127 @@ public sealed class TripsRepository
         _dbContext = dbContext;
     }
 
-    /// <summary>Fetches all trip records. Replace with <c>_dbContext.Trips.ToListAsync()</c>.</summary>
-    public Task<IEnumerable<Trip>> GetAllAsync(CancellationToken cancellationToken = default)
+    public static Trip MapToDomain(TripEntity e) => new Trip
     {
-        return Task.FromResult<IEnumerable<Trip>>(Array.Empty<Trip>());
+       Id = e.TripId,
+       DriverId = e.DriverUserId,
+       VehicleId = e.VehicleId,
+       Rate = e.Rate,
+       Origin = e.FromLocation,
+       Destination = e.ToLocation,
+       OriginLatitude = e.FromLatitude,   
+       OriginLongitude = e.FromLongitude,
+       DestinationLatitude = e.ToLatitude,
+       DestinationLongitude = e.ToLongitude,
+       DepartureAt = e.StartDateTime,
+       TotalSeats = e.TotalSeats,
+       AvailableSeats = e.AvailableSeats,
+       CreatedAt = e.CreatedAt,
+       State = e.State,
+       Notes = e.Notes ?? string.Empty
+
+    };
+
+    public static TripEntity MapToEntity(Trip d) => new TripEntity
+    {
+        TripId = d.Id,
+        DriverUserId = d.DriverId,
+        VehicleId = d.VehicleId,
+        Rate = d.Rate,
+        FromLocation = d.Origin,
+        ToLocation = d.Destination,
+        FromLatitude = d.OriginLatitude,
+        FromLongitude = d.OriginLongitude,
+        ToLatitude = d.DestinationLatitude,
+        ToLongitude = d.DestinationLongitude,
+        StartDateTime = d.DepartureAt,
+        TotalSeats = d.TotalSeats,
+        AvailableSeats = d.AvailableSeats,
+        CreatedAt = d.CreatedAt,
+        State = d.State,
+        Notes = d.Notes
+    };
+
+    /// <summary>Fetches all trip records, mapping in memory after materialisation.</summary>
+    public async Task<IEnumerable<Trip>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var entities = await _dbContext.Trips.AsNoTracking().ToListAsync(cancellationToken);
+        return entities.Select(MapToDomain).ToList();
+    }
+
+    /// <summary>Fetches all trips joined with their driver's user record.</summary>
+    public async Task<IEnumerable<TripDto>> GetAllWithDriverAsync(CancellationToken cancellationToken = default)
+    {
+        var trips = await _dbContext.Trips.AsNoTracking().ToListAsync(cancellationToken);
+        var driverIds = trips.Select(t => t.DriverUserId).Distinct().ToList();
+        var users = await _dbContext.Users.AsNoTracking()
+            .Where(u => driverIds.Contains(u.UserId))
+            .ToListAsync(cancellationToken);
+        var userMap = users.ToDictionary(u => u.UserId);
+
+        return trips.Select(t =>
+        {
+            userMap.TryGetValue(t.DriverUserId, out var u);
+            return new TripDto
+            {
+                Id                   = t.TripId,
+                DriverId             = t.DriverUserId,
+                DriverFirstName      = u?.FirstName  ?? string.Empty,
+                DriverLastName       = u?.LastName   ?? string.Empty,
+                DriverMeanRating     = u?.MeanRating ?? 0,
+                DriverTotalTrips     = u?.TotalTrips ?? 0,
+                DriverCreatedAt      = u?.CreatedAt  ?? DateTime.MinValue,
+                VehicleId            = t.VehicleId,
+                Rate                 = t.Rate,
+                Origin               = t.FromLocation,
+                Destination          = t.ToLocation,
+                OriginLatitude       = t.FromLatitude,
+                OriginLongitude      = t.FromLongitude,
+                DestinationLatitude  = t.ToLatitude,
+                DestinationLongitude = t.ToLongitude,
+                DepartureAt          = t.StartDateTime,
+                TotalSeats           = t.TotalSeats,
+                AvailableSeats       = t.AvailableSeats,
+                Notes                = t.Notes ?? string.Empty,
+                State                = t.State.ToString(),
+                CreatedAt            = t.CreatedAt,
+            };
+        }).ToList();
     }
 
     /// <summary>Finds a trip by its primary key. Returns null when not found.</summary>
-    public Task<Trip?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Trip?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<Trip?>(null);
+        var e = await _dbContext.Trips.AsNoTracking().FirstOrDefaultAsync(x => x.TripId == id, cancellationToken);
+        return e is null ? null : MapToDomain(e);
     }
 
     /// <summary>Inserts a new trip row into the database.</summary>
-    public Task CreateAsync(Trip ride, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(Trip trip, CancellationToken cancellationToken = default)
     {
-        // TODO: _dbContext.Trips.Add(ride); await _dbContext.SaveChangesAsync(cancellationToken);
-        return Task.CompletedTask;
+        var entity = new TripEntity
+        {
+            TripId = trip.Id == Guid.Empty ? Guid.NewGuid(): trip.Id,
+            DriverUserId = trip.DriverId,
+            VehicleId = trip.VehicleId,
+            Rate = trip.Rate,
+            FromLocation = trip.Origin,
+            ToLocation = trip.Destination,
+            FromLatitude = trip.OriginLatitude,
+            FromLongitude = trip.OriginLongitude,
+            ToLatitude = trip.DestinationLatitude,
+            ToLongitude = trip.DestinationLongitude,
+
+            StartDateTime = trip.DepartureAt,
+            TotalSeats = trip.TotalSeats,
+            AvailableSeats = trip.AvailableSeats,
+            CreatedAt = trip.CreatedAt,
+            State = trip.State,
+            Notes = trip.Notes
+            };
+        _dbContext.Trips.Add(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        trip.Id = entity.TripId; 
     }
 
     /// <summary>Updates an existing trip row.</summary>

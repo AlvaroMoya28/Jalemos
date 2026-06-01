@@ -25,7 +25,7 @@ public sealed class ApiGatewayController : ControllerBase
         return Ok(new
         {
             Message = "JalemosBackend gateway operativo",
-            Modules = new[] { "Rides", "Users", "Notifications", "Bookings", "Ratings" }
+            Modules = new[] { "Trips", "Users", "Notifications", "Bookings", "Ratings" }
         });
     }
 }

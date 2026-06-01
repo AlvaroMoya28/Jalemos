@@ -1,9 +1,9 @@
 // Application contract for the Trips (Rides) module.
 // Defines all use cases the controller can invoke; business rules are enforced by the implementation.
 
-using JalemosBackend.Modules.Rides.Domain;
+using JalemosBackend.Modules.Trips.Domain;
 
-namespace JalemosBackend.Modules.Rides.Application;
+namespace JalemosBackend.Modules.Trips.Application;
 
 /// <summary>
 /// Exposes trip-management use cases: listing, fetching, creating, updating, and deleting trips.
@@ -12,6 +12,9 @@ public interface ITripsService
 {
     /// <summary>Returns all available trips.</summary>
     Task<IEnumerable<Trip>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Returns all trips enriched with embedded driver info (avoids N+1 on the client).</summary>
+    Task<IEnumerable<TripDto>> GetAllWithDriverAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Returns the trip with the given id, or null if it does not exist.</summary>
     Task<Trip?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
