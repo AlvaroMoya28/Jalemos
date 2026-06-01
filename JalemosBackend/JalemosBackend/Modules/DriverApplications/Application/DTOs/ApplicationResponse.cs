@@ -4,6 +4,7 @@ public sealed record ApplicationResponse(
     Guid      ApplicationId,
     Guid      UserId,
     string    Status,
+    string    ApplicationType,
     int       Attempts,
     string    Cedula,
     string    Address,

@@ -16,13 +16,22 @@ public sealed class DriverApplicationsController : ControllerBase
 
     public DriverApplicationsController(IDriverApplicationsService svc) => _svc = svc;
 
-    // GET /api/driver-applications/my — devuelve la última solicitud del usuario autenticado
+    // GET /api/driver-applications/my — devuelve la última solicitud de conductor del usuario
     [HttpGet("my")]
     public async Task<IActionResult> GetMy(CancellationToken ct)
     {
         var userId = GetUserId();
         var result = await _svc.GetMyApplicationAsync(userId, ct);
         return result is null ? NoContent() : Ok(result);
+    }
+
+    // GET /api/driver-applications/my-vehicles — solicitudes de vehículo del conductor
+    [HttpGet("my-vehicles")]
+    public async Task<IActionResult> GetMyVehicles(CancellationToken ct)
+    {
+        var userId = GetUserId();
+        var result = await _svc.GetMyVehicleApplicationsAsync(userId, ct);
+        return Ok(result);
     }
 
     // GET /api/driver-applications?status=pending — solo admins
@@ -41,6 +50,23 @@ public sealed class DriverApplicationsController : ControllerBase
     {
         var result = await _svc.GetByIdAsync(id, ct);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    // POST /api/driver-applications/vehicle — conductor registra un vehículo adicional
+    [HttpPost("vehicle")]
+    public async Task<IActionResult> SubmitVehicle([FromBody] SubmitVehicleApplicationRequest dto, CancellationToken ct)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var result = await _svc.SubmitVehicleApplicationAsync(userId, dto, ct);
+            return CreatedAtAction(nameof(GetById), new { id = result.ApplicationId }, result);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[SubmitVehicle] ERROR: {ex}");
+            return Problem(detail: ex.Message, statusCode: 400);
+        }
     }
 
     // POST /api/driver-applications — pasajero envía nueva solicitud
