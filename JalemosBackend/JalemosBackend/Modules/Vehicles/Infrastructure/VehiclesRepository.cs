@@ -13,6 +13,7 @@ public sealed class VehiclesRepository
     {
         VehicleId = e.VehicleId,
         UserId    = e.UserId,
+        Brand     = e.Brand,
         Model     = e.Model,
         Year      = e.Year,
         NumPlate  = e.NumPlate,
@@ -33,4 +34,20 @@ public sealed class VehiclesRepository
             .Where(x => x.UserId == userId && x.Active)
             .Select(e => MapToDomain(e))
             .ToListAsync(ct);
+
+    public async Task DeactivateAsync(Guid vehicleId, Guid requestingUserId, CancellationToken ct = default)
+    {
+        var entity = await _dbContext.Vehicles
+            .FirstOrDefaultAsync(v => v.VehicleId == vehicleId, ct)
+            ?? throw new KeyNotFoundException("Vehículo no encontrado.");
+
+        if (entity.UserId != requestingUserId)
+            throw new UnauthorizedAccessException("No tenés permiso para eliminar este vehículo.");
+
+        if (!entity.Active)
+            throw new InvalidOperationException("El vehículo ya estaba eliminado.");
+
+        entity.Active = false;
+        await _dbContext.SaveChangesAsync(ct);
+    }
 }

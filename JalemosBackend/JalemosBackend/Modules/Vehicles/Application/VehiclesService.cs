@@ -13,4 +13,7 @@ public sealed class VehiclesService : IVehiclesService
 
     public Task<IEnumerable<Vehicle>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
         => _repository.GetByUserIdAsync(userId, cancellationToken);
+
+    public Task DeactivateAsync(Guid vehicleId, Guid requestingUserId, CancellationToken cancellationToken = default)
+        => _repository.DeactivateAsync(vehicleId, requestingUserId, cancellationToken);
 }

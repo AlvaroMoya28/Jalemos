@@ -81,6 +81,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.HasKey(x => x.VehicleId);
                 e.Property(x => x.VehicleId).HasColumnName("vehicle_id").HasDefaultValueSql("gen_random_uuid()");
                 e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                e.Property(x => x.Brand).HasColumnName("brand").HasMaxLength(60).IsRequired();
                 e.Property(x => x.Model).HasColumnName("model").HasMaxLength(100).IsRequired();
                 e.Property(x => x.Year).HasColumnName("year").IsRequired();
                 e.Property(x => x.NumPlate).HasColumnName("num_plate").HasMaxLength(20).IsRequired();
@@ -234,6 +235,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.LicenseExpiryYear).HasColumnName("license_expiry_year");
                 e.Property(x => x.DekraExpiryMonth).HasColumnName("dekra_expiry_month");
                 e.Property(x => x.DekraExpiryYear).HasColumnName("dekra_expiry_year");
+                e.Property(x => x.ApplicationType).HasColumnName("application_type").HasMaxLength(20).HasDefaultValue("driver");
                 e.Property(x => x.IsRenewal).HasColumnName("is_renewal").HasDefaultValue(false);
                 e.Property(x => x.AdminIssueIds).HasColumnName("admin_issue_ids").HasColumnType("text[]");
                 e.Property(x => x.AdminNotes).HasColumnName("admin_notes");
@@ -275,6 +277,7 @@ namespace JalemosBackend.Infrastructure.Persistence
     {
         public Guid VehicleId { get; set; }
         public Guid UserId { get; set; }
+        public string Brand { get; set; } = null!;
         public string Model { get; set; } = null!;
         public short Year { get; set; }
         public string NumPlate { get; set; } = null!;
@@ -381,6 +384,7 @@ namespace JalemosBackend.Infrastructure.Persistence
         public short? LicenseExpiryYear { get; set; }
         public short? DekraExpiryMonth { get; set; }
         public short? DekraExpiryYear { get; set; }
+        public string ApplicationType { get; set; } = "driver";
         public bool IsRenewal { get; set; }
         public string[]? AdminIssueIds { get; set; }
         public string? AdminNotes { get; set; }

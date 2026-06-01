@@ -597,7 +597,10 @@ export default function SearchScreen() {
 
   const rides: Ride[] = useMemo(() => {
     if (!trips) return [];
+    const now = new Date();
     const visibleTrips = trips.filter((t) => {
+      // Hide past trips (defense in depth — backend already filters, but guard client-side too)
+      if (t.departureAt && new Date(t.departureAt) <= now) return false;
       // Hide trips the user created (as a driver) when browsing as passenger
       if (mode === "passenger" && user?.id && t.driverId === user.id)
         return false;

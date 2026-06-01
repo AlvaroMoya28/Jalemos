@@ -12,6 +12,7 @@ import NotificationsModal from '@/components/NotificationsModal';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
+import { VehicleDTO, vehiclesApi, ApiError } from '@/services/api';
 import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -20,7 +21,7 @@ import { CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 const preferencesSections = [
   {
@@ -243,10 +244,10 @@ export default function ProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
-  const { user, logout, driverActivated } = useAuth();
+  const { user, token, logout, driverActivated, setDriverActivated } = useAuth();
   const { showLoader, hideLoader } = useLoading();
   const { mode, profilePhoto, setMode, setProfilePhoto } = useUserMode();
-  const { loadMyApplication } = useApplications();
+  const { loadMyApplication, myVehicleApplications, loadMyVehicleApplications } = useApplications();
   const isAdmin = user?.role === 'admin';
   const isDriver = !isAdmin && mode === 'driver';
 
@@ -256,11 +257,19 @@ export default function ProfileScreen() {
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [amount, setAmount] = useState(0);
+  const [vehicles, setVehicles] = useState<VehicleDTO[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const vehicles = [
-    { id: 'veh-1', name: 'Toyota Yaris', plate: 'CR-1234', color: 'Gris', primary: true },
-    { id: 'veh-2', name: 'Nissan Kicks', plate: 'CR-7788', color: 'Blanco', primary: false },
-  ];
+  useEffect(() => {
+    if (!isDriver || !token) return;
+    setVehiclesLoading(true);
+    vehiclesApi.getMy(token)
+      .then(setVehicles)
+      .catch(() => {})
+      .finally(() => setVehiclesLoading(false));
+    loadMyVehicleApplications().catch(() => {});
+  }, [isDriver, token]);
 
   const licenseState = expiryState(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null);
   const dekraState   = expiryState(user?.dekraExpiryMonth   ?? null, user?.dekraExpiryYear   ?? null);
@@ -303,6 +312,35 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleDeleteVehicle = (vehicle: VehicleDTO) => {
+    if (!token) return;
+    const isLast = vehicles.length === 1;
+    Alert.alert(
+      isLast ? 'Último vehículo' : 'Eliminar vehículo',
+      isLast
+        ? `${vehicle.brand} ${vehicle.model} es tu único vehículo. Si lo eliminás, no podrás ofrecer viajes hasta registrar uno nuevo. ¿Continuás?`
+        : `¿Eliminar ${vehicle.brand} ${vehicle.model} (${vehicle.numPlate})?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingId(vehicle.vehicleId);
+            try {
+              await vehiclesApi.delete(vehicle.vehicleId, token);
+              setVehicles(prev => prev.filter(v => v.vehicleId !== vehicle.vehicleId));
+            } catch (e: any) {
+              Alert.alert('Error', e?.message ?? 'No se pudo eliminar el vehículo.');
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     showLoader('Cerrando sesión...');
     try {
@@ -318,7 +356,8 @@ export default function ProfileScreen() {
   const handleSwitchMode = async (target: 'passenger' | 'driver') => {
     if (target === mode) return;
     if (target === 'driver') {
-      if (driverActivated) {
+      if (driverActivated || user?.role === 'passenger+driver') {
+        if (!driverActivated) setDriverActivated(true);
         setMode('driver');
         setTimeout(() => router.replace('/(tabs)/offer'), 0);
         return;
@@ -328,7 +367,7 @@ export default function ProfileScreen() {
         const app = await loadMyApplication();
         if (app) {
           // Application approved but role was revoked by admin → force re-registration
-          if (app.status === 'approved' && user?.role !== 'passenger+driver') {
+          if (app.status === 'approved' && (user?.role as string) !== 'passenger+driver') {
             router.push('/driver-registration');
           } else {
             router.push('/driver-status');
@@ -543,24 +582,81 @@ export default function ProfileScreen() {
                     <Text style={styles.vehicleSectionSub}>Selecciona cuál usar al ofrecer</Text>
                   </View>
                   <View style={styles.vehicleList}>
-                    {vehicles.map(v => (
-                      <View key={v.id} style={styles.vehicleCard}>
-                        <View style={styles.vehicleRowTop}>
-                          <View style={styles.itemIconWrap}>
-                            <Ionicons name="car-outline" size={16} color={Brand.colors.green.darkActive} />
-                          </View>
-                          <View style={styles.vehicleTextWrap}>
-                            <View style={styles.vehicleNameRow}>
-                              <Text style={styles.itemLabel}>{v.name}</Text>
-                              {v.primary && <Text style={styles.primaryBadge}>Principal</Text>}
+                    {vehiclesLoading ? (
+                      <ActivityIndicator color={Brand.colors.green.normal} style={{ marginVertical: 12 }} />
+                    ) : vehicles.length === 0 ? (
+                      <Text style={[styles.itemDesc, { textAlign: 'center', paddingVertical: 12 }]}>
+                        Sin vehículos registrados
+                      </Text>
+                    ) : (
+                      vehicles.map((v, idx) => (
+                        <View key={v.vehicleId} style={styles.vehicleCard}>
+                          <View style={styles.vehicleRowTop}>
+                            <View style={styles.itemIconWrap}>
+                              <Ionicons name="car-outline" size={16} color={Brand.colors.green.darkActive} />
                             </View>
-                            <Text style={styles.itemDesc}>{v.plate} · {v.color}</Text>
+                            <View style={styles.vehicleTextWrap}>
+                              <View style={styles.vehicleNameRow}>
+                                <Text style={styles.itemLabel}>{v.brand} {v.model}</Text>
+                                {idx === 0 && <Text style={styles.primaryBadge}>Principal</Text>}
+                              </View>
+                              <Text style={styles.itemDesc}>{v.numPlate} · {v.color} · {v.year}</Text>
+                            </View>
+                            <Pressable
+                              onPress={() => handleDeleteVehicle(v)}
+                              disabled={deletingId === v.vehicleId}
+                              hitSlop={8}
+                              style={{ padding: 6, opacity: deletingId === v.vehicleId ? 0.4 : 1 }}>
+                              <Ionicons name="trash-outline" size={17} color={Brand.colors.alerts.error} />
+                            </Pressable>
                           </View>
                         </View>
-                      </View>
-                    ))}
+                      ))
+                    )}
                   </View>
                 </GlassCard>
+                <Pressable
+                  style={[styles.favButton, { marginTop: 8 }]}
+                  onPress={() => router.push('/add-vehicle')}>
+                  <View style={styles.favIconWrap}>
+                    <Ionicons name="add" size={18} color="#ecfff9" />
+                  </View>
+                  <View style={styles.favTextWrap}>
+                    <Text style={styles.favTitle}>Agregar vehículo</Text>
+                    <Text style={styles.favSub}>Registrar otro vehículo</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </Pressable>
+
+                {/* Solicitudes de vehículo activas */}
+                {myVehicleApplications
+                  .filter(a => a.status !== 'approved' && a.status !== 'rejected')
+                  .map(a => {
+                    const statusColor =
+                      a.status === 'needs_correction' ? '#ff7c2a' :
+                      a.status === 'under_review'     ? Brand.colors.blue.normal :
+                      '#f7a900';
+                    const statusLabel =
+                      a.status === 'needs_correction' ? 'Requiere corrección' :
+                      a.status === 'under_review'     ? 'En revisión' :
+                      'Pendiente';
+                    return (
+                      <Pressable
+                        key={a.id}
+                        style={[styles.favButton, { marginTop: 6, borderWidth: 1, borderColor: statusColor + '44' }]}
+                        onPress={() => router.push({ pathname: '/vehicle-application-status', params: { id: a.id } })}>
+                        <View style={[styles.favIconWrap, { backgroundColor: statusColor + '22' }]}>
+                          <Ionicons name="car-outline" size={16} color={statusColor} />
+                        </View>
+                        <View style={styles.favTextWrap}>
+                          <Text style={styles.favTitle}>{a.vehicle.brand} {a.vehicle.model}</Text>
+                          <Text style={[styles.favSub, { color: statusColor }]}>{statusLabel} · {a.vehicle.plate}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </Pressable>
+                    );
+                  })
+                }
               </View>
 
               <View style={styles.sectionWrap}>

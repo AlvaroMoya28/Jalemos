@@ -26,7 +26,9 @@ export default function TabLayout() {
   const { showLoader, hideLoader } = useLoading();
 
   const isAdmin = user?.role === 'admin';
-  const isDriver = mode === 'driver';
+  // Only a passenger+driver account in driver mode can see driver screens.
+  // A pure passenger with a stale mode value must never see the offer tab.
+  const isDriver = mode === 'driver' && user?.role === 'passenger+driver';
 
   const tabBarStyle = {
     height: 74,

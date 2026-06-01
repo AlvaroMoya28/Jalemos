@@ -13,9 +13,16 @@ public sealed class DriverApplicationsRepository
     public async Task<DriverApplicationEntity?> GetLatestByUserAsync(Guid userId, CancellationToken ct) =>
         await _db.DriverApplications
             .AsNoTracking()
-            .Where(a => a.UserId == userId)
+            .Where(a => a.UserId == userId && a.ApplicationType == "driver")
             .OrderByDescending(a => a.SubmittedAt)
             .FirstOrDefaultAsync(ct);
+
+    public async Task<List<DriverApplicationEntity>> GetMyVehicleApplicationsAsync(Guid userId, CancellationToken ct) =>
+        await _db.DriverApplications
+            .AsNoTracking()
+            .Where(a => a.UserId == userId && a.ApplicationType == "vehicle")
+            .OrderByDescending(a => a.SubmittedAt)
+            .ToListAsync(ct);
 
     public async Task<List<DriverApplicationEntity>> GetAllAsync(ApplicationStatus? status, CancellationToken ct)
     {
@@ -70,6 +77,25 @@ public sealed class DriverApplicationsRepository
         user.LicenseExpiryYear  = licenseYear;
         user.DekraExpiryMonth   = dekraMonth;
         user.DekraExpiryYear    = dekraYear;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // Creates a new vehicle for an existing driver (used when admin approves a 'vehicle' application)
+    public async Task CreateVehicleForUserAsync(Guid userId, string brand, string model,
+        short year, string plate, string color, CancellationToken ct)
+    {
+        _db.Vehicles.Add(new VehicleEntity
+        {
+            VehicleId = Guid.NewGuid(),
+            UserId    = userId,
+            Brand     = brand,
+            Model     = model,
+            Year      = year,
+            NumPlate  = plate,
+            Color     = color,
+            Active    = true,
+            CreatedAt = DateTime.UtcNow,
+        });
         await _db.SaveChangesAsync(ct);
     }
 

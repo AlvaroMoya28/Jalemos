@@ -182,6 +182,46 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
         await _repo.UpdateAsync(entity, ct);
     }
 
+    public async Task<IEnumerable<ApplicationResponse>> GetMyVehicleApplicationsAsync(Guid userId, CancellationToken ct = default)
+    {
+        var list = await _repo.GetMyVehicleApplicationsAsync(userId, ct);
+        var responses = new List<ApplicationResponse>(list.Count);
+        foreach (var e in list)
+            responses.Add(await ToResponseAsync(e, ct));
+        return responses;
+    }
+
+    public async Task<ApplicationResponse> SubmitVehicleApplicationAsync(Guid userId, SubmitVehicleApplicationRequest dto, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(dto.VehicleBrand)) throw new InvalidOperationException("La marca del vehículo es requerida.");
+        if (string.IsNullOrWhiteSpace(dto.VehicleModel)) throw new InvalidOperationException("El modelo del vehículo es requerido.");
+        if (dto.VehicleYear is null)                     throw new InvalidOperationException("El año del vehículo es requerido.");
+        if (string.IsNullOrWhiteSpace(dto.VehiclePlate)) throw new InvalidOperationException("La placa es requerida.");
+        if (string.IsNullOrWhiteSpace(dto.VehicleColor)) throw new InvalidOperationException("El color del vehículo es requerido.");
+
+        var entity = new DriverApplicationEntity
+        {
+            ApplicationId   = Guid.NewGuid(),
+            UserId          = userId,
+            Status          = ApplicationStatus.pending,
+            Attempts        = 1,
+            ApplicationType = "vehicle",
+            Cedula          = string.Empty,
+            Address         = string.Empty,
+            VehicleBrand    = dto.VehicleBrand.Trim(),
+            VehicleModel    = dto.VehicleModel.Trim(),
+            VehicleYear     = dto.VehicleYear.Value,
+            VehiclePlate    = dto.VehiclePlate.Trim().ToUpper(),
+            VehicleColor    = dto.VehicleColor.Trim(),
+            IsRenewal       = false,
+            SubmittedAt     = DateTime.UtcNow,
+            UpdatedAt       = DateTime.UtcNow,
+        };
+
+        await _repo.CreateAsync(entity, ct);
+        return await ToResponseAsync(entity, ct);
+    }
+
     public async Task ApproveAsync(Guid applicationId, CancellationToken ct = default)
     {
         var entity = await GetTrackedOrThrowAsync(applicationId, ct);
@@ -190,9 +230,18 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
         entity.UpdatedAt  = DateTime.UtcNow;
         await _repo.UpdateAsync(entity, ct);
 
-        if (entity.IsRenewal)
+        if (entity.ApplicationType == "vehicle")
         {
-            // Only update documents and expiry dates — role is already 'driver'
+            // Agrega el vehículo directamente — el usuario ya es conductor
+            await _repo.CreateVehicleForUserAsync(
+                entity.UserId,
+                entity.VehicleBrand, entity.VehicleModel,
+                entity.VehicleYear,  entity.VehiclePlate, entity.VehicleColor,
+                ct);
+        }
+        else if (entity.IsRenewal)
+        {
+            // Solo actualiza documentos y fechas de vencimiento
             await _repo.UpdateDocumentsAsync(
                 entity.UserId,
                 entity.LicensePhotoFront, entity.LicensePhotoBack, entity.DekraPhoto,
@@ -243,6 +292,7 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
             ApplicationId:      e.ApplicationId,
             UserId:             e.UserId,
             Status:             e.Status.ToString(),
+            ApplicationType:    e.ApplicationType,
             Attempts:           e.Attempts,
             Cedula:             e.Cedula,
             Address:            e.Address,

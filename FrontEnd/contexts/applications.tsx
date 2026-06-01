@@ -3,7 +3,7 @@
 
 import { SEED_REPORTS, UserReport } from '@/constants/mock-reports';
 import { useAuth } from '@/contexts/auth';
-import { applicationsApi, DriverApplicationDTO } from '@/services/api';
+import { applicationsApi, DriverApplicationDTO, SubmitVehicleApplicationPayload } from '@/services/api';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
 // Canonical type used throughout the frontend
@@ -24,6 +24,7 @@ export interface DriverApplication {
   submittedAt: string;
   updatedAt: string;
   status: ApplicationStatus;
+  applicationType: 'driver' | 'vehicle';
   attempts: number;
   cedula: string;
   address: string;
@@ -67,6 +68,7 @@ function fromDTO(dto: DriverApplicationDTO): DriverApplication {
     submittedAt:        dto.submittedAt,
     updatedAt:          dto.updatedAt,
     status:             dto.status as ApplicationStatus,
+    applicationType:    dto.applicationType ?? 'driver',
     attempts:           dto.attempts,
     cedula:             dto.cedula,
     address:            dto.address,
@@ -101,6 +103,9 @@ interface ApplicationsContextType {
   loadMyApplication: () => Promise<DriverApplication | null>;
   submitApplication: (data: SubmitData) => Promise<DriverApplication>;
   resubmitApplication: (applicationId: string, data: SubmitData) => Promise<void>;
+  submitVehicleApplication: (payload: SubmitVehicleApplicationPayload) => Promise<DriverApplication>;
+  myVehicleApplications: DriverApplication[];
+  loadMyVehicleApplications: () => Promise<void>;
 
   // Admin-facing — applications
   applications: DriverApplication[];
@@ -122,8 +127,11 @@ const ApplicationsContext = createContext<ApplicationsContextType>({
   myApplication:           null,
   myApplicationLoading:    false,
   loadMyApplication:       async () => null,
-  submitApplication:       async () => ({} as DriverApplication),
-  resubmitApplication:     async () => {},
+  submitApplication:        async () => ({} as DriverApplication),
+  resubmitApplication:      async () => {},
+  submitVehicleApplication:  async () => ({} as DriverApplication),
+  myVehicleApplications:     [],
+  loadMyVehicleApplications: async () => {},
   applications:            [],
   applicationsLoading:     false,
   loadApplications:        async () => {},
@@ -142,7 +150,8 @@ const ApplicationsContext = createContext<ApplicationsContextType>({
 export function ApplicationsProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
 
-  const [myApplication,        setMyApplication]        = useState<DriverApplication | null>(null);
+  const [myApplication,           setMyApplication]           = useState<DriverApplication | null>(null);
+  const [myVehicleApplications,   setMyVehicleApplications]   = useState<DriverApplication[]>([]);
   const [myApplicationLoading, setMyApplicationLoading] = useState(false);
   const [applications,         setApplications]         = useState<DriverApplication[]>([]);
   const [applicationsLoading,  setApplicationsLoading]  = useState(false);
@@ -192,6 +201,16 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
     const app = fromDTO(dto);
     setMyApplication(app);
     return app;
+  };
+
+  const loadMyVehicleApplications = useCallback(async () => {
+    const list = await applicationsApi.getMyVehicles(requireToken());
+    setMyVehicleApplications(list.map(fromDTO));
+  }, [token]);
+
+  const submitVehicleApplication = async (payload: SubmitVehicleApplicationPayload): Promise<DriverApplication> => {
+    const dto = await applicationsApi.submitVehicle(payload, requireToken());
+    return fromDTO(dto);
   };
 
   const resubmitApplication = async (applicationId: string, data: SubmitData): Promise<void> => {
@@ -283,6 +302,9 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
       loadMyApplication,
       submitApplication,
       resubmitApplication,
+      submitVehicleApplication,
+      myVehicleApplications,
+      loadMyVehicleApplications,
       applications,
       applicationsLoading,
       loadApplications,

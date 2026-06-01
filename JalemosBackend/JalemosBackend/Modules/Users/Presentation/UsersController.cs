@@ -50,9 +50,10 @@ public sealed class UsersController : ControllerBase
             MeanRating     = user.MeanRating,
             TotalTrips     = user.TotalTrips,
             Kms            = user.Kms,
-            IsActive       = user.IsActive,
-            SuspendedUntil = user.SuspendedUntil,
-            CreatedAt      = user.CreatedAt,
+            IsActive        = user.IsActive,
+            SuspendedUntil  = user.SuspendedUntil,
+            CreatedAt       = user.CreatedAt,
+            ProfilePhotoUrl = user.ProfilePhotoUrl,
         };
         return Ok(dto);
     }
