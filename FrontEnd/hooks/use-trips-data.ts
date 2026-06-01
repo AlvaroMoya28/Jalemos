@@ -128,5 +128,16 @@ export function useTripsData() {
     }
   }, [token]);
 
-  return { trips, isLoading, error, refreshTrips } as const;
+  // Helper to update available seats locally after a reservation/cancellation, without refetching all trips
+  const updateTripAvailableSeats = useCallback((tripId: string, delta: number) => {
+    setTrips((prev) =>
+      prev
+        ? prev.map((t) =>
+            t.id === tripId ? { ...t, availableSeats: Math.max(0, t.availableSeats + delta) } : t,
+          )
+        : prev,
+    );
+  }, []);
+
+  return { trips, isLoading, error, refreshTrips, updateTripAvailableSeats } as const;
 }
