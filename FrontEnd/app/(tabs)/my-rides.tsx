@@ -581,18 +581,29 @@ export default function MyRidesScreen() {
                   rating: t.driverRating ?? 0,
                   avatar,
                 };
+                const isExpired = tab === 'driver' && dep < new Date();
                 return (
-                  <RideCard
-                    key={t.id}
-                    ride={ride}
-                    mode="my-rides"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/ride-detail",
-                        params: { id: t.id },
-                      })
-                    }
-                  />
+                  <View key={t.id} style={{ position: 'relative' }}>
+                    {isExpired && (
+                      <View style={{
+                        position: 'absolute', top: 10, right: 10, zIndex: 10,
+                        backgroundColor: Brand.colors.alerts.error,
+                        borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3,
+                      }}>
+                        <Text style={{ color: '#fff', fontSize: 10, fontFamily: Fonts.headingBold }}>Vencido</Text>
+                      </View>
+                    )}
+                    <RideCard
+                      ride={ride}
+                      mode="my-rides"
+                      onPress={() =>
+                        router.push({
+                          pathname: "/ride-detail",
+                          params: { id: t.id },
+                        })
+                      }
+                    />
+                  </View>
                 );
               })
             ) : (

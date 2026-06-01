@@ -172,6 +172,12 @@ export const vehiclesApi = {
 
   getByUserId: (userId: string, token: string) =>
     get<VehicleDTO[]>(`/api/vehicles/user/${userId}`, token),
+
+  delete: (vehicleId: string, token: string) =>
+    request<void>(`/api/vehicles/${vehicleId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }),
 };
 
 // Admin User Management
