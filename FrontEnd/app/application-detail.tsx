@@ -255,7 +255,9 @@ export default function ApplicationDetailScreen() {
     if (!app) return;
     Alert.alert(
       'Aprobar solicitud',
-      `¿Aprobar la solicitud de ${app.applicantName}? Se le habilitará el modo conductor.`,
+      app.applicationType === 'vehicle'
+        ? `¿Aprobar el vehículo ${app.vehicle.brand} ${app.vehicle.model} de ${app.applicantName}? Se agregará a su perfil de conductor.`
+        : `¿Aprobar la solicitud de ${app.applicantName}? Se le habilitará el modo conductor.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -308,6 +310,11 @@ export default function ApplicationDetailScreen() {
           <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '22', borderColor: statusCfg.color + '55' }]}>
             <Text style={{ fontSize: 11, fontFamily: Fonts.headingBold, color: statusCfg.color }}>{statusCfg.label}</Text>
           </View>
+          {app.applicationType === 'vehicle' && (
+            <View style={[styles.statusBadge, { backgroundColor: Brand.colors.blue.normal + '22', borderColor: Brand.colors.blue.normal + '55' }]}>
+              <Text style={{ fontSize: 10, fontFamily: Fonts.headingBold, color: Brand.colors.blue.normal }}>Nuevo vehículo</Text>
+            </View>
+          )}
           {app.isRenewal && (
             <View style={[styles.statusBadge, { backgroundColor: Brand.colors.blue.normal + '22', borderColor: Brand.colors.blue.normal + '55' }]}>
               <Text style={{ fontSize: 10, fontFamily: Fonts.headingBold, color: Brand.colors.blue.normal }}>Renovación</Text>
@@ -360,7 +367,7 @@ export default function ApplicationDetailScreen() {
           </Animated.View>
         )}
 
-        {/* Applicant info */}
+        {/* Applicant info — para solicitudes de vehículo solo mostramos nombre/correo/fecha */}
         <Animated.View entering={FadeInDown.duration(200).delay(80)}>
           <GlassCard style={styles.card} intensity={32}>
             <Text style={styles.sectionLabel}>Solicitante</Text>
@@ -374,22 +381,26 @@ export default function ApplicationDetailScreen() {
                 <Text style={styles.infoValue}>{app.applicantEmail}</Text>
               </View>
             </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoCell}>
-                <Text style={styles.infoKey}>Cédula</Text>
-                <Text style={styles.infoValue}>{app.cedula}</Text>
-              </View>
-              <View style={styles.infoCell}>
-                <Text style={styles.infoKey}>Intentos</Text>
-                <Text style={styles.infoValue}>{app.attempts}</Text>
-              </View>
-            </View>
-            <View style={styles.infoRow}>
-              <View style={[styles.infoCell, { flex: 2 }]}>
-                <Text style={styles.infoKey}>Dirección</Text>
-                <Text style={styles.infoValue}>{app.address}</Text>
-              </View>
-            </View>
+            {app.applicationType !== 'vehicle' && (
+              <>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoCell}>
+                    <Text style={styles.infoKey}>Cédula</Text>
+                    <Text style={styles.infoValue}>{app.cedula}</Text>
+                  </View>
+                  <View style={styles.infoCell}>
+                    <Text style={styles.infoKey}>Intentos</Text>
+                    <Text style={styles.infoValue}>{app.attempts}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <View style={[styles.infoCell, { flex: 2 }]}>
+                    <Text style={styles.infoKey}>Dirección</Text>
+                    <Text style={styles.infoValue}>{app.address}</Text>
+                  </View>
+                </View>
+              </>
+            )}
             <View style={styles.infoRow}>
               <View style={styles.infoCell}>
                 <Text style={styles.infoKey}>Enviada</Text>
@@ -397,6 +408,12 @@ export default function ApplicationDetailScreen() {
                   {new Date(app.submittedAt).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </Text>
               </View>
+              {app.applicationType === 'vehicle' && (
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoKey}>Intentos</Text>
+                  <Text style={styles.infoValue}>{app.attempts}</Text>
+                </View>
+              )}
             </View>
           </GlassCard>
         </Animated.View>
@@ -428,8 +445,8 @@ export default function ApplicationDetailScreen() {
           </GlassCard>
         </Animated.View>
 
-        {/* Expiry dates */}
-        {(app.licenseExpiryMonth || app.dekraExpiryMonth) && (
+        {/* Expiry dates — no aplica para solicitudes de vehículo */}
+        {app.applicationType !== 'vehicle' && (app.licenseExpiryMonth || app.dekraExpiryMonth) && (
           <Animated.View entering={FadeInDown.duration(200).delay(155)}>
             <GlassCard style={styles.card} intensity={32}>
               <Text style={styles.sectionLabel}>Vencimientos declarados</Text>
@@ -455,8 +472,8 @@ export default function ApplicationDetailScreen() {
           </Animated.View>
         )}
 
-        {/* Documents */}
-        <Animated.View entering={FadeInDown.duration(200).delay(160)}>
+        {/* Documents — ocultos para solicitudes de vehículo */}
+        {app.applicationType !== 'vehicle' && <Animated.View entering={FadeInDown.duration(200).delay(160)}>
           <GlassCard style={styles.card} intensity={32}>
             <Text style={styles.sectionLabel}>Documentos adjuntos</Text>
             <View style={styles.photosRow}>
@@ -496,7 +513,7 @@ export default function ApplicationDetailScreen() {
               </Text>
             )}
           </GlassCard>
-        </Animated.View>
+        </Animated.View>}
 
         {/* Issue checklist + notes — only for editable states */}
         {isEditable && (

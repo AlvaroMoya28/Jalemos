@@ -74,6 +74,7 @@ export interface DriverApplicationDTO {
   applicationId: string;
   userId: string;
   status: 'pending' | 'under_review' | 'needs_correction' | 'approved' | 'rejected';
+  applicationType: 'driver' | 'vehicle';
   attempts: number;
   cedula: string;
   address: string;
@@ -125,6 +126,36 @@ export interface ReviewActionPayload {
   notes: string;
 }
 
+export interface SubmitVehicleApplicationPayload {
+  vehicleBrand: string;
+  vehicleModel: string;
+  vehicleYear: number;
+  vehiclePlate: string;
+  vehicleColor: string;
+}
+
+// Vehicles
+
+export interface VehicleDTO {
+  vehicleId: string;
+  userId: string;
+  brand: string;
+  model: string;
+  year: number;
+  numPlate: string;
+  color: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export const vehiclesApi = {
+  getMy: (token: string) =>
+    get<VehicleDTO[]>('/api/vehicles/my', token),
+
+  getByUserId: (userId: string, token: string) =>
+    get<VehicleDTO[]>(`/api/vehicles/user/${userId}`, token),
+};
+
 // Admin User Management
 
 export interface AdminUserDTO {
@@ -140,6 +171,7 @@ export interface AdminUserDTO {
   isActive: boolean;
   suspendedUntil: string | null;
   createdAt: string;
+  profilePhotoUrl: string | null;
 }
 
 export interface PagedUsersResponse {
@@ -231,6 +263,12 @@ export const applicationsApi = {
 
   reject: (id: string, payload: ReviewActionPayload, token: string) =>
     patch<void>(`/api/driver-applications/${id}/reject`, payload, token),
+
+  submitVehicle: (payload: SubmitVehicleApplicationPayload, token: string) =>
+    post<DriverApplicationDTO>('/api/driver-applications/vehicle', payload, token),
+
+  getMyVehicles: (token: string) =>
+    get<DriverApplicationDTO[]>('/api/driver-applications/my-vehicles', token),
 };
 
 
