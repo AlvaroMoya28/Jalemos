@@ -17,6 +17,7 @@ Proyecto desarrollado como parte del curso de Ingeniería de Software, Universid
 - [Ejecución](#ejecución)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Variables de entorno](#variables-de-entorno)
+- [Pruebas y cobertura](#pruebas-y-cobertura)
 - [Integrantes](#integrantes)
 
 ---
@@ -165,6 +166,31 @@ FrontEnd/
 | `EXPO_PUBLIC_GOOGLE_PLACES_KEY` | API key de Google Places para autocompletado de lugares | Sí (solo nativo) |
 
 Las variables prefijadas con `EXPO_PUBLIC_` quedan embebidas en el bundle y son accesibles desde el cliente. No almacenar claves privadas con este prefijo.
+
+---
+
+## Pruebas y cobertura
+
+Se agregó una carpeta raíz `tests/` con pruebas iniciales para frontend y backend.
+
+### Frontend (Jest + ts-jest)
+
+```bash
+cd FrontEnd
+bun run test
+bun run test:coverage
+```
+
+La cobertura se guarda en `tests/frontend/coverage`.
+
+### Backend (.NET + xUnit)
+
+```bash
+cd tests/backend/JalemosBackend.Tests
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+El archivo de cobertura se genera en `tests/backend/JalemosBackend.Tests/TestResults/**/coverage.cobertura.xml`.
 
 ---
 
