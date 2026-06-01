@@ -12,7 +12,7 @@ import NotificationsModal from '@/components/NotificationsModal';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
-import { VehicleDTO, vehiclesApi } from '@/services/api';
+import { VehicleDTO, vehiclesApi, ApiError } from '@/services/api';
 import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -259,6 +259,7 @@ export default function ProfileScreen() {
   const [amount, setAmount] = useState(0);
   const [vehicles, setVehicles] = useState<VehicleDTO[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isDriver || !token) return;
@@ -309,6 +310,35 @@ export default function ProfileScreen() {
         { text: 'Cancelar', style: 'cancel'              },
       ]);
     }
+  };
+
+  const handleDeleteVehicle = (vehicle: VehicleDTO) => {
+    if (!token) return;
+    const isLast = vehicles.length === 1;
+    Alert.alert(
+      isLast ? 'Último vehículo' : 'Eliminar vehículo',
+      isLast
+        ? `${vehicle.brand} ${vehicle.model} es tu único vehículo. Si lo eliminás, no podrás ofrecer viajes hasta registrar uno nuevo. ¿Continuás?`
+        : `¿Eliminar ${vehicle.brand} ${vehicle.model} (${vehicle.numPlate})?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingId(vehicle.vehicleId);
+            try {
+              await vehiclesApi.delete(vehicle.vehicleId, token);
+              setVehicles(prev => prev.filter(v => v.vehicleId !== vehicle.vehicleId));
+            } catch (e: any) {
+              Alert.alert('Error', e?.message ?? 'No se pudo eliminar el vehículo.');
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = async () => {
@@ -572,6 +602,13 @@ export default function ProfileScreen() {
                               </View>
                               <Text style={styles.itemDesc}>{v.numPlate} · {v.color} · {v.year}</Text>
                             </View>
+                            <Pressable
+                              onPress={() => handleDeleteVehicle(v)}
+                              disabled={deletingId === v.vehicleId}
+                              hitSlop={8}
+                              style={{ padding: 6, opacity: deletingId === v.vehicleId ? 0.4 : 1 }}>
+                              <Ionicons name="trash-outline" size={17} color={Brand.colors.alerts.error} />
+                            </Pressable>
                           </View>
                         </View>
                       ))

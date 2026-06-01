@@ -957,9 +957,32 @@ export default function OfferScreen() {
               </View>
             </View>
 
+            {!vehiclesLoading && vehicles.length === 0 && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 10,
+                backgroundColor: Brand.colors.alerts.error + '15',
+                borderRadius: Brand.radius[12], borderWidth: 1,
+                borderColor: Brand.colors.alerts.error + '44',
+                padding: 12,
+              }}>
+                <Ionicons name="warning-outline" size={18} color={Brand.colors.alerts.error} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontFamily: Fonts.headingBold, color: Brand.colors.alerts.error }}>
+                    Sin vehículos registrados
+                  </Text>
+                  <Text style={{ fontSize: 11, fontFamily: Fonts.sans, color: Brand.colors.alerts.error, marginTop: 2 }}>
+                    Registrá un vehículo desde tu perfil para poder ofrecer viajes.
+                  </Text>
+                </View>
+              </View>
+            )}
+
             <View style={styles.vehicleSection}>
               <Text style={styles.sectionLabel}>Vehículo</Text>
-              <Pressable style={styles.vehiclePicker} onPress={() => setVehicleModalOpen(true)}>
+              <Pressable
+                style={[styles.vehiclePicker, vehicles.length === 0 && !vehiclesLoading && { opacity: 0.45 }]}
+                onPress={() => vehicles.length > 0 && setVehicleModalOpen(true)}
+                disabled={vehicles.length === 0 && !vehiclesLoading}>
                 <View>
                   {vehiclesLoading ? (
                     <Text style={styles.vehicleName}>Cargando vehículos…</Text>
@@ -969,7 +992,7 @@ export default function OfferScreen() {
                       <Text style={styles.vehicleMeta}>{selectedVehicle.plate} · {selectedVehicle.color}</Text>
                     </>
                   ) : (
-                    <Text style={[styles.vehicleName, { color: colors.textMuted }]}>Sin vehículos registrados</Text>
+                    <Text style={[styles.vehicleName, { color: colors.textMuted }]}>Sin vehículos disponibles</Text>
                   )}
                 </View>
                 <Ionicons name="chevron-down" size={18} color={Brand.colors.green.dark} />
@@ -1004,7 +1027,10 @@ export default function OfferScreen() {
             </View>
           </GlassCard>
 
-          <Pressable style={styles.cta} onPress={publish}>
+          <Pressable
+            style={[styles.cta, vehicles.length === 0 && { opacity: 0.45 }]}
+            onPress={publish}
+            disabled={vehicles.length === 0}>
             <Text style={styles.ctaText}>Publicar viaje</Text>
           </Pressable>
         </View>

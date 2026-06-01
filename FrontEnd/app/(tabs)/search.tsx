@@ -26,8 +26,11 @@ import NotificationsModal from "@/components/NotificationsModal";
 import PlaceSearchInput from "@/components/place-search-input";
 import RideCard, { Ride } from "@/components/RideCard";
 import { Brand, Fonts, withElevation } from "@/constants/theme";
+import { useAuth } from "@/contexts/auth";
+import { bookingsApi } from '@/services/api';
 import { useLoading } from "@/contexts/loading";
 import { useTrips } from "@/contexts/trips";
+import { useUserMode } from "@/contexts/user-mode";
 import { useAppTheme } from "@/hooks/use-app-theme";
 import Animated, {
   FadeInDown,
@@ -561,17 +564,63 @@ export default function SearchScreen() {
   const minuteScrollRef = useRef<ScrollView>(null);
 
   const [hasSearched, setHasSearched] = useState(false);
-  const { trips, isLoading: tripsLoading, refreshTrips } = useTrips();
+  const { trips, refreshTrips } = useTrips();
+  const [bookings, setBookings] = useState<any[] | null>(null);
+  const { user, token } = useAuth();
+  const { mode } = useUserMode();
 
   useFocusEffect(
     useCallback(() => {
       refreshTrips();
-    }, [refreshTrips]),
+      let mounted = true;
+      (async () => {
+        // fetch user's bookings to know which trips they've already reserved
+        // only try if we have a token
+        if (!token) {
+          setBookings([]);
+          return;
+        }
+        try {
+          const list = await bookingsApi.getAll(token);
+          if (!mounted) return;
+          setBookings(Array.isArray(list) ? list : []);
+        } catch {
+          if (mounted) setBookings([]);
+        }
+      })();
+
+      return () => {
+        mounted = false;
+      };
+    }, [refreshTrips, token]),
   );
 
   const rides: Ride[] = useMemo(() => {
     if (!trips) return [];
-    return trips.map((t) => {
+    const now = new Date();
+    const visibleTrips = trips.filter((t) => {
+      // Hide past trips (defense in depth — backend already filters, but guard client-side too)
+      if (t.departureAt && new Date(t.departureAt) <= now) return false;
+      // Hide trips the user created (as a driver) when browsing as passenger
+      if (mode === "passenger" && user?.id && t.driverId === user.id)
+        return false;
+      // When in passenger mode, only show trips with at least one available seat
+      if (
+        mode === "passenger" &&
+        (typeof t.availableSeats !== "number" || t.availableSeats <= 0)
+      )
+        return false;
+      // Hide trips the current passenger already booked (even if other seats exist)
+      if (
+        mode === 'passenger' &&
+        bookings &&
+        bookings.some((b: any) => b.tripId === t.id && b.passengerId === user?.id)
+      ) {
+        return false;
+      }
+      return true;
+    });
+    return visibleTrips.map((t) => {
       const nameParts = t.driverName.split(" ");
       const firstName = nameParts[0] ?? "";
       const lastInitial = nameParts[1]?.[0] ?? "";
@@ -589,7 +638,7 @@ export default function SearchScreen() {
         avatar: `${firstName[0] ?? ""}${nameParts[1]?.[0] ?? ""}`.toUpperCase(),
       } as Ride;
     });
-  }, [trips]);
+  }, [trips, mode, user?.id, bookings]);
 
   const hasOrigin = from.trim().length > 0;
   const hasDestination = to.trim().length > 0;
@@ -616,6 +665,8 @@ export default function SearchScreen() {
       return matchFrom && matchTo;
     });
   }, [hasSearched, from, to, rides]);
+
+  const noTripsExist = !trips || trips.length === 0;
 
   const handleSearch = useCallback(async () => {
     showLoader("Buscando viajes...");
@@ -965,6 +1016,7 @@ export default function SearchScreen() {
                   <RideCard
                     key={ride.id}
                     ride={ride}
+                    mode="search"
                     onPress={() => handleRidePress(ride.id)}
                   />
                 ))}
@@ -972,11 +1024,44 @@ export default function SearchScreen() {
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>
-                  No hay viajes para esa ruta
+                  {noTripsExist
+                    ? "Aún no hay viajes publicados."
+                    : hasSearched
+                      ? "No hay viajes para esa ruta."
+                      : "No hay viajes disponibles en este momento."}
                 </Text>
-                <Pressable onPress={clearSearch}>
-                  <Text style={styles.sectionLink}>Ver todos los viajes</Text>
-                </Pressable>
+
+                {noTripsExist ? (
+                  <Pressable
+                    onPress={async () => {
+                      try {
+                        await refreshTrips();
+                        setHasSearched(false);
+                      } catch {
+                        console.warn("Failed to refresh trips");
+                      }
+                    }}
+                  >
+                    <Text style={styles.sectionLink}>Actualizar</Text>
+                  </Pressable>
+                ) : hasSearched ? (
+                  <Pressable onPress={clearSearch}>
+                    <Text style={styles.sectionLink}>Ver todos los viajes</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={async () => {
+                      try {
+                        await refreshTrips();
+                      } catch {
+                        // noop
+                      }
+                    }}
+                  >
+                    {/* TODO: Implement refresh functionality, now its only a placeholder */}
+                    <Text style={styles.sectionLink}>Actualizar</Text>
+                  </Pressable>
+                )}
               </View>
             )}
           </View>

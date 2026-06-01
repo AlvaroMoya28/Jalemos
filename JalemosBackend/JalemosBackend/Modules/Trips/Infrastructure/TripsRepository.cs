@@ -67,10 +67,14 @@ public sealed class TripsRepository
         return entities.Select(MapToDomain).ToList();
     }
 
-    /// <summary>Fetches all trips joined with their driver's user record.</summary>
+    /// <summary>Fetches upcoming scheduled trips joined with their driver's user record.
+    /// Excludes trips whose departure time has already passed.</summary>
     public async Task<IEnumerable<TripDto>> GetAllWithDriverAsync(CancellationToken cancellationToken = default)
     {
-        var trips = await _dbContext.Trips.AsNoTracking().ToListAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+        var trips = await _dbContext.Trips.AsNoTracking()
+            .Where(t => t.State == TripState.Scheduled && t.StartDateTime > now)
+            .ToListAsync(cancellationToken);
         var driverIds = trips.Select(t => t.DriverUserId).Distinct().ToList();
         var users = await _dbContext.Users.AsNoTracking()
             .Where(u => driverIds.Contains(u.UserId))

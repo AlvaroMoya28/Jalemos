@@ -42,4 +42,23 @@ public sealed class VehiclesController : ControllerBase
         var vehicles = await _service.GetByUserIdAsync(userId, cancellationToken);
         return Ok(vehicles);
     }
+
+    // DELETE /api/vehicles/{id} — soft-delete, solo el dueño puede eliminarlo
+    [HttpDelete("{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
+               ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (!Guid.TryParse(sub, out var userId)) return Unauthorized();
+
+        try
+        {
+            await _service.DeactivateAsync(id, userId, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)       { return NotFound(new { detail = ex.Message }); }
+        catch (UnauthorizedAccessException ex) { return Forbid(); }
+        catch (InvalidOperationException ex)  { return Conflict(new { detail = ex.Message }); }
+    }
 }
