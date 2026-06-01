@@ -58,9 +58,14 @@ function makeStyles(colors: ReturnType<typeof useAppTheme>['colors']) {
       fontSize: 48,
       color: Brand.colors.green.normal,
       fontFamily: Fonts.headingHeavy,
-      textShadowColor: '#ffffff',
-      textShadowOffset: { width: 1, height: 1 },
-      textShadowRadius: 0,
+      letterSpacing: 3,
+    },
+    brandOutline: {
+      fontSize: 48,
+      color: '#ffffff',
+      fontFamily: Fonts.headingHeavy,
+      letterSpacing: 3,
+      position: 'absolute',
     },
     cardWrap: {
       ...withElevation(600),
@@ -266,7 +271,12 @@ export default function LoginScreen() {
                 style={[styles.logo, isDark && { tintColor: '#ffffff' }]}
               />
             </Animated.View>
-            <Text style={styles.brand}>Jalemos</Text>
+            <View style={{ alignItems: 'center' }}>
+              {([ [-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1] ] as [number,number][]).map(([x,y], i) => (
+                <Text key={i} style={[styles.brandOutline, { transform: [{ translateX: x }, { translateY: y }] }]}>Jalemos</Text>
+              ))}
+              <Text style={styles.brand}>Jalemos</Text>
+            </View>
           </View>
 
           <Animated.View style={[styles.cardWrap, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
