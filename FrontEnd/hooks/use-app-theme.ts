@@ -15,7 +15,7 @@ export type AppColors = typeof Colors.light;
  *   const { isDark, colors } = useAppTheme();
  */
 export function useAppTheme() {
-  const scheme = useColorScheme() ?? 'light';
+  const scheme: 'light' | 'dark' = useColorScheme() === 'dark' ? 'dark' : 'light';
   return {
     isDark: scheme === 'dark',
     scheme,

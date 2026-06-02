@@ -334,7 +334,7 @@ export default function ApplicationDetailScreen() {
                   <Ionicons name="eye-outline" size={20} color={Brand.colors.blue.normal} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 13, fontFamily: Fonts.headingBold, color: Brand.colors.blue.normal }}>
-                      Marcar como "En revisión"
+                      {'Marcar como "En revisión"'}
                     </Text>
                     <Text style={{ fontSize: 11, fontFamily: Fonts.sans, color: colors.textMuted, marginTop: 2 }}>
                       Indicarle al solicitante que ya se está revisando su caso
@@ -360,7 +360,7 @@ export default function ApplicationDetailScreen() {
               })}
               {app.adminFeedback.notes ? (
                 <Text style={[styles.feedbackText, { fontStyle: 'italic', marginTop: 4 }]}>
-                  "{app.adminFeedback.notes}"
+                  {'"'}{app.adminFeedback.notes}{'"'}
                 </Text>
               ) : null}
             </View>

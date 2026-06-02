@@ -16,7 +16,7 @@ export function useThemeColor(
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
   // Default to 'light' if the device hasn't reported a preference yet
-  const theme = useColorScheme() ?? 'light';
+  const theme: 'light' | 'dark' = useColorScheme() === 'dark' ? 'dark' : 'light';
   const colorFromProps = props[theme];
 
   // Prefer the explicit override supplied by the component over the global token

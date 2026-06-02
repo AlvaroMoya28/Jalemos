@@ -199,7 +199,7 @@ export default function VehicleApplicationStatusScreen() {
               })}
               {app.adminFeedback.notes ? (
                 <Text style={[styles.feedbackText, { fontStyle: 'italic', marginTop: 4 }]}>
-                  "{app.adminFeedback.notes}"
+                  {'"'}{app.adminFeedback.notes}{'"'}
                 </Text>
               ) : null}
             </View>

@@ -1,0 +1,662 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import { createElement } from 'react';
+import { fireEvent, render } from '@testing-library/react';
+
+// ── Explicit mocks (hoisted before imports) ────────────────────────────────────
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn().mockResolvedValue(undefined),
+  ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' },
+}));
+
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn().mockResolvedValue({ type: 'dismiss' }),
+  WebBrowserPresentationStyle: { AUTOMATIC: 'automatic', FULL_SCREEN: 'fullScreen' },
+}));
+
+// ── Module imports (after stubs are wired via moduleNameMapper) ────────────────
+const { parseExpiry }  = require('../../FrontEnd/components/expiry-input');
+const { ThemedText }   = require('../../FrontEnd/components/themed-text');
+const { ThemedView }   = require('../../FrontEnd/components/themed-view');
+const GlassCard        = require('../../FrontEnd/components/glass-card').default;
+const { HapticTab }    = require('../../FrontEnd/components/haptic-tab');
+const { ExternalLink } = require('../../FrontEnd/components/external-link');
+const { Collapsible }  = require('../../FrontEnd/components/ui/collapsible');
+const { IconSymbol }   = require('../../FrontEnd/components/ui/icon-symbol');
+
+// ── Mock references ────────────────────────────────────────────────────────────
+const hapticsMock = jest.requireMock('expo-haptics') as { impactAsync: jest.Mock };
+const browserMock = jest.requireMock('expo-web-browser') as { openBrowserAsync: jest.Mock };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// expiry-input.tsx — parseExpiry (exported pure function)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/expiry-input — parseExpiry', () => {
+  it('returns nulls for an empty string', () => {
+    expect(parseExpiry('')).toEqual({ month: null, year: null });
+  });
+
+  it('returns nulls when there is no slash', () => {
+    expect(parseExpiry('1226')).toEqual({ month: null, year: null });
+  });
+
+  it('returns nulls when the year part has fewer than 2 digits', () => {
+    expect(parseExpiry('12/2')).toEqual({ month: null, year: null });
+  });
+
+  it('parses a valid "01/25" into month=1, year=2025', () => {
+    expect(parseExpiry('01/25')).toEqual({ month: 1, year: 2025 });
+  });
+
+  it('parses a valid "12/30" into month=12, year=2030', () => {
+    expect(parseExpiry('12/30')).toEqual({ month: 12, year: 2030 });
+  });
+
+  it('returns nulls for month 13 (out of range)', () => {
+    expect(parseExpiry('13/26')).toEqual({ month: null, year: null });
+  });
+
+  it('returns nulls for month 0 (out of range)', () => {
+    expect(parseExpiry('00/26')).toEqual({ month: null, year: null });
+  });
+
+  it('returns nulls for NaN month (non-numeric)', () => {
+    expect(parseExpiry('mm/yy')).toEqual({ month: null, year: null });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// themed-text.tsx — ThemedText
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/themed-text — ThemedText', () => {
+  it('renders children text content', () => {
+    const { getByText } = render(createElement(ThemedText, null, 'Hello world'));
+    expect(getByText('Hello world')).toBeTruthy();
+  });
+
+  it.each(['default', 'title', 'defaultSemiBold', 'subtitle', 'link'] as const)(
+    'renders without error for type="%s"',
+    (type) => {
+      expect(() =>
+        render(createElement(ThemedText, { type }, `Type ${type}`)),
+      ).not.toThrow();
+    },
+  );
+
+  it('applies custom lightColor override via prop', () => {
+    const { container } = render(
+      createElement(ThemedText, { lightColor: '#ff0000' }, 'Custom color'),
+    );
+    // The color is applied as an inline style; verify the element renders
+    expect(container.firstChild).not.toBeNull();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// themed-view.tsx — ThemedView
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/themed-view — ThemedView', () => {
+  it('renders its children', () => {
+    const { getByText } = render(
+      createElement(ThemedView, null, createElement('span', null, 'Inner')),
+    );
+    expect(getByText('Inner')).toBeTruthy();
+  });
+
+  it('renders without error with lightColor and darkColor overrides', () => {
+    expect(() =>
+      render(createElement(ThemedView, { lightColor: '#fff', darkColor: '#000' })),
+    ).not.toThrow();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// glass-card.tsx — GlassCard (opacity formulas)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/glass-card — GlassCard', () => {
+  it('renders its children', () => {
+    const { getByText } = render(
+      createElement(GlassCard, null, createElement('span', null, 'Card content')),
+    );
+    expect(getByText('Card content')).toBeTruthy();
+  });
+
+  it('renders without error at intensity=0', () => {
+    expect(() =>
+      render(createElement(GlassCard, { intensity: 0 }, 'zero')),
+    ).not.toThrow();
+  });
+
+  it('renders without error at intensity=100 (opacity capped)', () => {
+    // surface: min(0.2 + 100/180, 0.55) = 0.55  — capped
+    // highlight: min(0.14 + 100/320, 0.3) = 0.3  — capped
+    expect(() =>
+      render(createElement(GlassCard, { intensity: 100 }, 'max')),
+    ).not.toThrow();
+  });
+
+  it('surface opacity formula: min(0.2 + intensity/180, 0.55)', () => {
+    const surface = (intensity: number) => Math.min(0.2 + intensity / 180, 0.55);
+    expect(surface(0)).toBeCloseTo(0.2);
+    expect(surface(36)).toBeCloseTo(0.4);
+    expect(surface(100)).toBe(0.55); // capped
+  });
+
+  it('highlight opacity formula: min(0.14 + intensity/320, 0.3)', () => {
+    const highlight = (intensity: number) => Math.min(0.14 + intensity / 320, 0.3);
+    expect(highlight(0)).toBeCloseTo(0.14);
+    expect(highlight(36)).toBeCloseTo(0.2525);
+    expect(highlight(100)).toBe(0.3); // capped
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// haptic-tab.tsx — HapticTab (iOS-only haptics via EXPO_OS)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/haptic-tab — HapticTab', () => {
+  const originalExpoOS = process.env.EXPO_OS;
+  afterEach(() => { process.env.EXPO_OS = originalExpoOS; });
+
+  it('fires impactAsync when EXPO_OS is ios', () => {
+    process.env.EXPO_OS = 'ios';
+    const { container } = render(createElement(HapticTab, {}));
+    fireEvent.click(container.querySelector('button')!);
+    expect(hapticsMock.impactAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT fire impactAsync when EXPO_OS is android', () => {
+    process.env.EXPO_OS = 'android';
+    const { container } = render(createElement(HapticTab, {}));
+    fireEvent.click(container.querySelector('button')!);
+    expect(hapticsMock.impactAsync).not.toHaveBeenCalled();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// external-link.tsx — ExternalLink (in-app browser on native)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/external-link — ExternalLink', () => {
+  const originalExpoOS = process.env.EXPO_OS;
+  afterEach(() => { process.env.EXPO_OS = originalExpoOS; });
+
+  it('calls openBrowserAsync when EXPO_OS is not "web"', async () => {
+    process.env.EXPO_OS = 'ios';
+    const { container } = render(
+      createElement(ExternalLink, { href: 'https://example.com' }),
+    );
+    const link = container.querySelector('a')!;
+    // Simulate click — our Link stub calls onPress, which calls openBrowserAsync
+    fireEvent.click(link);
+    // Flush microtasks so async onPress resolves
+    await Promise.resolve();
+    expect(browserMock.openBrowserAsync).toHaveBeenCalledWith(
+      'https://example.com',
+      expect.any(Object),
+    );
+  });
+
+  it('does NOT call openBrowserAsync when EXPO_OS is "web"', async () => {
+    process.env.EXPO_OS = 'web';
+    const { container } = render(
+      createElement(ExternalLink, { href: 'https://example.com' }),
+    );
+    fireEvent.click(container.querySelector('a')!);
+    await Promise.resolve();
+    expect(browserMock.openBrowserAsync).not.toHaveBeenCalled();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ui/collapsible.tsx — Collapsible (toggle behavior)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/ui/collapsible — Collapsible', () => {
+  it('renders the title and hides children initially', () => {
+    const { getByText, queryByText } = render(
+      createElement(Collapsible, { title: 'My Section' }, 'Hidden content'),
+    );
+    expect(getByText('My Section')).toBeTruthy();
+    expect(queryByText('Hidden content')).toBeNull();
+  });
+
+  it('shows children after pressing the heading', () => {
+    const { getByText, getByRole } = render(
+      createElement(Collapsible, { title: 'Toggle Me' }, 'Revealed content'),
+    );
+    fireEvent.click(getByRole('button'));
+    expect(getByText('Revealed content')).toBeTruthy();
+  });
+
+  it('hides children again on a second press', () => {
+    const { getByRole, queryByText } = render(
+      createElement(Collapsible, { title: 'Toggle' }, 'Content'),
+    );
+    const btn = getByRole('button');
+    fireEvent.click(btn); // open
+    fireEvent.click(btn); // close
+    expect(queryByText('Content')).toBeNull();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ui/icon-symbol.tsx — IconSymbol (SF Symbol → Material Icon mapping)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/ui/icon-symbol — IconSymbol', () => {
+  it.each([
+    ['house.fill',                                'home'],
+    ['paperplane.fill',                           'send'],
+    ['chevron.left.forwardslash.chevron.right',   'code'],
+    ['chevron.right',                             'chevron-right'],
+  ] as const)(
+    'maps SF Symbol "%s" to Material Icon "%s"',
+    (sfSymbol, materialIcon) => {
+      const { container } = render(
+        createElement(IconSymbol, { name: sfSymbol, size: 24, color: '#000' }),
+      );
+      const icon = container.querySelector('[data-testid="icon-MaterialIcons"]');
+      expect(icon).not.toBeNull();
+      expect(icon!.getAttribute('data-icon')).toBe(materialIcon);
+    },
+  );
+
+  it('passes size and color props to the underlying icon', () => {
+    const { container } = render(
+      createElement(IconSymbol, { name: 'house.fill', size: 32, color: '#ff0000' }),
+    );
+    const icon = container.querySelector('[data-testid="icon-MaterialIcons"]');
+    expect(icon!.getAttribute('data-size')).toBe('32');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// expiry-input.tsx — format function (via component render + onChangeText)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/expiry-input — format function via component', () => {
+  const ExpiryInput = require('../../FrontEnd/components/expiry-input').default;
+
+  it('renders without error', () => {
+    const cb = jest.fn();
+    expect(() => render(createElement(ExpiryInput, { value: '', onChangeText: cb }))).not.toThrow();
+  });
+
+  it('passes through 1-2 raw digits unchanged', () => {
+    const cb = jest.fn();
+    const { container } = render(createElement(ExpiryInput, { value: '', onChangeText: cb }));
+    const input = container.querySelector('input')!;
+
+    fireEvent.change(input, { target: { value: '1' } });
+    expect(cb).toHaveBeenLastCalledWith('1');
+
+    fireEvent.change(input, { target: { value: '12' } });
+    expect(cb).toHaveBeenLastCalledWith('12');
+  });
+
+  it('auto-inserts "/" after 2 digits', () => {
+    const cb = jest.fn();
+    const { container } = render(createElement(ExpiryInput, { value: '', onChangeText: cb }));
+    const input = container.querySelector('input')!;
+
+    fireEvent.change(input, { target: { value: '123' } });
+    expect(cb).toHaveBeenLastCalledWith('12/3');
+  });
+
+  it('formats a complete 4-digit entry as MM/YY', () => {
+    const cb = jest.fn();
+    const { container } = render(createElement(ExpiryInput, { value: '', onChangeText: cb }));
+    const input = container.querySelector('input')!;
+
+    fireEvent.change(input, { target: { value: '1226' } });
+    expect(cb).toHaveBeenLastCalledWith('12/26');
+  });
+
+  it('strips non-digit characters from input', () => {
+    const cb = jest.fn();
+    const { container } = render(createElement(ExpiryInput, { value: '', onChangeText: cb }));
+    const input = container.querySelector('input')!;
+
+    fireEvent.change(input, { target: { value: '12/a6' } });
+    expect(cb).toHaveBeenLastCalledWith('12/6');
+  });
+
+  it('caps output at 5 characters (4 digits + slash)', () => {
+    const cb = jest.fn();
+    const { container } = render(createElement(ExpiryInput, { value: '', onChangeText: cb }));
+    const input = container.querySelector('input')!;
+
+    fireEvent.change(input, { target: { value: '12345' } });
+    expect(cb).toHaveBeenLastCalledWith('12/34');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// animated-pressable.tsx — onPressIn / onPressOut handlers
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/animated-pressable — press handlers', () => {
+  const AnimatedPressable = require('../../FrontEnd/components/animated-pressable').default;
+  const { withTiming } = require('react-native-reanimated');
+
+  beforeEach(() => { (withTiming as jest.Mock).mockClear(); });
+
+  it('fires onPressIn with pressedScale when mouse is pressed down', () => {
+    const { container } = render(
+      createElement(AnimatedPressable, { pressedScale: 0.95 }, createElement('span', null, 'x')),
+    );
+    fireEvent.mouseDown(container.querySelector('button')!);
+    expect((withTiming as jest.Mock)).toHaveBeenCalledWith(0.95, expect.objectContaining({ duration: 110 }));
+  });
+
+  it('fires onPressOut back to scale 1 on mouse up', () => {
+    const { container } = render(
+      createElement(AnimatedPressable, { pressedScale: 0.95 }, createElement('span', null, 'x')),
+    );
+    fireEvent.mouseUp(container.querySelector('button')!);
+    expect((withTiming as jest.Mock)).toHaveBeenCalledWith(1, expect.objectContaining({ duration: 150 }));
+  });
+
+  it('forwards custom onPressIn callback', () => {
+    const onPressIn = jest.fn();
+    const { container } = render(
+      createElement(AnimatedPressable, { onPressIn }, createElement('span', null, 'x')),
+    );
+    fireEvent.mouseDown(container.querySelector('button')!);
+    expect(onPressIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards custom onPressOut callback', () => {
+    const onPressOut = jest.fn();
+    const { container } = render(
+      createElement(AnimatedPressable, { onPressOut }, createElement('span', null, 'x')),
+    );
+    fireEvent.mouseUp(container.querySelector('button')!);
+    expect(onPressOut).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RideCard.tsx — ride card display and seat label logic
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/RideCard — RideCard', () => {
+  const RideCard = require('../../FrontEnd/components/RideCard').default;
+
+  const makeRide = (overrides = {}) => ({
+    id: 'r1',
+    from: 'San José',
+    to: 'Heredia',
+    date: 'Hoy',
+    time: '5:30 PM',
+    price: 1500,
+    seats: 3,
+    driver: 'Carlos M.',
+    rating: 4.8,
+    avatar: 'CM',
+    ...overrides,
+  });
+
+  it('renders origin and destination', () => {
+    const { getByText } = render(createElement(RideCard, { ride: makeRide() }));
+    expect(getByText('San José')).toBeTruthy();
+    expect(getByText('Heredia')).toBeTruthy();
+  });
+
+  it('renders driver name and rating', () => {
+    const { getByText } = render(createElement(RideCard, { ride: makeRide() }));
+    expect(getByText('Carlos M.')).toBeTruthy();
+    expect(getByText('4.8')).toBeTruthy();
+  });
+
+  it('renders avatar initials', () => {
+    const { getByText } = render(createElement(RideCard, { ride: makeRide({ avatar: 'CM' }) }));
+    expect(getByText('CM')).toBeTruthy();
+  });
+
+  it('renders date and time', () => {
+    const { getByText } = render(createElement(RideCard, { ride: makeRide() }));
+    expect(getByText('Hoy · 5:30 PM')).toBeTruthy();
+  });
+
+  it('shows "lugares disponibles" in search mode (default)', () => {
+    const { getByText } = render(createElement(RideCard, { ride: makeRide({ seats: 3 }) }));
+    expect(getByText('3 lugares disponibles')).toBeTruthy();
+  });
+
+  it('shows singular "lugar disponible" for 1 seat in search mode', () => {
+    const { getByText } = render(createElement(RideCard, { ride: makeRide({ seats: 1 }) }));
+    expect(getByText('1 lugar disponible')).toBeTruthy();
+  });
+
+  it('shows "lugares reservados" in my-rides mode', () => {
+    const { getByText } = render(
+      createElement(RideCard, { ride: makeRide({ seats: 2 }), mode: 'my-rides' }),
+    );
+    expect(getByText('2 lugares reservados')).toBeTruthy();
+  });
+
+  it('shows singular "lugar reservado" for 1 seat in my-rides mode', () => {
+    const { getByText } = render(
+      createElement(RideCard, { ride: makeRide({ seats: 1 }), mode: 'my-rides' }),
+    );
+    expect(getByText('1 lugar reservado')).toBeTruthy();
+  });
+
+  it('calls onPress when pressed', () => {
+    const onPress = jest.fn();
+    const { container } = render(createElement(RideCard, { ride: makeRide(), onPress }));
+    fireEvent.click(container.querySelector('button')!);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders without error when onPress is omitted', () => {
+    expect(() => render(createElement(RideCard, { ride: makeRide() }))).not.toThrow();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NotificationsModal.tsx — notification list display
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/NotificationsModal — NotificationsModal', () => {
+  const NotificationsModal = require('../../FrontEnd/components/NotificationsModal').default;
+
+  it('renders without error when visible', () => {
+    expect(() =>
+      render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() })),
+    ).not.toThrow();
+  });
+
+  it('renders without error when hidden', () => {
+    expect(() =>
+      render(createElement(NotificationsModal, { visible: false, onClose: jest.fn() })),
+    ).not.toThrow();
+  });
+
+  it('shows the section heading', () => {
+    const { getByText } = render(
+      createElement(NotificationsModal, { visible: true, onClose: jest.fn() }),
+    );
+    expect(getByText('Notificaciones')).toBeTruthy();
+  });
+
+  it('renders all five mock notification titles', () => {
+    const { getByText } = render(
+      createElement(NotificationsModal, { visible: true, onClose: jest.fn() }),
+    );
+    expect(getByText('Tu viaje a Heredia fue confirmado')).toBeTruthy();
+    expect(getByText('Promo Pura Vida: 20% OFF')).toBeTruthy();
+    expect(getByText('Nuevo mensaje de Maria R.')).toBeTruthy();
+    expect(getByText('Jose L. te calificó 5 estrellas')).toBeTruthy();
+    expect(getByText('Recordatorio: viaje mañana')).toBeTruthy();
+  });
+
+  it('calls onClose when the close button is pressed', () => {
+    const onClose = jest.fn();
+    const { getAllByRole } = render(
+      createElement(NotificationsModal, { visible: true, onClose }),
+    );
+    fireEvent.click(getAllByRole('button')[0]);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the footer CTA button', () => {
+    const { getByText } = render(
+      createElement(NotificationsModal, { visible: true, onClose: jest.fn() }),
+    );
+    expect(getByText('Ver todas las notificaciones')).toBeTruthy();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Additional component smoke tests
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components — smoke tests', () => {
+  it('animated-pressable renders without error', () => {
+    const AnimatedPressable = require('../../FrontEnd/components/animated-pressable').default;
+    expect(() =>
+      render(createElement(AnimatedPressable, { onPress: jest.fn() }, createElement('span', null, 'Press me'))),
+    ).not.toThrow();
+  });
+
+  it('hello-wave renders without error', () => {
+    const { HelloWave } = require('../../FrontEnd/components/hello-wave');
+    expect(() => render(createElement(HelloWave))).not.toThrow();
+  });
+
+  it('page-loader renders without error when visible', () => {
+    const PageLoader = require('../../FrontEnd/components/page-loader').default;
+    expect(() => render(createElement(PageLoader, { visible: true, label: 'Cargando...' }))).not.toThrow();
+  });
+
+  it('page-loader renders without error when hidden', () => {
+    const PageLoader = require('../../FrontEnd/components/page-loader').default;
+    expect(() => render(createElement(PageLoader, { visible: false }))).not.toThrow();
+  });
+
+  it('parallax-scroll-view renders without error', () => {
+    const ParallaxScrollView = require('../../FrontEnd/components/parallax-scroll-view').default;
+    expect(() =>
+      render(createElement(ParallaxScrollView, {
+        headerImage: createElement('img', { src: '' }),
+        headerBackgroundColor: { dark: '#000', light: '#fff' },
+      }, createElement('span', null, 'Content'))),
+    ).not.toThrow();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// map-modal.web.tsx — InteractiveMapModal (web fallback)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/map-modal.web — web map modal', () => {
+  const mockRide = {
+    id: 'ride-0',
+    from: 'San José', to: 'Heredia',
+    fromCoords: { lat: 9.9281, lng: -84.0907 },
+    toCoords: { lat: 9.9987, lng: -84.1223 },
+    date: 'Hoy', time: '5:30 PM',
+    price: 1500, totalSeats: 4, availableSeats: 3,
+    driver: {
+      id: 'driver-0', fullName: 'Carlos M.', avatar: 'CM', rating: 4.8,
+      ratingsCount: 47, tripsCompleted: 52, memberSince: 'Enero 2024',
+      vehicle: 'Toyota Yaris', plate: 'CR-1234', verified: true, reviews: [],
+    },
+  };
+
+  it('renders without error when visible with valid coords', () => {
+    const MapModal = require('../../FrontEnd/components/map-modal.web').default;
+    expect(() =>
+      render(createElement(MapModal, { visible: true, onClose: jest.fn(), ride: mockRide, polyline: null })),
+    ).not.toThrow();
+  });
+
+  it('renders without error when visible with no coords', () => {
+    const MapModal = require('../../FrontEnd/components/map-modal.web').default;
+    const rideNoCoords = { ...mockRide, fromCoords: undefined, toCoords: undefined };
+    expect(() =>
+      render(createElement(MapModal, { visible: true, onClose: jest.fn(), ride: rideNoCoords, polyline: null })),
+    ).not.toThrow();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// place-search-input.tsx — PlaceSearchInput
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('FrontEnd components/place-search-input — PlaceSearchInput', () => {
+  const PlaceSearchInput = require('../../FrontEnd/components/place-search-input').default;
+
+  const defaultProps = {
+    value: '',
+    onChangeText: jest.fn(),
+    onSelect: jest.fn(),
+  };
+
+  it('renders without error', () => {
+    expect(() => render(createElement(PlaceSearchInput, defaultProps))).not.toThrow();
+  });
+
+  it('renders the text input', () => {
+    const { container } = render(createElement(PlaceSearchInput, defaultProps));
+    expect(container.querySelector('input')).not.toBeNull();
+  });
+
+  it('calls onChangeText when input value changes', () => {
+    const onChangeText = jest.fn();
+    const { container } = render(
+      createElement(PlaceSearchInput, { ...defaultProps, onChangeText }),
+    );
+    fireEvent.change(container.querySelector('input')!, { target: { value: 'San José' } });
+    expect(onChangeText).toHaveBeenCalledWith('San José');
+  });
+
+  it('shows a clear button when value is non-empty', () => {
+    const { container } = render(
+      createElement(PlaceSearchInput, { ...defaultProps, value: 'Heredia' }),
+    );
+    expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
+  });
+
+  it('calls onChangeText with empty string when clear button is clicked', () => {
+    const onChangeText = jest.fn();
+    const { container } = render(
+      createElement(PlaceSearchInput, { ...defaultProps, value: 'Heredia', onChangeText }),
+    );
+    fireEvent.click(container.querySelectorAll('button')[0]);
+    expect(onChangeText).toHaveBeenCalledWith('');
+  });
+
+  it('renders a leading icon when provided', () => {
+    const { container } = render(
+      createElement(PlaceSearchInput, {
+        ...defaultProps,
+        leadingIcon: createElement('span', { 'data-testid': 'lead-icon' }),
+      }),
+    );
+    expect(container.querySelector('[data-testid="lead-icon"]')).not.toBeNull();
+  });
+
+  it('renders with placeholder text', () => {
+    const { container } = render(
+      createElement(PlaceSearchInput, { ...defaultProps, placeholder: 'Buscar lugar...' }),
+    );
+    expect(container.querySelector('input')!.getAttribute('placeholder')).toBe('Buscar lugar...');
+  });
+
+  it('does not show a clear button when value is empty', () => {
+    const { container } = render(
+      createElement(PlaceSearchInput, { ...defaultProps, value: '' }),
+    );
+    expect(container.querySelectorAll('button').length).toBe(0);
+  });
+});

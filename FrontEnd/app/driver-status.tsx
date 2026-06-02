@@ -413,7 +413,7 @@ export default function DriverStatusScreen() {
               {application.adminFeedback.notes ? (
                 <>
                   <View style={styles.divider} />
-                  <Text style={styles.adminNotes}>"{application.adminFeedback.notes}"</Text>
+                  <Text style={styles.adminNotes}>{'"'}{application.adminFeedback.notes}{'"'}</Text>
                 </>
               ) : null}
             </GlassCard>
