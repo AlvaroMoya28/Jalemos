@@ -75,4 +75,32 @@ public class TripsRepositoryMappingTests
         Assert.Equal(trip.Notes, entity.Notes);
         Assert.Equal(trip.State, entity.State);
     }
+
+    [Fact]
+    public void MapToDomain_PreservesNonNullNotes()
+    {
+        var entity = new TripEntity
+        {
+            TripId = Guid.NewGuid(),
+            DriverUserId = Guid.NewGuid(),
+            VehicleId = Guid.NewGuid(),
+            Rate = 1000m,
+            FromLocation = "A",
+            ToLocation = "B",
+            FromLatitude = 0m,
+            FromLongitude = 0m,
+            ToLatitude = 0m,
+            ToLongitude = 0m,
+            StartDateTime = new DateTime(2026, 06, 01, 9, 0, 0, DateTimeKind.Utc),
+            TotalSeats = 4,
+            AvailableSeats = 3,
+            State = TripState.Scheduled,
+            CreatedAt = new DateTime(2026, 05, 01, 0, 0, 0, DateTimeKind.Utc),
+            Notes = "Pick up at main entrance",
+        };
+
+        var domain = TripsRepository.MapToDomain(entity);
+
+        Assert.Equal("Pick up at main entrance", domain.Notes);
+    }
 }

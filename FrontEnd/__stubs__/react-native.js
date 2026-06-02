@@ -22,14 +22,26 @@ module.exports = {
   ScrollView: 'ScrollView',
   FlatList: 'FlatList',
   Modal: 'Modal',
-  TextInput: 'TextInput',
+  TextInput: ({ value, onChangeText, style, placeholder, secureTextEntry, ...rest }) =>
+    React.createElement('input', {
+      value: value !== undefined ? value : '',
+      onChange: (e) => { if (onChangeText) onChangeText(e.target.value); },
+      placeholder,
+      style,
+      type: secureTextEntry ? 'password' : 'text',
+    }),
   SafeAreaView: 'SafeAreaView',
   KeyboardAvoidingView: ({ children, style }) =>
     React.createElement('div', { style }, children),
   ActivityIndicator: ({ style }) => React.createElement('span', { style }, '...'),
-  // Interactive elements — functional so onPress/onPressIn fire via onClick
-  Pressable: ({ children, onPress, style }) =>
-    React.createElement('button', { onClick: onPress, style }, children),
+  // Interactive elements — functional so onPress/onPressIn fire via click/mousedown/mouseup
+  Pressable: ({ children, onPress, onPressIn, onPressOut, style }) =>
+    React.createElement('button', {
+      onClick: onPress,
+      onMouseDown: onPressIn,
+      onMouseUp: onPressOut,
+      style,
+    }, children),
   TouchableOpacity: ({ children, onPress, style }) =>
     React.createElement('button', { onClick: onPress, style }, children),
   TouchableHighlight: ({ children, onPress, style }) =>

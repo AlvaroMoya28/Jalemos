@@ -17,7 +17,7 @@ module.exports.default = AnimatedNS;
 
 // Hooks
 module.exports.useSharedValue    = jest.fn().mockImplementation(v => ({ value: v }));
-module.exports.useAnimatedStyle  = jest.fn().mockReturnValue({});
+module.exports.useAnimatedStyle  = jest.fn(fn => { try { fn(); } catch (_) {} return {}; });
 module.exports.useAnimatedRef    = jest.fn().mockReturnValue({ current: null });
 module.exports.useAnimatedScrollHandler = jest.fn().mockReturnValue(() => {});
 module.exports.useDerivedValue   = jest.fn(fn => ({ value: fn() }));
@@ -30,6 +30,9 @@ module.exports.withSpring        = jest.fn(v => v);
 module.exports.withDelay         = jest.fn((d, a) => a);
 module.exports.withRepeat        = jest.fn(a => a);
 module.exports.withSequence      = jest.fn((...a) => a[a.length - 1]);
+module.exports.cancelAnimation   = jest.fn();
+module.exports.interpolate       = jest.fn((v, _in, _out) => v);
+module.exports.useScrollOffset   = jest.fn().mockReturnValue({ value: 0 });
 
 // Easing
 module.exports.Easing = { inOut: jest.fn(fn => fn), sin: jest.fn(), linear: jest.fn(v => v) };

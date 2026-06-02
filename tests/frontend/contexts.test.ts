@@ -480,4 +480,187 @@ describe('FrontEnd contexts/applications — ApplicationsProvider', () => {
       expect(result.current.reports[0].adminAction?.type).toBe('dismissed');
     });
   });
+
+  describe('loadMyVehicleApplications and submitVehicleApplication', () => {
+    it('loadMyVehicleApplications fetches and stores the list', async () => {
+      const dto = makeDTO({ applicationType: 'vehicle' });
+      apiMock.applicationsApi.getMyVehicles.mockResolvedValue([dto]);
+
+      const { result } = renderHook(() => useApplications(), { wrapper });
+      await act(async () => { await result.current.loadMyVehicleApplications(); });
+
+      expect(result.current.myVehicleApplications).toHaveLength(1);
+      expect(result.current.myVehicleApplications[0].id).toBe('app-1');
+    });
+
+    it('submitVehicleApplication calls the API and returns the mapped DTO', async () => {
+      const dto = makeDTO({ applicationType: 'vehicle', status: 'pending' });
+      apiMock.applicationsApi.submitVehicle.mockResolvedValue(dto);
+
+      const { result } = renderHook(() => useApplications(), { wrapper });
+      let app: any;
+      await act(async () => {
+        app = await result.current.submitVehicleApplication({
+          vehicleBrand: 'Toyota', vehicleModel: 'Corolla',
+          vehicleYear: 2020, vehiclePlate: 'ABC-123', vehicleColor: 'Blanco',
+        });
+      });
+
+      expect(app.id).toBe('app-1');
+      expect(apiMock.applicationsApi.submitVehicle).toHaveBeenCalled();
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LoadingProvider
+// ═══════════════════════════════════════════════════════════════════════════════
+
+jest.mock('@/components/page-loader', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ visible, label }: { visible: boolean; label?: string }) =>
+      React.createElement('div', { 'data-testid': 'page-loader', 'data-visible': String(visible) }, label ?? ''),
+  };
+});
+
+describe('FrontEnd contexts/loading — LoadingProvider', () => {
+  const { LoadingProvider, useLoading } = require('../../FrontEnd/contexts/loading');
+  const wrapper = ({ children }: { children: any }) =>
+    createElement(LoadingProvider, null, children);
+
+  it('exposes showLoader and hideLoader functions', () => {
+    const { result } = renderHook(() => useLoading(), { wrapper });
+    expect(result.current.showLoader).toBeInstanceOf(Function);
+    expect(result.current.hideLoader).toBeInstanceOf(Function);
+  });
+
+  it('showLoader does not throw when called with default label', async () => {
+    const { result } = renderHook(() => useLoading(), { wrapper });
+    await act(async () => { result.current.showLoader(); });
+    // No assertion needed — absence of throw is the test
+    expect(result.current.showLoader).toBeDefined();
+  });
+
+  it('showLoader does not throw when called with a custom label', async () => {
+    const { result } = renderHook(() => useLoading(), { wrapper });
+    await act(async () => { result.current.showLoader('Procesando...'); });
+    expect(result.current.showLoader).toBeDefined();
+  });
+
+  it('hideLoader does not throw after showLoader', async () => {
+    const { result } = renderHook(() => useLoading(), { wrapper });
+    await act(async () => { result.current.showLoader('Loading'); });
+    await act(async () => { result.current.hideLoader(); });
+    expect(result.current.hideLoader).toBeDefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TripsProvider
+// ═══════════════════════════════════════════════════════════════════════════════
+
+jest.mock('@/hooks/use-trips-data', () => ({
+  useTripsData: jest.fn(),
+}));
+
+describe('FrontEnd contexts/trips — TripsProvider', () => {
+  const tripsDataMock = jest.requireMock('@/hooks/use-trips-data') as {
+    useTripsData: jest.Mock;
+  };
+
+  const makeTripsData = (overrides = {}) => ({
+    trips: [],
+    isLoading: false,
+    error: null,
+    refreshTrips: jest.fn().mockResolvedValue(undefined),
+    updateTripAvailableSeats: jest.fn(),
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    tripsDataMock.useTripsData.mockReturnValue(makeTripsData());
+  });
+
+  const { TripsProvider, useTrips } = require('../../FrontEnd/contexts/trips');
+  const wrapper = ({ children }: { children: any }) =>
+    createElement(TripsProvider, null, children);
+
+  it('exposes trips, isLoading, error and refreshTrips from useTripsData', async () => {
+    const fakeTrips = [{ id: 't1' }];
+    tripsDataMock.useTripsData.mockReturnValue(makeTripsData({ trips: fakeTrips, isLoading: false }));
+
+    const { result } = renderHook(() => useTrips(), { wrapper });
+    await act(async () => {});
+
+    expect(result.current.trips).toEqual(fakeTrips);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('calls refreshTrips on mount', async () => {
+    const refreshTrips = jest.fn().mockResolvedValue(undefined);
+    tripsDataMock.useTripsData.mockReturnValue(makeTripsData({ refreshTrips }));
+
+    renderHook(() => useTrips(), { wrapper });
+    await act(async () => {});
+
+    expect(refreshTrips).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards isLoading=true when hook is loading', async () => {
+    tripsDataMock.useTripsData.mockReturnValue(makeTripsData({ isLoading: true, trips: null }));
+
+    const { result } = renderHook(() => useTrips(), { wrapper });
+    await act(async () => {});
+
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.trips).toBeNull();
+  });
+
+  it('forwards error string when hook reports an error', async () => {
+    tripsDataMock.useTripsData.mockReturnValue(makeTripsData({ error: 'Network error', trips: null }));
+
+    const { result } = renderHook(() => useTrips(), { wrapper });
+    await act(async () => {});
+
+    expect(result.current.error).toBe('Network error');
+  });
+
+  it('exposes updateTripAvailableSeats from useTripsData', async () => {
+    const updateFn = jest.fn();
+    tripsDataMock.useTripsData.mockReturnValue(makeTripsData({ updateTripAvailableSeats: updateFn }));
+
+    const { result } = renderHook(() => useTrips(), { wrapper });
+    await act(async () => {});
+
+    result.current.updateTripAvailableSeats?.('t1', -1);
+    expect(updateFn).toHaveBeenCalledWith('t1', -1);
+  });
+});
+
+// ── AdminUsersProvider — no-token guard for admin actions ──────────────────────
+
+describe('FrontEnd contexts/admin-users — no-token guard for admin actions', () => {
+  const wrapper = ({ children }: { children: any }) =>
+    createElement(AdminUsersProvider, null, children);
+
+  beforeEach(() => {
+    authCtxMock.useAuth.mockReturnValue({ token: null });
+    apiMock.usersApi.getAll.mockReset();
+  });
+
+  it.each([
+    ['changeRole', (r: any) => r.changeRole('u1', 'driver')],
+    ['ban',        (r: any) => r.ban('u1', 7)],
+    ['liftBan',    (r: any) => r.liftBan('u1')],
+    ['deactivate', (r: any) => r.deactivate('u1')],
+    ['activate',   (r: any) => r.activate('u1')],
+  ])('%s is a no-op when there is no token', async (_action, invoke) => {
+    const { result } = renderHook(() => useAdminUsers(), { wrapper });
+    await act(async () => { await invoke(result.current); });
+    // No reload should be triggered
+    expect(apiMock.usersApi.getAll).not.toHaveBeenCalled();
+  });
 });

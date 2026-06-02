@@ -289,4 +289,52 @@ describe('FrontEnd contexts/auth — AuthProvider', () => {
       expect(role!).toBe('passenger+driver');
     });
   });
+
+  // ── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('session restore — role downgrade branch', () => {
+    it('deletes driverActivated flag when stored role is no longer passenger+driver', async () => {
+      // Token stored, driverActivated="1", but server now says role is "passenger" (admin removed driver role)
+      secureMock.getItemAsync
+        .mockResolvedValueOnce('stored-jwt')   // TOKEN_KEY
+        .mockResolvedValueOnce('1');           // DRIVER_ACTIVATED_KEY
+      apiMock.get.mockResolvedValue(makeAuthResponse({ role: 'passenger' }));
+
+      const { result } = await waitForLoad(authHook());
+
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.driverActivated).toBe(false);
+      expect(secureMock.deleteItemAsync).toHaveBeenCalledWith('jalemos_driver_activated');
+    });
+  });
+
+  describe('login — passenger+driver reads existing activation flag', () => {
+    it('sets driverActivated=true when SecureStore has the flag during login', async () => {
+      secureMock.getItemAsync
+        .mockResolvedValueOnce(null)   // session restore: no token
+        .mockResolvedValueOnce(null)   // session restore: no activation
+        .mockResolvedValueOnce('1');   // login: reads activation flag for passenger+driver
+      apiMock.post.mockResolvedValue(makeAuthResponse({ token: 'tok', role: 'passenger+driver' }));
+
+      const { result } = await waitForLoad(authHook());
+
+      await act(async () => { await result.current.login('u', 'p'); });
+
+      expect(result.current.driverActivated).toBe(true);
+    });
+
+    it('sets driverActivated=false when flag is not stored during login as passenger+driver', async () => {
+      secureMock.getItemAsync
+        .mockResolvedValueOnce(null)   // session restore: no token
+        .mockResolvedValueOnce(null)   // session restore: no activation
+        .mockResolvedValueOnce(null);  // login: no activation flag
+      apiMock.post.mockResolvedValue(makeAuthResponse({ token: 'tok', role: 'passenger+driver' }));
+
+      const { result } = await waitForLoad(authHook());
+
+      await act(async () => { await result.current.login('u', 'p'); });
+
+      expect(result.current.driverActivated).toBe(false);
+    });
+  });
 });

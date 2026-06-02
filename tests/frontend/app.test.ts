@@ -317,6 +317,17 @@ describe('FrontEnd app — screen smoke tests', () => {
     const Screen = require('../../FrontEnd/app/index').default;
     expect(() => render(createElement(Screen))).not.toThrow();
   });
+
+  it('(tabs)/explore.tsx renders without error', () => {
+    const Screen = require('../../FrontEnd/app/(tabs)/explore').default;
+    expect(() => render(createElement(Screen))).not.toThrow();
+  });
+
+  it('(tabs)/explore.tsx renders section headings', () => {
+    const Screen = require('../../FrontEnd/app/(tabs)/explore').default;
+    const { getByText } = render(createElement(Screen));
+    expect(getByText('Explore')).toBeTruthy();
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

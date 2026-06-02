@@ -61,4 +61,45 @@ public class BookingsRepositoryMappingTests
         Assert.Equal(entity.CreatedAt, domain.CreatedAt);
         Assert.Equal(entity.UpdatedAt, domain.UpdatedAt);
     }
+
+    [Fact]
+    public void MapToEntity_PreservesExistingId_WhenIdIsNotEmpty()
+    {
+        var existingId = Guid.NewGuid();
+        var booking = new Booking
+        {
+            Id = existingId,
+            TripId = Guid.NewGuid(),
+            PassengerId = Guid.NewGuid(),
+            SeatsReserved = 2,
+            EstimatedAmount = 750m,
+            State = BookingState.Confirmed,
+        };
+
+        var entity = BookingsRepository.MapToEntity(booking);
+
+        Assert.Equal(existingId, entity.BookingId);
+    }
+
+    [Fact]
+    public void MapToEntity_PreservesExistingTimestamps_WhenAlreadySet()
+    {
+        var created = new DateTime(2026, 01, 15, 8, 0, 0, DateTimeKind.Utc);
+        var updated = new DateTime(2026, 02, 20, 12, 0, 0, DateTimeKind.Utc);
+        var booking = new Booking
+        {
+            TripId = Guid.NewGuid(),
+            PassengerId = Guid.NewGuid(),
+            SeatsReserved = 1,
+            EstimatedAmount = 500m,
+            State = BookingState.Confirmed,
+            CreatedAt = created,
+            UpdatedAt = updated,
+        };
+
+        var entity = BookingsRepository.MapToEntity(booking);
+
+        Assert.Equal(created, entity.CreatedAt);
+        Assert.Equal(updated, entity.UpdatedAt);
+    }
 }

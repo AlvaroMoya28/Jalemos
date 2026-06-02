@@ -23,6 +23,8 @@ module.exports = {
   modulePaths: ['<rootDir>/node_modules'],
   clearMocks: true,
   moduleNameMapper: {
+    // Asset files accessed via the @/ alias must be stubbed before the general alias resolves them
+    '^@/.*\\.(jpg|jpeg|png|gif|svg|webp|ttf|otf)$': '<rootDir>/__stubs__/file.js',
     '^@/(.*)$': '<rootDir>/$1',
     // Native module stubs (order matters — more specific first)
     '^expo-secure-store$':                    '<rootDir>/__stubs__/expo-secure-store.js',
