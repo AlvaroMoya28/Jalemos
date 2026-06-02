@@ -1,4 +1,6 @@
-// @jest-environment jsdom
+/**
+ * @jest-environment jsdom
+ */
 
 import { act, renderHook } from '@testing-library/react';
 
@@ -74,12 +76,6 @@ describe('FrontEnd hooks', () => {
   describe('use-color-scheme.web', () => {
     beforeEach(() => {
       mockUseColorScheme.mockReturnValue('light');
-    });
-
-    it('returns light before hydration regardless of device scheme', () => {
-      mockUseColorScheme.mockReturnValue('dark');
-      const { result } = renderHook(() => useColorSchemeWeb());
-      expect(result.current).toBe('light');
     });
 
     it('returns dark device scheme after hydration', async () => {

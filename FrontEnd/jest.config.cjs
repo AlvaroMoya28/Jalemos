@@ -25,6 +25,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^expo-secure-store$': '<rootDir>/__stubs__/expo-secure-store.js',
+    '^react-native$': '<rootDir>/__stubs__/react-native.js',
   },
   coverageProvider: 'v8',
   collectCoverageFrom: [
