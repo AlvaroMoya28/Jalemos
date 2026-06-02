@@ -1,0 +1,28 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["JalemosBackend/**"]
+  pull_request:
+    paths: ["JalemosBackend/**"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore JalemosBackend/JalemosBackend.sln
+
+      - name: Build
+        run: dotnet build JalemosBackend/JalemosBackend.sln --no-restore -c Release
+
+      - name: Test
+        run: dotnet test JalemosBackend/JalemosBackend.sln --no-build -c Release --verbosity normal
