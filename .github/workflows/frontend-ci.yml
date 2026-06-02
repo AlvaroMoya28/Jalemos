@@ -1,0 +1,31 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["FrontEnd/**"]
+  pull_request:
+    paths: ["FrontEnd/**"]
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: FrontEnd
+
+      - name: Type check
+        run: bunx tsc --noEmit
+        working-directory: FrontEnd
+
+      - name: Lint
+        run: bun run lint
+        working-directory: FrontEnd
