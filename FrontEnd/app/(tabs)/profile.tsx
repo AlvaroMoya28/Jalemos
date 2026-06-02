@@ -20,7 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useNavigation } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ActionSheetIOS, Alert, ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 const preferencesSections = [
@@ -261,7 +262,7 @@ export default function ProfileScreen() {
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!isDriver || !token) return;
     setVehiclesLoading(true);
     vehiclesApi.getMy(token)
@@ -269,7 +270,7 @@ export default function ProfileScreen() {
       .catch(() => {})
       .finally(() => setVehiclesLoading(false));
     loadMyVehicleApplications().catch(() => {});
-  }, [isDriver, token]);
+  }, [isDriver, token]));
 
   const licenseState = expiryState(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null);
   const dekraState   = expiryState(user?.dekraExpiryMonth   ?? null, user?.dekraExpiryYear   ?? null);

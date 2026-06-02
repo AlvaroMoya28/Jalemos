@@ -10,6 +10,8 @@ import DocumentCameraModal from '@/components/document-camera-modal';
 import ExpiryInput, { parseExpiry } from '@/components/expiry-input';
 import GlassCard from '@/components/glass-card';
 import PlaceSearchInput from '@/components/place-search-input';
+import SelectModal from '@/components/select-modal';
+import { VEHICLE_MAKES, VEHICLE_MODELS, VEHICLE_YEARS } from '@/constants/vehicle-data';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
@@ -109,6 +111,24 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       borderWidth: 1, borderColor: Brand.colors.green.light,
     },
     infoText: { flex: 1, color: '#ffffff', fontFamily: Fonts.sans, fontSize: 12, lineHeight: 18 },
+    // Dropdown trigger button
+    dropdownBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      borderRadius: Brand.radius[12], borderWidth: 1,
+      borderColor: c.border, backgroundColor: c.inputBg,
+      paddingHorizontal: 12, paddingVertical: 12,
+      flex: 1,
+    },
+    dropdownBtnFull: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      borderRadius: Brand.radius[12], borderWidth: 1,
+      borderColor: c.border, backgroundColor: c.inputBg,
+      paddingHorizontal: 12, paddingVertical: 12,
+    },
+    dropdownText: { flex: 1, fontSize: 14, fontFamily: Fonts.sans, color: c.inputText },
+    dropdownPlaceholder: { flex: 1, fontSize: 14, fontFamily: Fonts.sans, color: c.textPlaceholder },
+    // Plate format hint
+    plateHint: { fontSize: 10, fontFamily: Fonts.sans, color: c.textMuted, marginTop: -6, marginLeft: 2 },
     cta: {
       backgroundColor: Brand.colors.green.normal,
       borderRadius: 999, paddingVertical: 14, alignItems: 'center',
@@ -181,12 +201,74 @@ export default function DriverRegistrationScreen() {
   const [cedula, setCedula]   = useState(myApplication?.cedula ?? '');
   const [address, setAddress] = useState(myApplication?.address ?? '');
 
-  // Vehicle form fields
+  // Vehicle form fields — marca/modelo/año use dropdown pickers; placa enforces ABC123 format
   const [marca, setMarca] = useState(myApplication?.vehicle.brand ?? '');
   const [modelo, setModelo] = useState(myApplication?.vehicle.model ?? '');
   const [año, setAño] = useState(myApplication?.vehicle.year ?? '');
   const [placa, setPlaca] = useState(myApplication?.vehicle.plate ?? '');
   const [vehicleColor, setVehicleColor] = useState(myApplication?.vehicle.color ?? '');
+
+  // Whether each field is in free-text "Otro" mode
+  const [marcaCustom, setMarcaCustom] = useState(
+    marca !== '' && !VEHICLE_MAKES.includes(marca as typeof VEHICLE_MAKES[number])
+  );
+  const [modeloCustom, setModeloCustom] = useState(false);
+
+  // Which SelectModal is open: 'marca' | 'modelo' | 'año' | null
+  const [openPicker, setOpenPicker] = useState<'marca' | 'modelo' | 'año' | null>(null);
+
+  const modelOptions = useMemo(
+    () => (!marcaCustom && marca && VEHICLE_MODELS[marca]) ? VEHICLE_MODELS[marca] : [],
+    [marca, marcaCustom]
+  );
+
+  const handleMarcaSelect = (value: string) => {
+    setOpenPicker(null);
+    if (value === '__custom__') {
+      setMarcaCustom(true);
+      setMarca('');
+      setModelo('');
+      setModeloCustom(false);
+    } else {
+      setMarcaCustom(false);
+      setMarca(value);
+      setModelo('');
+      setModeloCustom(false);
+    }
+  };
+
+  const handleModeloSelect = (value: string) => {
+    setOpenPicker(null);
+    if (value === '__custom__') {
+      setModeloCustom(true);
+      setModelo('');
+    } else {
+      setModeloCustom(false);
+      setModelo(value);
+    }
+  };
+
+  const handleAñoSelect = (value: string) => {
+    setOpenPicker(null);
+    setAño(value);
+  };
+
+  // Accepts ABC123 (3 letters + 3 digits) or 123456 (6 digits). Format is inferred from first char.
+  const handlePlacaChange = (text: string) => {
+    const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!cleaned) { setPlaca(''); return; }
+    if (/[0-9]/.test(cleaned[0])) {
+      setPlaca(cleaned.replace(/[^0-9]/g, '').slice(0, 6));
+    } else {
+      let letters = '';
+      let digits  = '';
+      for (const ch of cleaned) {
+        if (letters.length < 3 && /[A-Z]/.test(ch))                             { letters += ch; }
+        else if (letters.length === 3 && digits.length < 3 && /[0-9]/.test(ch)) { digits  += ch; }
+      }
+      setPlaca(letters + digits);
+    }
+  };
 
   // Expiry dates stored as "MM/YY" string
   const initExpiry = (month?: number | null, year?: number | null) =>
@@ -384,31 +466,129 @@ export default function DriverRegistrationScreen() {
             <GlassCard style={styles.card} intensity={48}>
               <Text style={styles.sectionLabel}>Vehículo</Text>
 
-              <View style={styles.row}>
-                <View style={styles.inputFlex}>
+              {/* Marca */}
+              {marcaCustom ? (
+                <View style={styles.inputWrap}>
                   <Ionicons name="car-outline" size={18} color={Brand.colors.green.normal} />
-                  <TextInput value={marca} onChangeText={setMarca} placeholder="Marca" placeholderTextColor={colors.textPlaceholder} style={styles.input} />
+                  <TextInput
+                    value={marca}
+                    onChangeText={setMarca}
+                    placeholder="Marca del vehículo"
+                    placeholderTextColor={colors.textPlaceholder}
+                    style={styles.input}
+                    autoFocus
+                  />
+                  <Pressable onPress={() => { setMarcaCustom(false); setMarca(''); setModelo(''); }} hitSlop={10}>
+                    <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                  </Pressable>
                 </View>
-                <View style={styles.inputFlex}>
-                  <TextInput value={modelo} onChangeText={setModelo} placeholder="Modelo" placeholderTextColor={colors.textPlaceholder} style={styles.input} />
+              ) : (
+                <Pressable style={styles.dropdownBtnFull} onPress={() => setOpenPicker('marca')}>
+                  <Ionicons name="car-outline" size={18} color={Brand.colors.green.normal} />
+                  {marca ? (
+                    <Text style={styles.dropdownText}>{marca}</Text>
+                  ) : (
+                    <Text style={styles.dropdownPlaceholder}>Seleccionar marca</Text>
+                  )}
+                  <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                </Pressable>
+              )}
+
+              {/* Modelo */}
+              {modeloCustom ? (
+                <View style={styles.inputWrap}>
+                  <TextInput
+                    value={modelo}
+                    onChangeText={setModelo}
+                    placeholder="Modelo del vehículo"
+                    placeholderTextColor={colors.textPlaceholder}
+                    style={styles.input}
+                    autoFocus
+                  />
+                  <Pressable onPress={() => { setModeloCustom(false); setModelo(''); }} hitSlop={10}>
+                    <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                  </Pressable>
                 </View>
-              </View>
+              ) : (
+                <Pressable
+                  style={[styles.dropdownBtnFull, (!marca) && { opacity: 0.5 }]}
+                  onPress={() => marca ? setOpenPicker('modelo') : undefined}
+                  disabled={!marca}>
+                  {modelo ? (
+                    <Text style={styles.dropdownText}>{modelo}</Text>
+                  ) : (
+                    <Text style={styles.dropdownPlaceholder}>
+                      {marca ? 'Seleccionar modelo' : 'Selecciona primero la marca'}
+                    </Text>
+                  )}
+                  <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                </Pressable>
+              )}
 
               <View style={styles.row}>
+                {/* Año */}
+                <Pressable style={styles.dropdownBtn} onPress={() => setOpenPicker('año')}>
+                  {año ? (
+                    <Text style={styles.dropdownText}>{año}</Text>
+                  ) : (
+                    <Text style={styles.dropdownPlaceholder}>Año</Text>
+                  )}
+                  <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                </Pressable>
+
+                {/* Color */}
                 <View style={styles.inputFlex}>
-                  <TextInput value={año} onChangeText={setAño} placeholder="Año" placeholderTextColor={colors.textPlaceholder} style={styles.input} keyboardType="numeric" maxLength={4} />
-                </View>
-                <View style={styles.inputFlex}>
-                  <TextInput value={vehicleColor} onChangeText={setVehicleColor} placeholder="Color" placeholderTextColor={colors.textPlaceholder} style={styles.input} />
+                  <TextInput
+                    value={vehicleColor}
+                    onChangeText={setVehicleColor}
+                    placeholder="Color"
+                    placeholderTextColor={colors.textPlaceholder}
+                    style={styles.input}
+                  />
                 </View>
               </View>
 
+              {/* Placa ABC123 */}
               <View style={styles.inputWrap}>
                 <Ionicons name="document-text-outline" size={18} color={Brand.colors.green.normal} />
-                <TextInput value={placa} onChangeText={setPlaca} placeholder="Placa (ej. CR-1234)" placeholderTextColor={colors.textPlaceholder} style={styles.input} autoCapitalize="characters" />
+                <TextInput
+                  value={placa}
+                  onChangeText={handlePlacaChange}
+                  placeholder="Placa (ej. ABC123 o 123456)"
+                  placeholderTextColor={colors.textPlaceholder}
+                  style={styles.input}
+                  autoCapitalize="characters"
+                  maxLength={6}
+                />
               </View>
+              <Text style={styles.plateHint}>Formatos válidos: ABC123 (letras + números) o 123456 (solo números)</Text>
             </GlassCard>
           </View>
+
+          {/* Pickers modales */}
+          <SelectModal
+            visible={openPicker === 'marca'}
+            title="Seleccionar marca"
+            options={[...VEHICLE_MAKES]}
+            onSelect={handleMarcaSelect}
+            onClose={() => setOpenPicker(null)}
+            allowCustom
+          />
+          <SelectModal
+            visible={openPicker === 'modelo'}
+            title="Seleccionar modelo"
+            options={modelOptions}
+            onSelect={handleModeloSelect}
+            onClose={() => setOpenPicker(null)}
+            allowCustom
+          />
+          <SelectModal
+            visible={openPicker === 'año'}
+            title="Seleccionar año"
+            options={VEHICLE_YEARS}
+            onSelect={handleAñoSelect}
+            onClose={() => setOpenPicker(null)}
+          />
 
           {/* Licencia */}
           <View style={styles.cardWrap}>
