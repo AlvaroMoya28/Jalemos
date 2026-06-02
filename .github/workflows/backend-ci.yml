@@ -3,9 +3,9 @@ name: Backend CI
 on:
   push:
     branches: [main]
-    paths: ["JalemosBackend/**"]
+    paths: ["JalemosBackend/**", "tests/backend/**"]
   pull_request:
-    paths: ["JalemosBackend/**"]
+    paths: ["JalemosBackend/**", "tests/backend/**"]
 
 jobs:
   build-and-test:
@@ -25,4 +25,11 @@ jobs:
         run: dotnet build JalemosBackend/JalemosBackend.sln --no-restore -c Release
 
       - name: Test
-        run: dotnet test JalemosBackend/JalemosBackend.sln --no-build -c Release --verbosity normal
+        run: dotnet test JalemosBackend/JalemosBackend.sln --no-build -c Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: ./coverage
