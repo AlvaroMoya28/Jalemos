@@ -24,8 +24,17 @@ module.exports = {
   clearMocks: true,
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
-    '^expo-secure-store$': '<rootDir>/__stubs__/expo-secure-store.js',
-    '^react-native$': '<rootDir>/__stubs__/react-native.js',
+    // Native module stubs (order matters — more specific first)
+    '^expo-secure-store$':                    '<rootDir>/__stubs__/expo-secure-store.js',
+    '^expo-haptics$':                         '<rootDir>/__stubs__/expo-haptics.js',
+    '^expo-router$':                          '<rootDir>/__stubs__/expo-router.js',
+    '^expo-web-browser$':                     '<rootDir>/__stubs__/expo-web-browser.js',
+    '^expo-symbols$':                         '<rootDir>/__stubs__/expo-symbols.js',
+    '^@expo/vector-icons/(.*)$':              '<rootDir>/__stubs__/expo-vector-icons.js',
+    '^@expo/vector-icons$':                   '<rootDir>/__stubs__/expo-vector-icons.js',
+    '^@react-navigation/elements$':           '<rootDir>/__stubs__/react-navigation-elements.js',
+    '^@react-navigation/bottom-tabs$':        '<rootDir>/__stubs__/react-navigation-bottom-tabs.js',
+    '^react-native$':                         '<rootDir>/__stubs__/react-native.js',
   },
   coverageProvider: 'v8',
   collectCoverageFrom: [
