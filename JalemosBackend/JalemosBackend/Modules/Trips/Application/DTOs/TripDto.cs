@@ -1,4 +1,4 @@
-namespace JalemosBackend.Modules.Trips.Application;
+namespace JalemosBackend.Modules.Trips.Application.DTOs;
 
 /// <summary>
 /// Trip response enriched with embedded driver info to avoid N+1 calls from clients.

@@ -2,6 +2,7 @@
 // Orchestrates business rules (e.g., seat validation, driver ownership checks)
 // and delegates all persistence operations to TripsRepository.
 
+using JalemosBackend.Modules.Trips.Application.DTOs;
 using JalemosBackend.Modules.Trips.Domain;
 using JalemosBackend.Modules.Trips.Infrastructure;
 

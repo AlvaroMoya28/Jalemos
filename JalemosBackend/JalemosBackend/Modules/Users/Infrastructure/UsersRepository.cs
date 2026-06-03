@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Users.Application.DTOs;
 using JalemosBackend.Modules.Users.Domain;
-using JalemosBackend.Modules.Users.Infrastructure.Entities;
 
 namespace JalemosBackend.Modules.Users.Infrastructure
 {

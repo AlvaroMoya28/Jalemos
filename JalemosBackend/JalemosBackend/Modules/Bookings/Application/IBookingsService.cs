@@ -2,6 +2,7 @@
 // Defines the use cases consumed by the presentation layer (controller).
 // Implementations must enforce booking business rules before touching the repository.
 
+using JalemosBackend.Modules.Bookings.Application.DTOs;
 using JalemosBackend.Modules.Bookings.Domain;
 
 namespace JalemosBackend.Modules.Bookings.Application;

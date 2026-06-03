@@ -2,9 +2,11 @@
 // Coordinates business rule validation and delegates persistence to BookingsRepository.
 // This is the only layer that should contain booking-specific business logic.
 
+using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Bookings.Application.DTOs;
 using JalemosBackend.Modules.Bookings.Domain;
 using JalemosBackend.Modules.Bookings.Infrastructure;
-using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Notifications.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace JalemosBackend.Modules.Bookings.Application;

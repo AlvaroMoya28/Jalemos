@@ -1,6 +1,7 @@
 // Application contract for the Trips (Rides) module.
 // Defines all use cases the controller can invoke; business rules are enforced by the implementation.
 
+using JalemosBackend.Modules.Trips.Application.DTOs;
 using JalemosBackend.Modules.Trips.Domain;
 
 namespace JalemosBackend.Modules.Trips.Application;

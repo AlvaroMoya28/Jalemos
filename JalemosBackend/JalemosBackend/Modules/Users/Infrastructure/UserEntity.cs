@@ -1,6 +1,6 @@
 using JalemosBackend.Modules.Users.Domain;
 
-namespace JalemosBackend.Modules.Users.Infrastructure.Entities
+namespace JalemosBackend.Modules.Users.Infrastructure
 {
     // EF Core entity mapped to the "users" table. PasswordHash stores a bcrypt hash — never plain text.
     public class UserEntity
