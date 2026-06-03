@@ -30,8 +30,8 @@ jest.mock('@/contexts/loading', () => ({
   useLoading: jest.fn().mockReturnValue({ showLoader: jest.fn(), hideLoader: jest.fn() }),
 }));
 
-jest.mock('@/contexts/trips', () => ({
-  useTrips: jest.fn().mockReturnValue({
+jest.mock('@/hooks/use-trips-data', () => ({
+  useTripsData: jest.fn().mockReturnValue({
     trips: [], isLoading: false, error: null,
     refreshTrips: jest.fn(), updateTripAvailableSeats: jest.fn(),
   }),

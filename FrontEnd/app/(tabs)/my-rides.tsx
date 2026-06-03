@@ -7,21 +7,15 @@ import NotificationsModal from "@/components/NotificationsModal";
 import RideCard, { Ride } from "@/components/RideCard";
 import { Brand } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth";
-import { useTripsData } from "@/hooks/use-trips-data";
 import { useAppTheme } from "@/hooks/use-app-theme";
-import { Trip as TripModel } from "@/hooks/use-trips-data";
+import { Trip as TripModel, useTripsData } from "@/hooks/use-trips-data";
+
 import { bookingsApi } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-import { myRidesInline, makeStyles } from "../../styles/tabs/my-rides.styles";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { makeStyles, myRidesInline } from "../../styles/tabs/my-rides.styles";
 
 // For now the app doesn't have the funcionality to mark trips as completed.
 // Once that is implemented, we can use this function to compute the status of each trip based on its departure date and completion flag.
@@ -63,7 +57,7 @@ export default function MyRidesScreen() {
   const { user, token } = useAuth();
   const [bookings, setBookings] = useState<any[] | null>(null);
 
-  // Refresh trips and bookings every time the screen is focused, to ensure we show the latest data. 
+  // Refresh trips and bookings every time the screen is focused, to ensure we show the latest data.
   useFocusEffect(
     useCallback(() => {
       refreshTrips();
@@ -317,12 +311,14 @@ export default function MyRidesScreen() {
                   rating: t.driverRating ?? 0,
                   avatar,
                 };
-                const isExpired = tab === 'driver' && dep < new Date();
+                const isExpired = tab === "driver" && dep < new Date();
                 return (
                   <View key={t.id} style={myRidesInline.tripCardWrapper}>
                     {isExpired && (
                       <View style={myRidesInline.expiredBadge}>
-                        <Text style={myRidesInline.expiredBadgeText}>Vencido</Text>
+                        <Text style={myRidesInline.expiredBadgeText}>
+                          Vencido
+                        </Text>
                       </View>
                     )}
                     <RideCard
