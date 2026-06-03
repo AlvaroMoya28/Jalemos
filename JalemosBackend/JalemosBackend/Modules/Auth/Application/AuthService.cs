@@ -78,7 +78,16 @@ namespace JalemosBackend.Modules.Auth.Application
             var user = await _db.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserId == userId, ct);
-            return user is null ? null : BuildResponse(user);
+
+            if (user is null) return null;
+
+            if (!user.IsActive)
+                throw new AccountBlockedException(isDeactivated: true);
+
+            if (user.SuspendedUntil.HasValue && user.SuspendedUntil.Value > DateTime.UtcNow)
+                throw new AccountBlockedException(isDeactivated: false, suspendedUntil: user.SuspendedUntil.Value);
+
+            return BuildResponse(user);
         }
 
         private AuthResponseDto BuildResponse(UserEntity user)
