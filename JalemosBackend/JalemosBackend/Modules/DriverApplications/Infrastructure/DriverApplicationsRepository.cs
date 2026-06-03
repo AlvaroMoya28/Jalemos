@@ -1,5 +1,6 @@
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Users.Domain;
+using JalemosBackend.Modules.Vehicles.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace JalemosBackend.Modules.DriverApplications.Infrastructure;

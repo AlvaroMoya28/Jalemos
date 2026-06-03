@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.Trips.Application.DTOs;
+using JalemosBackend.Modules.Trips.Infrastructure;
 
 namespace JalemosBackend.Modules.Trips.Application;
 

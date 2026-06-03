@@ -1,6 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Modules.Users.Domain;
-using JalemosBackend.Modules.Users.Infrastructure.Entities;
+using JalemosBackend.Modules.Users.Infrastructure;
+using JalemosBackend.Modules.Vehicles.Infrastructure;
+using JalemosBackend.Modules.Trips.Infrastructure;
+using JalemosBackend.Modules.Bookings.Infrastructure;
+using JalemosBackend.Modules.Ratings.Infrastructure;
+using JalemosBackend.Modules.Notifications.Infrastructure;
+using JalemosBackend.Modules.DriverApplications.Infrastructure;
 
 namespace JalemosBackend.Infrastructure.Persistence
 {
@@ -134,7 +140,8 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.HasIndex(x => x.StartDateTime).HasDatabaseName("idx_trips_start_dt");
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.DriverUserId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne<VehicleEntity>().WithMany().HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.Restrict);
-                e.HasCheckConstraint("chk_seats", "available_seats <= total_seats");
+                // e.HasCheckConstraint("chk_seats", "available_seats <= total_seats");
+                e.ToTable(t => t.HasCheckConstraint("chk_seats", "available_seats <= total_seats"));
             });
 
             // Bookings
@@ -174,7 +181,8 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.RatedId).HasDatabaseName("idx_ratings_rated");
                 e.HasIndex(x => new { x.TripId, x.RaterId, x.RatedId }).IsUnique().HasDatabaseName("uq_rating_per_trip");
-                e.HasCheckConstraint("chk_no_self_rating", "rater_id <> rated_id");
+                // e.HasCheckConstraint("chk_no_self_rating", "rater_id <> rated_id");
+                e.ToTable(t => t.HasCheckConstraint("chk_no_self_rating", "rater_id <> rated_id"));
                 e.HasOne<TripEntity>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.RaterId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.RatedId).OnDelete(DeleteBehavior.Cascade);
@@ -284,77 +292,12 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.ReportedUserId).HasDatabaseName("idx_reports_reported");
                 e.HasIndex(x => x.Status).HasDatabaseName("idx_reports_status");
-                e.HasCheckConstraint("chk_no_self_report", "reported_user_id <> reported_by_id");
+                // e.HasCheckConstraint("chk_no_self_report", "reported_user_id <> reported_by_id");
+                e.ToTable(t => t.HasCheckConstraint("chk_no_self_report", "reported_user_id <> reported_by_id"));
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.ReportedUserId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.ReportedById).OnDelete(DeleteBehavior.Cascade);
             });
         }
-    }
-
-    // TODO: These classes should be moved to separate files.
-    public class VehicleEntity
-    {
-        public Guid VehicleId { get; set; }
-        public Guid UserId { get; set; }
-        public string Brand { get; set; } = null!;
-        public string Model { get; set; } = null!;
-        public short Year { get; set; }
-        public string NumPlate { get; set; } = null!;
-        public string Color { get; set; } = null!;
-        public bool Active { get; set; }
-        public DateTime CreatedAt { get; set; }
-    }
-
-    public class TripEntity
-    {
-        public Guid TripId { get; set; }
-        public Guid DriverUserId { get; set; }
-        public Guid VehicleId { get; set; }
-        public decimal Rate { get; set; }
-        public string FromLocation { get; set; } = null!;
-        public string ToLocation { get; set; } = null!;
-        public decimal FromLatitude { get; set; }
-        public decimal FromLongitude { get; set; }
-        public decimal ToLatitude { get; set; }
-        public decimal ToLongitude { get; set; }
-        public DateTime StartDateTime { get; set; }
-        public short TotalSeats { get; set; }
-        public short AvailableSeats { get; set; }
-        public string? Notes { get; set; }
-        public TripState State { get; set; }
-        public DateTime? BoardingStartedAt { get; set; }
-        public DateTime? JourneyStartedAt { get; set; }
-        public DateTime? CompletedAt { get; set; }
-        public DateTime? CancelledAt { get; set; }
-        public string? CancelReason { get; set; }
-        public string? CancelDetails { get; set; }
-        public DateTime CreatedAt { get; set; }
-    }
-
-    public class BookingEntity
-    {
-        public Guid BookingId { get; set; }
-        public Guid TripId { get; set; }
-        public Guid PassengerId { get; set; }
-        public short SeatsReserved { get; set; }
-        public decimal EstimatedAmount { get; set; }
-        public BookingState State { get; set; }
-        public DateTime? BoardedAt { get; set; }
-        public string? CancelReason { get; set; }
-        public string? CancelDetails { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-    }
-
-    public class RatingEntity
-    {
-        public Guid RatingId { get; set; }
-        public Guid TripId { get; set; }
-        public Guid RaterId { get; set; }
-        public Guid RatedId { get; set; }
-        public short Rating { get; set; }
-        public string? Comment { get; set; }
-        public DateTime CreatedAt { get; set; }
     }
 
     public class FavoritePlaceEntity
@@ -375,49 +318,6 @@ namespace JalemosBackend.Infrastructure.Persistence
         public string Alias { get; set; } = null!;
         public bool Active { get; set; }
         public DateTime CreatedAt { get; set; }
-    }
-
-    public class NotificationEntity
-    {
-        public Guid NotificationId { get; set; }
-        public Guid UserId { get; set; }
-        public Guid? TripId { get; set; }
-        public Guid? BookingId { get; set; }
-        public NotificationType Type { get; set; }
-        public string Title { get; set; } = null!;
-        public string? Body { get; set; }
-        public bool Read { get; set; }
-        public DateTime CreatedAt { get; set; }
-    }
-
-    public class DriverApplicationEntity
-    {
-        public Guid ApplicationId { get; set; }
-        public Guid UserId { get; set; }
-        public ApplicationStatus Status { get; set; }
-        public short Attempts { get; set; }
-        public string Cedula { get; set; } = null!;
-        public string Address { get; set; } = null!;
-        public string VehicleBrand { get; set; } = null!;
-        public string VehicleModel { get; set; } = null!;
-        public short VehicleYear { get; set; }
-        public string VehiclePlate { get; set; } = null!;
-        public string VehicleColor { get; set; } = null!;
-        public string? FacePhoto { get; set; }
-        public string? LicensePhotoFront { get; set; }
-        public string? LicensePhotoBack { get; set; }
-        public string? DekraPhoto { get; set; }
-        public short? LicenseExpiryMonth { get; set; }
-        public short? LicenseExpiryYear { get; set; }
-        public short? DekraExpiryMonth { get; set; }
-        public short? DekraExpiryYear { get; set; }
-        public string ApplicationType { get; set; } = "driver";
-        public bool IsRenewal { get; set; }
-        public string[]? AdminIssueIds { get; set; }
-        public string? AdminNotes { get; set; }
-        public DateTime? ReviewedAt { get; set; }
-        public DateTime SubmittedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
     }
 
     public class UserReportEntity

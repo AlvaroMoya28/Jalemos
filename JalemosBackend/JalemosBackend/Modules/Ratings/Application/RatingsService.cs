@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.Ratings.Application.DTOs;
 using JalemosBackend.Modules.Ratings.Domain;
 using JalemosBackend.Modules.Ratings.Infrastructure;
