@@ -26,7 +26,7 @@ import InteractiveMapModal from "../components/map-modal";
 import AnimatedPressable from "@/components/animated-pressable";
 import GlassCard from "@/components/glass-card";
 import { Brand, Fonts } from "@/constants/theme";
-import { useTrips } from "@/contexts/trips";
+import { useTripsData } from "@/hooks/use-trips-data";
 import { useAppTheme } from "@/hooks/use-app-theme";
 import { makeStyles, staticStyles as rideDetailStaticStyles } from "../styles/app/ride-detail.styles";
 
@@ -197,7 +197,9 @@ export default function RideDetailScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { showLoader, hideLoader } = useLoading();
-  const { trips, isLoading: tripsLoading, error: tripsError, refreshTrips, updateTripAvailableSeats } = useTrips();
+  const { trips, isLoading: tripsLoading, error: tripsError, refreshTrips, updateTripAvailableSeats } = useTripsData();
+
+  useEffect(() => { refreshTrips(); }, [refreshTrips]);
   const tripId = Array.isArray(id) ? id[0] : id;
 
   const trip = useMemo(

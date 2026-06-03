@@ -7,7 +7,7 @@ import NotificationsModal from "@/components/NotificationsModal";
 import RideCard, { Ride } from "@/components/RideCard";
 import { Brand } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth";
-import { useTrips } from "@/contexts/trips";
+import { useTripsData } from "@/hooks/use-trips-data";
 import { useAppTheme } from "@/hooks/use-app-theme";
 import { Trip as TripModel } from "@/hooks/use-trips-data";
 import { bookingsApi } from "@/services/api";
@@ -59,7 +59,7 @@ export default function MyRidesScreen() {
   const [tab, setTab] = useState<"passenger" | "driver">("passenger");
   const [onlyCompleted, setOnlyCompleted] = useState(false);
 
-  const { trips, refreshTrips } = useTrips();
+  const { trips, refreshTrips } = useTripsData();
   const { user, token } = useAuth();
   const [bookings, setBookings] = useState<any[] | null>(null);
 

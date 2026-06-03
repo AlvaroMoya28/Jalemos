@@ -30,7 +30,7 @@ import { makeStyles, staticStyles as searchStaticStyles } from "../../styles/tab
 import { useAuth } from "@/contexts/auth";
 import { bookingsApi } from '@/services/api';
 import { useLoading } from "@/contexts/loading";
-import { useTrips } from "@/contexts/trips";
+import { useTripsData } from "@/hooks/use-trips-data";
 import { useUserMode } from "@/contexts/user-mode";
 import { useAppTheme } from "@/hooks/use-app-theme";
 import Animated, {
@@ -125,7 +125,7 @@ export default function SearchScreen() {
   const minuteScrollRef = useRef<ScrollView>(null);
 
   const [hasSearched, setHasSearched] = useState(false);
-  const { trips, refreshTrips } = useTrips();
+  const { trips, refreshTrips } = useTripsData();
   const [bookings, setBookings] = useState<any[] | null>(null);
   const { user, token } = useAuth();
   const { mode } = useUserMode();
