@@ -1,4 +1,4 @@
-namespace JalemosBackend.Modules.Bookings.Application;
+namespace JalemosBackend.Modules.Bookings.Application.DTOs;
 
 public sealed class CancelBookingDto
 {

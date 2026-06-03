@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
-using JalemosBackend.Modules.Trips.Application;
+using JalemosBackend.Modules.Trips.Application.DTOs;
 using JalemosBackend.Modules.Trips.Domain;
 //using JalemosBackend.Modules.Trips.Infrastructure.Entities;
 

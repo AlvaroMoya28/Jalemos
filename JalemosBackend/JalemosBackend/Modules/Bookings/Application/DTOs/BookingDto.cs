@@ -1,4 +1,4 @@
-namespace JalemosBackend.Modules.Bookings.Application;
+namespace JalemosBackend.Modules.Bookings.Application.DTOs;
 
 /// <summary>
 /// DTO returned to clients representing a booking.

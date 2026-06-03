@@ -3,6 +3,7 @@
 // No business logic should live here — delegate all decisions to IBookingsService.
 
 using JalemosBackend.Modules.Bookings.Application;
+using JalemosBackend.Modules.Bookings.Application.DTOs;
 using JalemosBackend.Modules.Bookings.Domain;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
