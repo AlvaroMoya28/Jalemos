@@ -15,6 +15,7 @@ namespace JalemosBackend.Modules.Users.Domain
         public string? ProfilePhotoUrl { get; set; }
         public DateTime? SuspendedUntil { get; set; }
         public bool IsActive { get; set; } = true;
+        public Guid QrToken { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
