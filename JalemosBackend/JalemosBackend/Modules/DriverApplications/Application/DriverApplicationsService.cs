@@ -265,6 +265,11 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
                 entity.LicenseExpiryMonth, entity.LicenseExpiryYear,
                 entity.DekraExpiryMonth,   entity.DekraExpiryYear,
                 ct);
+            await _repo.CreateVehicleForUserAsync(
+                entity.UserId,
+                entity.VehicleBrand, entity.VehicleModel,
+                entity.VehicleYear,  entity.VehiclePlate, entity.VehicleColor,
+                ct);
         }
     }
 

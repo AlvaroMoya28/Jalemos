@@ -3,9 +3,9 @@ name: Frontend CI
 on:
   push:
     branches: [main]
-    paths: ["FrontEnd/**"]
+    paths: ["FrontEnd/**", "tests/frontend/**"]
   pull_request:
-    paths: ["FrontEnd/**"]
+    paths: ["FrontEnd/**", "tests/frontend/**"]
 
 jobs:
   lint-and-typecheck:
@@ -29,3 +29,14 @@ jobs:
       - name: Lint
         run: bun run lint
         working-directory: FrontEnd
+
+      - name: Test
+        run: bun run test:coverage
+        working-directory: FrontEnd
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: tests/frontend/coverage
