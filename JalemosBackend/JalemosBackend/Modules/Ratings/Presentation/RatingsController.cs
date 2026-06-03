@@ -1,66 +1,62 @@
-// HTTP presentation layer for the Ratings module.
-// Maps REST requests to IRatingsService use cases and returns appropriate HTTP responses.
-
 using JalemosBackend.Modules.Ratings.Application;
-using JalemosBackend.Modules.Ratings.Domain;
+using JalemosBackend.Modules.Ratings.Application.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace JalemosBackend.Modules.Ratings.Presentation;
 
-/// <summary>
-/// Exposes CRUD endpoints for ratings under the /api/ratings route.
-/// </summary>
 [ApiController]
 [Route("api/ratings")]
+[Authorize]
 public sealed class RatingsController : ControllerBase
 {
-    private readonly IRatingsService _ratingsService;
+    private readonly IRatingsService _svc;
+    public RatingsController(IRatingsService svc) => _svc = svc;
 
-    /// <summary>Injects the ratings application service.</summary>
-    public RatingsController(IRatingsService ratingsService)
-    {
-        _ratingsService = ratingsService;
-    }
+    private Guid? CallerId() =>
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
 
-    /// <summary>GET /api/ratings — retrieves all ratings.</summary>
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<Rating>>> GetAll(CancellationToken cancellationToken)
+    /// <summary>GET /api/ratings/user/{userId} — all ratings received by a user (public).</summary>
+    [HttpGet("user/{userId:guid}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetByUser(Guid userId, CancellationToken ct)
     {
-        var ratings = await _ratingsService.GetAllAsync(cancellationToken);
+        var ratings = await _svc.GetByRatedUserAsync(userId, ct);
         return Ok(ratings);
     }
 
-    /// <summary>GET /api/ratings/{id} — returns a single rating. 404 if not found.</summary>
-    [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Rating>> GetById(Guid id, CancellationToken cancellationToken)
-    {
-        var rating = await _ratingsService.GetByIdAsync(id, cancellationToken);
-        return rating is null ? NotFound() : Ok(rating);
-    }
-
-    /// <summary>POST /api/ratings — submits a new rating for a completed trip.</summary>
+    /// <summary>POST /api/ratings — submit a rating for a trip participant.</summary>
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Rating rating, CancellationToken cancellationToken)
+    public async Task<IActionResult> Submit([FromBody] SubmitRatingDto dto, CancellationToken ct)
     {
-        await _ratingsService.CreateAsync(rating, cancellationToken);
-        return NoContent();
+        var callerId = CallerId();
+        if (callerId is null) return Unauthorized();
+        try
+        {
+            var result = await _svc.SubmitAsync(dto, callerId.Value, ct);
+            return CreatedAtAction(nameof(GetByUser), new { userId = dto.RatedId }, result);
+        }
+        catch (KeyNotFoundException ex)        { return NotFound(new { error = ex.Message }); }
+        catch (UnauthorizedAccessException)    { return Forbid(); }
+        catch (ArgumentException ex)           { return BadRequest(new { error = ex.Message }); }
+        catch (InvalidOperationException ex)   { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex)                   { return Problem(detail: ex.Message, statusCode: 500); }
     }
 
-    /// <summary>PUT /api/ratings/{id} — updates an existing rating. Route id overrides body id.</summary>
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] Rating rating, CancellationToken cancellationToken)
-    {
-        // Enforce the route id so the primary key cannot be changed via the request body
-        rating.Id = id;
-        await _ratingsService.UpdateAsync(rating, cancellationToken);
-        return NoContent();
-    }
-
-    /// <summary>DELETE /api/ratings/{id} — removes the specified rating.</summary>
+    /// <summary>DELETE /api/ratings/{id} — remove your own rating.</summary>
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await _ratingsService.DeleteAsync(id, cancellationToken);
-        return NoContent();
+        var callerId = CallerId();
+        if (callerId is null) return Unauthorized();
+        try
+        {
+            await _svc.DeleteAsync(id, callerId.Value, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (Exception ex) { return Problem(detail: ex.Message, statusCode: 500); }
     }
 }

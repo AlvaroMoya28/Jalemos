@@ -1,55 +1,71 @@
-// Data access layer for the Ratings module.
-// Executes all database queries for the Rating aggregate against the shared context.
-
+using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Ratings.Domain;
 
 namespace JalemosBackend.Modules.Ratings.Infrastructure;
 
-/// <summary>
-/// Provides raw CRUD operations for <see cref="Rating"/> entities.
-/// All methods return stubs until <see cref="ApplicationDbContext"/> exposes DbSet&lt;Rating&gt;.
-/// </summary>
 public sealed class RatingsRepository
 {
-    private readonly ApplicationDbContext _dbContext;
+    private readonly ApplicationDbContext _db;
+    public RatingsRepository(ApplicationDbContext db) => _db = db;
 
-    /// <summary>Receives the shared database context via constructor injection.</summary>
-    public RatingsRepository(ApplicationDbContext dbContext)
+    private static Rating MapToDomain(RatingEntity e) => new Rating
     {
-        _dbContext = dbContext;
+        Id        = e.RatingId,
+        TripId    = e.TripId,
+        RaterId   = e.RaterId,
+        RatedId   = e.RatedId,
+        Score     = e.Rating,
+        Comment   = e.Comment,
+        CreatedAt = e.CreatedAt,
+    };
+
+    public async Task<IEnumerable<Rating>> GetAllAsync(CancellationToken ct = default)
+    {
+        var rows = await _db.Ratings.AsNoTracking().ToListAsync(ct);
+        return rows.Select(MapToDomain).ToList();
     }
 
-    /// <summary>Returns all rating records. Replace with a filtered EF Core query.</summary>
-    public Task<IEnumerable<Rating>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<Rating?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        return Task.FromResult<IEnumerable<Rating>>(Array.Empty<Rating>());
+        var e = await _db.Ratings.AsNoTracking().FirstOrDefaultAsync(r => r.RatingId == id, ct);
+        return e is null ? null : MapToDomain(e);
     }
 
-    /// <summary>Finds a rating by primary key. Returns null if not found.</summary>
-    public Task<Rating?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Rating>> GetByRatedUserAsync(Guid ratedId, CancellationToken ct = default)
     {
-        return Task.FromResult<Rating?>(null);
+        var rows = await _db.Ratings.AsNoTracking()
+            .Where(r => r.RatedId == ratedId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(ct);
+        return rows.Select(MapToDomain).ToList();
     }
 
-    /// <summary>Inserts a new rating record into the database.</summary>
-    public Task CreateAsync(Rating rating, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsAsync(Guid tripId, Guid raterId, Guid ratedId, CancellationToken ct = default) =>
+        await _db.Ratings.AnyAsync(r => r.TripId == tripId && r.RaterId == raterId && r.RatedId == ratedId, ct);
+
+    public async Task<Rating> CreateAsync(Rating rating, CancellationToken ct = default)
     {
-        // TODO: _dbContext.Ratings.Add(rating); await _dbContext.SaveChangesAsync(cancellationToken);
-        return Task.CompletedTask;
+        var entity = new RatingEntity
+        {
+            RatingId  = rating.Id == Guid.Empty ? Guid.NewGuid() : rating.Id,
+            TripId    = rating.TripId,
+            RaterId   = rating.RaterId,
+            RatedId   = rating.RatedId,
+            Rating    = rating.Score,
+            Comment   = rating.Comment,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _db.Ratings.Add(entity);
+        await _db.SaveChangesAsync(ct);
+        rating.Id        = entity.RatingId;
+        rating.CreatedAt = entity.CreatedAt;
+        return rating;
     }
 
-    /// <summary>Updates an existing rating record.</summary>
-    public Task UpdateAsync(Rating rating, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        // TODO: _dbContext.Ratings.Update(rating); await _dbContext.SaveChangesAsync(cancellationToken);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>Removes the rating with the given id from the database.</summary>
-    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        // TODO: find entity by id, call Remove(), then SaveChangesAsync
-        return Task.CompletedTask;
+        var e = await _db.Ratings.FirstOrDefaultAsync(r => r.RatingId == id, ct);
+        if (e is not null) { _db.Ratings.Remove(e); await _db.SaveChangesAsync(ct); }
     }
 }
