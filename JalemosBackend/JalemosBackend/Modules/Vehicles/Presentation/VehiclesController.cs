@@ -58,7 +58,7 @@ public sealed class VehiclesController : ControllerBase
             return NoContent();
         }
         catch (KeyNotFoundException ex)       { return NotFound(new { detail = ex.Message }); }
-        catch (UnauthorizedAccessException ex) { return Forbid(); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
         catch (InvalidOperationException ex)  { return Conflict(new { detail = ex.Message }); }
     }
 }

@@ -160,7 +160,7 @@ public sealed class TripsController : ControllerBase
             return Ok(status);
         }
         catch (KeyNotFoundException)           { return NotFound(); }
-        catch (UnauthorizedAccessException ex) { return Forbid(); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
         catch (Exception ex)                   { return Problem(detail: ex.Message, statusCode: 500); }
     }
 
@@ -177,7 +177,7 @@ public sealed class TripsController : ControllerBase
             return Ok(status);
         }
         catch (KeyNotFoundException)             { return NotFound(); }
-        catch (UnauthorizedAccessException ex)   { return Forbid(); }
+        catch (UnauthorizedAccessException)   { return Forbid(); }
         catch (InvalidOperationException ex)     { return BadRequest(new { error = ex.Message }); }
         catch (Exception ex)                     { return Problem(detail: ex.Message, statusCode: 500); }
     }
