@@ -318,16 +318,6 @@ describe('FrontEnd app — screen smoke tests', () => {
     expect(() => render(createElement(Screen))).not.toThrow();
   });
 
-  it('(tabs)/explore.tsx renders without error', () => {
-    const Screen = require('../../FrontEnd/app/(tabs)/explore').default;
-    expect(() => render(createElement(Screen))).not.toThrow();
-  });
-
-  it('(tabs)/explore.tsx renders section headings', () => {
-    const Screen = require('../../FrontEnd/app/(tabs)/explore').default;
-    const { getByText } = render(createElement(Screen));
-    expect(getByText('Explore')).toBeTruthy();
-  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -354,7 +344,6 @@ describe('FrontEnd app — module-level import coverage', () => {
     ['(tabs)/admin-applications.tsx',   '../../FrontEnd/app/(tabs)/admin-applications'],
     ['(tabs)/admin-reports.tsx',        '../../FrontEnd/app/(tabs)/admin-reports'],
     ['(tabs)/admin-users.tsx',          '../../FrontEnd/app/(tabs)/admin-users'],
-    ['(tabs)/explore.tsx',              '../../FrontEnd/app/(tabs)/explore'],
     ['(tabs)/my-rides.tsx',             '../../FrontEnd/app/(tabs)/my-rides'],
     ['(tabs)/offer.tsx',                '../../FrontEnd/app/(tabs)/offer'],
     ['(tabs)/profile.tsx',              '../../FrontEnd/app/(tabs)/profile'],

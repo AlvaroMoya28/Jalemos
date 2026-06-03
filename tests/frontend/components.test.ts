@@ -11,24 +11,16 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' },
 }));
 
-jest.mock('expo-web-browser', () => ({
-  openBrowserAsync: jest.fn().mockResolvedValue({ type: 'dismiss' }),
-  WebBrowserPresentationStyle: { AUTOMATIC: 'automatic', FULL_SCREEN: 'fullScreen' },
-}));
-
 // ── Module imports (after stubs are wired via moduleNameMapper) ────────────────
 const { parseExpiry }  = require('../../FrontEnd/components/expiry-input');
 const { ThemedText }   = require('../../FrontEnd/components/themed-text');
 const { ThemedView }   = require('../../FrontEnd/components/themed-view');
 const GlassCard        = require('../../FrontEnd/components/glass-card').default;
 const { HapticTab }    = require('../../FrontEnd/components/haptic-tab');
-const { ExternalLink } = require('../../FrontEnd/components/external-link');
-const { Collapsible }  = require('../../FrontEnd/components/ui/collapsible');
 const { IconSymbol }   = require('../../FrontEnd/components/ui/icon-symbol');
 
 // ── Mock references ────────────────────────────────────────────────────────────
 const hapticsMock = jest.requireMock('expo-haptics') as { impactAsync: jest.Mock };
-const browserMock = jest.requireMock('expo-web-browser') as { openBrowserAsync: jest.Mock };
 
 // ══════════════════════════════════════════════════════════════════════════════
 // expiry-input.tsx — parseExpiry (exported pure function)
@@ -176,73 +168,6 @@ describe('FrontEnd components/haptic-tab — HapticTab', () => {
     const { container } = render(createElement(HapticTab, {}));
     fireEvent.click(container.querySelector('button')!);
     expect(hapticsMock.impactAsync).not.toHaveBeenCalled();
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// external-link.tsx — ExternalLink (in-app browser on native)
-// ══════════════════════════════════════════════════════════════════════════════
-
-describe('FrontEnd components/external-link — ExternalLink', () => {
-  const originalExpoOS = process.env.EXPO_OS;
-  afterEach(() => { process.env.EXPO_OS = originalExpoOS; });
-
-  it('calls openBrowserAsync when EXPO_OS is not "web"', async () => {
-    process.env.EXPO_OS = 'ios';
-    const { container } = render(
-      createElement(ExternalLink, { href: 'https://example.com' }),
-    );
-    const link = container.querySelector('a')!;
-    // Simulate click — our Link stub calls onPress, which calls openBrowserAsync
-    fireEvent.click(link);
-    // Flush microtasks so async onPress resolves
-    await Promise.resolve();
-    expect(browserMock.openBrowserAsync).toHaveBeenCalledWith(
-      'https://example.com',
-      expect.any(Object),
-    );
-  });
-
-  it('does NOT call openBrowserAsync when EXPO_OS is "web"', async () => {
-    process.env.EXPO_OS = 'web';
-    const { container } = render(
-      createElement(ExternalLink, { href: 'https://example.com' }),
-    );
-    fireEvent.click(container.querySelector('a')!);
-    await Promise.resolve();
-    expect(browserMock.openBrowserAsync).not.toHaveBeenCalled();
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// ui/collapsible.tsx — Collapsible (toggle behavior)
-// ══════════════════════════════════════════════════════════════════════════════
-
-describe('FrontEnd components/ui/collapsible — Collapsible', () => {
-  it('renders the title and hides children initially', () => {
-    const { getByText, queryByText } = render(
-      createElement(Collapsible, { title: 'My Section' }, 'Hidden content'),
-    );
-    expect(getByText('My Section')).toBeTruthy();
-    expect(queryByText('Hidden content')).toBeNull();
-  });
-
-  it('shows children after pressing the heading', () => {
-    const { getByText, getByRole } = render(
-      createElement(Collapsible, { title: 'Toggle Me' }, 'Revealed content'),
-    );
-    fireEvent.click(getByRole('button'));
-    expect(getByText('Revealed content')).toBeTruthy();
-  });
-
-  it('hides children again on a second press', () => {
-    const { getByRole, queryByText } = render(
-      createElement(Collapsible, { title: 'Toggle' }, 'Content'),
-    );
-    const btn = getByRole('button');
-    fireEvent.click(btn); // open
-    fireEvent.click(btn); // close
-    expect(queryByText('Content')).toBeNull();
   });
 });
 
@@ -528,11 +453,6 @@ describe('FrontEnd components — smoke tests', () => {
     ).not.toThrow();
   });
 
-  it('hello-wave renders without error', () => {
-    const { HelloWave } = require('../../FrontEnd/components/hello-wave');
-    expect(() => render(createElement(HelloWave))).not.toThrow();
-  });
-
   it('page-loader renders without error when visible', () => {
     const PageLoader = require('../../FrontEnd/components/page-loader').default;
     expect(() => render(createElement(PageLoader, { visible: true, label: 'Cargando...' }))).not.toThrow();
@@ -543,15 +463,6 @@ describe('FrontEnd components — smoke tests', () => {
     expect(() => render(createElement(PageLoader, { visible: false }))).not.toThrow();
   });
 
-  it('parallax-scroll-view renders without error', () => {
-    const ParallaxScrollView = require('../../FrontEnd/components/parallax-scroll-view').default;
-    expect(() =>
-      render(createElement(ParallaxScrollView, {
-        headerImage: createElement('img', { src: '' }),
-        headerBackgroundColor: { dark: '#000', light: '#fff' },
-      }, createElement('span', null, 'Content'))),
-    ).not.toThrow();
-  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
