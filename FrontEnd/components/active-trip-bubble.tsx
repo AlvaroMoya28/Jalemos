@@ -131,12 +131,12 @@ export default function ActiveTripBubble() {
     cancelled:   'Viaje cancelado',
   };
 
-  const stateColor = {
+  const stateColor = ({
     boarding:    '#f4a522',
     in_progress: Brand.colors.green.normal,
     completed:   Brand.colors.green.dark,
     cancelled:   '#e53e3e',
-  }[passengerTrip?.tripState ?? ''] ?? Brand.colors.green.normal;
+  } as Record<string, string>)[passengerTrip?.tripState ?? ''] ?? Brand.colors.green.normal;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleCancelBooking = async (reason: string, details: string | null) => {
