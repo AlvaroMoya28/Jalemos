@@ -129,7 +129,6 @@ public sealed class BookingsController : ControllerBase
         }
     }
 
-    /// <summary>DELETE /api/bookings/{id} — deletes the specified booking.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
@@ -150,6 +149,29 @@ public sealed class BookingsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[Bookings.Delete] unexpected error");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>POST /api/bookings/{id}/cancel — passenger cancels their own booking with a reason.</summary>
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> CancelBooking(Guid id, [FromBody] CancelBookingDto dto, CancellationToken cancellationToken)
+    {
+        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var callerId))
+            return Unauthorized(new { error = "Invalid or missing authentication token" });
+
+        try
+        {
+            await _bookingsService.CancelBookingAsync(id, dto.Reason, dto.Details, callerId, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)             { return NotFound(); }
+        catch (UnauthorizedAccessException)      { return Forbid(); }
+        catch (InvalidOperationException ex)     { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Bookings.Cancel] unexpected error");
             return StatusCode(500, new { error = ex.Message });
         }
     }

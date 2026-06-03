@@ -27,4 +27,7 @@ public interface IBookingsService
 
     /// <summary>Deletes the booking with the specified identifier. CallerId is used to enforce ownership.</summary>
     Task DeleteAsync(Guid id, Guid callerId, CancellationToken cancellationToken = default);
+
+    /// <summary>Passenger cancels their own booking with a reason. Notifies the driver.</summary>
+    Task CancelBookingAsync(Guid id, string reason, string? details, Guid callerId, CancellationToken cancellationToken = default);
 }

@@ -79,6 +79,10 @@ public sealed class DriverApplicationsController : ControllerBase
             var result = await _svc.SubmitAsync(userId, dto, ct);
             return CreatedAtAction(nameof(GetById), new { id = result.ApplicationId }, result);
         }
+        catch (CooldownException ex)
+        {
+            return Problem(detail: $"Debés esperar hasta {ex.CooldownUntil:O} antes de volver a solicitar.", statusCode: 409);
+        }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"[Submit] ERROR: {ex}");
@@ -140,6 +144,15 @@ public sealed class DriverApplicationsController : ControllerBase
     {
         try { await _svc.RejectAsync(id, dto, ct); return NoContent(); }
         catch (InvalidOperationException ex) { return Problem(detail: ex.Message, statusCode: 404); }
+    }
+
+    // PATCH /api/driver-applications/{id}/lift-cooldown — admin levanta el cooldown de una solicitud rechazada
+    [HttpPatch("{id:guid}/lift-cooldown")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> LiftCooldown(Guid id, CancellationToken ct)
+    {
+        try { await _svc.LiftCooldownAsync(id, ct); return NoContent(); }
+        catch (InvalidOperationException ex) { return Problem(detail: ex.Message, statusCode: 400); }
     }
 
     private Guid GetUserId() =>

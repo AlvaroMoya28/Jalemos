@@ -5,11 +5,18 @@ using JalemosBackend.Modules.Users.Infrastructure.Entities;
 namespace JalemosBackend.Infrastructure.Persistence
 {
     // Enums for Postgres enum types.
-    public enum TripState { Scheduled, InProgress, Completed, Cancelled }
-    public enum BookingState { Pending, Confirmed, Cancelled, Completed }
+    public enum TripState { Scheduled, Boarding, InProgress, Completed, Cancelled }
+    public enum BookingState { Pending, Confirmed, Boarded, NoShow, Cancelled, Completed }
     public enum PlaceType { Home, Work, Other }
     public enum PaymentType { Cash, Card, Sinpe, Other }
-    public enum NotificationType { BookingReceived, BookingConfirmed, BookingCancelled, TripStarting, TripCompleted, RatingReceived, General }
+    public enum NotificationType {
+        BookingReceived, BookingConfirmed, BookingCancelled,
+        TripStarting, TripCompleted, RatingReceived, General,
+        // v5 lifecycle
+        TripBoarding, QrScanned, TripStarted,
+        DriverCancelled, PassengerCancelled,
+        NoShowMarked, PaymentReminder, RatingReminder
+    }
     public enum ApplicationStatus { pending, under_review, needs_correction, approved, rejected }
     public enum ReportReason { bad_behavior, dangerous_driving, no_show, late_cancellation, harassment, vehicle_condition, other }
     public enum ReportStatus { pending, resolved, dismissed }
@@ -68,10 +75,12 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.DekraExpiryYear).HasColumnName("dekra_expiry_year");
                 e.Property(x => x.SuspendedUntil).HasColumnName("suspended_until");
                 e.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+                e.Property(x => x.QrToken).HasColumnName("qr_token").HasDefaultValueSql("gen_random_uuid()");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.Email).IsUnique();
                 e.HasIndex(x => x.Username).IsUnique();
+                e.HasIndex(x => x.QrToken).IsUnique().HasDatabaseName("idx_users_qr_token");
             });
 
             // Vehicles
@@ -113,6 +122,12 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.AvailableSeats).HasColumnName("available_seats").IsRequired();
                 e.Property(x => x.Notes).HasColumnName("notes");
                 e.Property(x => x.State).HasColumnName("state").HasColumnType("trip_state").HasDefaultValue(TripState.Scheduled);
+                e.Property(x => x.BoardingStartedAt).HasColumnName("boarding_started_at");
+                e.Property(x => x.JourneyStartedAt).HasColumnName("journey_started_at");
+                e.Property(x => x.CompletedAt).HasColumnName("completed_at");
+                e.Property(x => x.CancelledAt).HasColumnName("cancelled_at");
+                e.Property(x => x.CancelReason).HasColumnName("cancel_reason").HasMaxLength(60);
+                e.Property(x => x.CancelDetails).HasColumnName("cancel_details");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.DriverUserId).HasDatabaseName("idx_trips_driver");
                 e.HasIndex(x => x.State).HasDatabaseName("idx_trips_state");
@@ -133,6 +148,9 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.SeatsReserved).HasColumnName("seats_reserved").IsRequired();
                 e.Property(x => x.EstimatedAmount).HasColumnName("estimated_amount").HasColumnType("numeric(10,2)").IsRequired();
                 e.Property(x => x.State).HasColumnName("state").HasColumnType("booking_state").HasDefaultValue(BookingState.Pending);
+                e.Property(x => x.BoardedAt).HasColumnName("boarded_at");
+                e.Property(x => x.CancelReason).HasColumnName("cancel_reason").HasMaxLength(60);
+                e.Property(x => x.CancelDetails).HasColumnName("cancel_details");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.TripId).HasDatabaseName("idx_bookings_trip");
@@ -203,6 +221,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.BookingId).HasColumnName("booking_id");
                 e.Property(x => x.Type).HasColumnName("type").HasColumnType("notification_type").HasDefaultValue(NotificationType.General);
                 e.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
+                e.Property(x => x.Body).HasColumnName("body");
                 e.Property(x => x.Read).HasColumnName("read").HasDefaultValue(false);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => new { x.UserId }).HasDatabaseName("idx_notif_user_unread");
@@ -294,17 +313,21 @@ namespace JalemosBackend.Infrastructure.Persistence
         public decimal Rate { get; set; }
         public string FromLocation { get; set; } = null!;
         public string ToLocation { get; set; } = null!;
-
         public decimal FromLatitude { get; set; }
         public decimal FromLongitude { get; set; }
         public decimal ToLatitude { get; set; }
         public decimal ToLongitude { get; set; }
-
         public DateTime StartDateTime { get; set; }
         public short TotalSeats { get; set; }
         public short AvailableSeats { get; set; }
         public string? Notes { get; set; }
         public TripState State { get; set; }
+        public DateTime? BoardingStartedAt { get; set; }
+        public DateTime? JourneyStartedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public string? CancelReason { get; set; }
+        public string? CancelDetails { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
@@ -316,6 +339,9 @@ namespace JalemosBackend.Infrastructure.Persistence
         public short SeatsReserved { get; set; }
         public decimal EstimatedAmount { get; set; }
         public BookingState State { get; set; }
+        public DateTime? BoardedAt { get; set; }
+        public string? CancelReason { get; set; }
+        public string? CancelDetails { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
@@ -359,6 +385,7 @@ namespace JalemosBackend.Infrastructure.Persistence
         public Guid? BookingId { get; set; }
         public NotificationType Type { get; set; }
         public string Title { get; set; } = null!;
+        public string? Body { get; set; }
         public bool Read { get; set; }
         public DateTime CreatedAt { get; set; }
     }

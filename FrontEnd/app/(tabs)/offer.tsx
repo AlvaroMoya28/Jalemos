@@ -30,8 +30,12 @@ import {
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
 import PlaceSearchInput, { PlacePrediction } from '@/components/place-search-input';
+import BoardingScreen from '@/components/boarding-screen';
+import GlassAlert from '@/components/glass-alert';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useActiveTrip } from '@/contexts/active-trip';
+import { tripLifecycleApi } from '@/services/api';
 
 const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? '';
 
@@ -681,10 +685,42 @@ export default function OfferScreen() {
   const navigation = useNavigation();
   const { showLoader, hideLoader } = useLoading();
   const { user, token } = useAuth();
+  const { driverTrip, refresh: refreshActiveTrip } = useActiveTrip();
 
+  // ── All hooks must come before any conditional return ───────────────────
   useEffect(() => {
     navigation.setOptions({ title: 'Ofrecer', icon: { sf: 'car' } });
   }, [navigation]);
+
+  // Upcoming scheduled trips for the driver (to show "Iniciar abordaje")
+  const [upcomingTrip, setUpcomingTrip] = useState<{
+    id: string; origin: string; destination: string; departureAt: string;
+  } | null>(null);
+  const [startBoardingLoading, setStartBoardingLoading] = useState(false);
+  const [minsUntilBoarding, setMinsUntilBoarding] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!token || !user?.id || driverTrip) return;
+    const check = async () => {
+      try {
+        const trips = await get<any[]>('/api/trips', token);
+        const mine = trips
+          .filter((t: any) => t.driverId === user.id && (t.state === 'Scheduled' || t.state === 'scheduled'))
+          .sort((a: any, b: any) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
+        if (mine.length > 0) {
+          const next = mine[0];
+          setUpcomingTrip({ id: next.id, origin: next.origin, destination: next.destination, departureAt: next.departureAt });
+          const msUntil = new Date(next.departureAt).getTime() - Date.now() - 5 * 60_000;
+          setMinsUntilBoarding(msUntil > 0 ? Math.ceil(msUntil / 60_000) : 0);
+        } else {
+          setUpcomingTrip(null);
+        }
+      } catch { setUpcomingTrip(null); }
+    };
+    check();
+    const id = setInterval(check, 10_000);
+    return () => clearInterval(id);
+  }, [token, user?.id, driverTrip]);
 
   const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
@@ -730,15 +766,40 @@ export default function OfferScreen() {
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
 
-  const selectedVehicle = vehicles.find((v) => v.id === vehicleId) ?? null;
-  const estimated = useMemo(() => seats * price, [price, seats]);
-  const remaining = Math.max(0, 100 - notes.length);
-  const calendarDays = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
+  // These useMemo calls must be BEFORE the conditional return
+  const selectedVehicle = useMemo(() => vehicles.find((v) => v.id === vehicleId) ?? null, [vehicles, vehicleId]);
+  const estimated       = useMemo(() => seats * price, [price, seats]);
+  const remaining       = useMemo(() => Math.max(0, 100 - notes.length), [notes]);
+  const calendarDays    = useMemo(() => buildCalendarDays(cursorDate), [cursorDate]);
+  const hasOrigin       = from.trim().length > 0;
+  const hasDestination  = to.trim().length > 0;
+  const visibleBlocks   = 1 + (hasOrigin ? 1 : 0) + (hasDestination ? 1 : 0);
+  const heroHeight      = 280 + visibleBlocks * 62;
 
-  const hasOrigin = from.trim().length > 0;
-  const hasDestination = to.trim().length > 0;
-  const visibleBlocks = 1 + (hasOrigin ? 1 : 0) + (hasDestination ? 1 : 0);
-  const heroHeight = 280 + visibleBlocks * 62;
+  // ── Handler: Iniciar abordaje ────────────────────────────────────────────
+  const handleStartBoarding = async () => {
+    if (!upcomingTrip || !token) return;
+    setStartBoardingLoading(true);
+    try {
+      await tripLifecycleApi.startBoarding(upcomingTrip.id, token);
+      setUpcomingTrip(null);       // Hide the card immediately
+      await refreshActiveTrip();   // Fetch driver's active boarding trip → triggers BoardingScreen
+    } catch (e: any) {
+      Alert.alert('No se puede iniciar', e.message ?? 'Inténtalo de nuevo.');
+    } finally {
+      setStartBoardingLoading(false);
+    }
+  };
+
+  // ── Conditional renders after all hooks ────────────────────────────────
+  if (driverTrip) {
+    return (
+      <BoardingScreen
+        trip={driverTrip}
+        onTripEnded={() => { refreshActiveTrip(); }}
+      />
+    );
+  }
 
   const openDateModal = () => {
     const source = selectedDate ?? new Date();
@@ -840,6 +901,47 @@ export default function OfferScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: colors.bottomSurface }}>
+
+        {/* ── Upcoming trip card: Iniciar abordaje ── */}
+        {upcomingTrip && (
+          <View style={upcomingStyles.wrapper}>
+            <View style={[upcomingStyles.card, { backgroundColor: colors.inputBg, borderColor: Brand.colors.green.normal + '55' }]}>
+              <View style={upcomingStyles.headerRow}>
+                <View style={[upcomingStyles.dot, { backgroundColor: minsUntilBoarding === 0 ? Brand.colors.green.normal : '#f4a522' }]} />
+                <Text style={[upcomingStyles.label, { color: minsUntilBoarding === 0 ? Brand.colors.green.normal : '#f4a522' }]}>
+                  {minsUntilBoarding === 0 ? '¡Listo para abordar!' : `Abordaje en ${minsUntilBoarding} min`}
+                </Text>
+              </View>
+              <Text style={[upcomingStyles.route, { color: colors.textPrimary }]} numberOfLines={1}>
+                {upcomingTrip.origin} → {upcomingTrip.destination}
+              </Text>
+              <Text style={[upcomingStyles.time, { color: colors.textSecondary }]}>
+                {new Date(upcomingTrip.departureAt).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              <Pressable
+                style={[
+                  upcomingStyles.btn,
+                  { backgroundColor: minsUntilBoarding === 0 ? Brand.colors.green.normal : colors.border },
+                  startBoardingLoading && { opacity: 0.6 },
+                ]}
+                onPress={handleStartBoarding}
+                disabled={startBoardingLoading}
+              >
+                {startBoardingLoading ? (
+                  <Text style={[upcomingStyles.btnText, { color: '#fff' }]}>Iniciando…</Text>
+                ) : (
+                  <>
+                    <Ionicons name="car-sport" size={16} color={minsUntilBoarding === 0 ? '#fff' : colors.textMuted} />
+                    <Text style={[upcomingStyles.btnText, { color: minsUntilBoarding === 0 ? '#fff' : colors.textMuted }]}>
+                      {minsUntilBoarding === 0 ? 'Iniciar abordaje' : 'Iniciar abordaje (aún no disponible)'}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         <View style={[styles.heroWrap, { height: heroHeight }]}>
           <Image
             source={isDark ? require('../../assets/images/hero-banner-dark.jpg') : require('../../assets/images/hero-banner.jpg')}
@@ -867,7 +969,11 @@ export default function OfferScreen() {
                   onChangeText={(t) => { setFrom(t); setFromCoords(null); }}
                   onSelect={(pred: PlacePrediction) => {
                     setFrom(pred.description);
-                    fetchPlaceCoords(pred.placeId).then(setFromCoords);
+                    if (pred.coords) {
+                      setFromCoords(pred.coords);
+                    } else {
+                      fetchPlaceCoords(pred.placeId).then(setFromCoords);
+                    }
                   }}
                   leadingIcon={<Ionicons name="radio-button-on" size={12} color={Brand.colors.green.dark} />}
                   fieldStyle={styles.searchField}
@@ -889,7 +995,11 @@ export default function OfferScreen() {
                     onChangeText={(t) => { setTo(t); setToCoords(null); }}
                     onSelect={(pred: PlacePrediction) => {
                       setTo(pred.description);
-                      fetchPlaceCoords(pred.placeId).then(setToCoords);
+                      if (pred.coords) {
+                        setToCoords(pred.coords);
+                      } else {
+                        fetchPlaceCoords(pred.placeId).then(setToCoords);
+                      }
                     }}
                     leadingIcon={<Ionicons name="location-outline" size={13} color={Brand.colors.green.normal} />}
                     fieldStyle={styles.searchField}
@@ -1193,3 +1303,52 @@ export default function OfferScreen() {
     </View>
   );
 }
+
+const upcomingStyles = StyleSheet.create({
+  wrapper: {
+    paddingHorizontal: Brand.grid.margin,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  card: {
+    borderRadius: Brand.radius[16],
+    borderWidth: 1.5,
+    padding: 16,
+    gap: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  label: {
+    fontFamily: Fonts.headingBold,
+    fontSize: 12,
+  },
+  route: {
+    fontFamily: Fonts.heading,
+    fontSize: 15,
+  },
+  time: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+  },
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    borderRadius: Brand.radius[12],
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  btnText: {
+    fontFamily: Fonts.headingBold,
+    fontSize: 14,
+  },
+});

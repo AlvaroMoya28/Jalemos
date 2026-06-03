@@ -13,9 +13,10 @@ import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
+import ActiveTripBubble from '@/components/active-trip-bubble';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 
@@ -41,28 +42,33 @@ export default function TabLayout() {
 
   if (Platform.OS === 'ios') {
     return (
-      <NativeTabs
-        blurEffect="systemDefault"
-        minimizeBehavior="automatic"
-        iconColor={{ default: colors.textMuted, selected: Brand.colors.green.normal }}
-        labelStyle={{
-          default: { fontFamily: Fonts.heading, fontSize: 11, color: colors.textMuted },
-          selected: { fontFamily: Fonts.heading, fontSize: 11, color: Brand.colors.green.normal },
-        }}>
-        {/* Admin triggers */}
-        <NativeTabs.Trigger name="admin-applications" hidden={!isAdmin} />
-        <NativeTabs.Trigger name="admin-reports" hidden={!isAdmin} />
-        <NativeTabs.Trigger name="admin-users" hidden={!isAdmin} />
-        {/* Regular user triggers */}
-        <NativeTabs.Trigger name="search" hidden={isAdmin || isDriver} />
-        <NativeTabs.Trigger name="offer" hidden={isAdmin || !isDriver} />
-        <NativeTabs.Trigger name="my-rides" hidden={isAdmin} />
-        <NativeTabs.Trigger name="profile" />
-      </NativeTabs>
+      <View style={{ flex: 1 }}>
+        <NativeTabs
+          blurEffect="systemDefault"
+          minimizeBehavior="automatic"
+          iconColor={{ default: colors.textMuted, selected: Brand.colors.green.normal }}
+          labelStyle={{
+            default: { fontFamily: Fonts.heading, fontSize: 11, color: colors.textMuted },
+            selected: { fontFamily: Fonts.heading, fontSize: 11, color: Brand.colors.green.normal },
+          }}>
+          {/* Admin triggers */}
+          <NativeTabs.Trigger name="admin-applications" hidden={!isAdmin} />
+          <NativeTabs.Trigger name="admin-reports" hidden={!isAdmin} />
+          <NativeTabs.Trigger name="admin-users" hidden={!isAdmin} />
+          {/* Regular user triggers */}
+          <NativeTabs.Trigger name="search" hidden={isAdmin || isDriver} />
+          <NativeTabs.Trigger name="offer" hidden={isAdmin || !isDriver} />
+          <NativeTabs.Trigger name="my-rides" hidden={isAdmin} />
+          <NativeTabs.Trigger name="profile" />
+        </NativeTabs>
+        {/* Bubble is inside tabs layout so it never renders on login/register screens */}
+        <ActiveTripBubble />
+      </View>
     );
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenListeners={{
         tabPress: () => {
@@ -139,5 +145,8 @@ export default function TabLayout() {
       />
       <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
+    {/* Bubble is inside tabs layout so it never renders on login/register screens */}
+    <ActiveTripBubble />
+  </View>
   );
 }

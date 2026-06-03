@@ -63,6 +63,15 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
         }
         else
         {
+            // Cooldown: 3 días después de un rechazo
+            var latest = await _repo.GetLatestByUserAsync(userId, ct);
+            if (latest?.Status == ApplicationStatus.rejected && latest.ReviewedAt.HasValue)
+            {
+                var cooldownEnd = latest.ReviewedAt.Value.AddDays(3);
+                if (cooldownEnd > DateTime.UtcNow)
+                    throw new CooldownException(cooldownEnd);
+            }
+
             if (string.IsNullOrWhiteSpace(dto.Cedula))       throw new InvalidOperationException("La cédula es requerida.");
             if (string.IsNullOrWhiteSpace(dto.Address))      throw new InvalidOperationException("La dirección es requerida.");
             if (string.IsNullOrWhiteSpace(dto.VehicleBrand)) throw new InvalidOperationException("La marca del vehículo es requerida.");
@@ -275,6 +284,16 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
         await _repo.UpdateAsync(entity, ct);
     }
 
+    public async Task LiftCooldownAsync(Guid applicationId, CancellationToken ct = default)
+    {
+        var entity = await GetTrackedOrThrowAsync(applicationId, ct);
+        if (entity.Status != ApplicationStatus.rejected)
+            throw new InvalidOperationException("Solo se puede levantar el cooldown de solicitudes rechazadas.");
+        entity.ReviewedAt = null;
+        entity.UpdatedAt  = DateTime.UtcNow;
+        await _repo.UpdateAsync(entity, ct);
+    }
+
     // Helpers
 
     private async Task<DriverApplicationEntity> GetTrackedOrThrowAsync(Guid id, CancellationToken ct)
@@ -292,6 +311,14 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
         var avatar = name is { Length: > 0 }
             ? string.Concat(name.Split(' ').Where(p => p.Length > 0).Take(2).Select(p => p[0].ToString())).ToUpper()
             : "?";
+
+        string? cooldownUntil = null;
+        if (e.Status == ApplicationStatus.rejected && e.ReviewedAt.HasValue)
+        {
+            var expires = e.ReviewedAt.Value.AddDays(3);
+            if (expires > DateTime.UtcNow)
+                cooldownUntil = expires.ToString("O");
+        }
 
         return new ApplicationResponse(
             ApplicationId:      e.ApplicationId,
@@ -322,7 +349,8 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
             UpdatedAt:          e.UpdatedAt.ToString("O"),
             ApplicantName:      name,
             ApplicantEmail:     email,
-            ApplicantAvatar:    avatar
+            ApplicantAvatar:    avatar,
+            CooldownUntil:      cooldownUntil
         );
     }
 }

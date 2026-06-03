@@ -216,6 +216,23 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       fontFamily: Fonts.heading,
       fontSize: 14,
     },
+    cooldownBanner: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 8,
+      backgroundColor: Brand.colors.alerts.error + '15',
+      borderRadius: Brand.radius[12],
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: Brand.colors.alerts.error + '40',
+    },
+    cooldownText: {
+      flex: 1,
+      fontSize: 13,
+      color: Brand.colors.alerts.error,
+      fontFamily: Fonts.heading,
+    },
     vehicleRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -248,6 +265,12 @@ export default function DriverStatusScreen() {
   useEffect(() => { loadMyApplication(); }, []);
 
   const status = application?.status ?? 'pending';
+
+  const cooldownUntil = application?.cooldownUntil ? new Date(application.cooldownUntil) : null;
+  const cooldownActive = cooldownUntil ? cooldownUntil > new Date() : false;
+  const cooldownDaysLeft = cooldownUntil && cooldownActive
+    ? Math.ceil((cooldownUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   const statusConfig = {
     pending:          { label: 'Pendiente',           color: '#f7a900', bg: '#f7a90022' },
@@ -443,6 +466,29 @@ export default function DriverStatusScreen() {
           <Animated.View entering={FadeInDown.duration(240).delay(200)} style={{ gap: 10 }}>
             <Pressable style={styles.primaryBtn} onPress={handleResubmit}>
               <Text style={styles.primaryBtnText}>Corregir y reenviar solicitud</Text>
+            </Pressable>
+            <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
+              <Text style={styles.secondaryBtnText}>Volver al perfil</Text>
+            </Pressable>
+          </Animated.View>
+        ) : null}
+
+        {status === 'rejected' ? (
+          <Animated.View entering={FadeInDown.duration(240).delay(200)} style={{ gap: 10 }}>
+            {cooldownActive ? (
+              <View style={styles.cooldownBanner}>
+                <Ionicons name="time-outline" size={16} color={Brand.colors.alerts.error} />
+                <Text style={styles.cooldownText}>
+                  Podés volver a solicitar en {cooldownDaysLeft === 1 ? '1 día' : `${cooldownDaysLeft} días`}
+                </Text>
+              </View>
+            ) : null}
+            <Pressable
+              style={[styles.primaryBtn, cooldownActive && { opacity: 0.45 }]}
+              onPress={cooldownActive ? undefined : () => router.push('/driver-registration')}
+              disabled={cooldownActive}
+            >
+              <Text style={styles.primaryBtnText}>Nueva solicitud</Text>
             </Pressable>
             <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
               <Text style={styles.secondaryBtnText}>Volver al perfil</Text>

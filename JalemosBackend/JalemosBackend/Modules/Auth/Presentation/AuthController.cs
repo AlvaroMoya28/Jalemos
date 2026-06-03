@@ -54,13 +54,23 @@ namespace JalemosBackend.Modules.Auth.Presentation
         [Authorize]
         public async Task<IActionResult> Refresh(CancellationToken ct)
         {
-            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
-                   ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (sub is null || !Guid.TryParse(sub, out var userId))
-                return Unauthorized(new { error = "Token inválido" });
+            try
+            {
+                var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                       ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (sub is null || !Guid.TryParse(sub, out var userId))
+                    return Unauthorized(new { error = "Token inválido" });
 
-            var result = await _authService.RefreshAsync(userId, ct);
-            return result is null ? NotFound(new { error = "Usuario no encontrado" }) : Ok(result);
+                var result = await _authService.RefreshAsync(userId, ct);
+                return result is null ? NotFound(new { error = "Usuario no encontrado" }) : Ok(result);
+            }
+            catch (AccountBlockedException ex)
+            {
+                var message = ex.IsDeactivated
+                    ? "Tu cuenta fue desactivada. Contactá al equipo de soporte."
+                    : $"Tu cuenta está suspendida hasta el {ex.SuspendedUntil!.Value.ToLocalTime():dd/MM/yyyy 'a las' HH:mm}.";
+                return StatusCode(403, new { error = message });
+            }
         }
     }
 }

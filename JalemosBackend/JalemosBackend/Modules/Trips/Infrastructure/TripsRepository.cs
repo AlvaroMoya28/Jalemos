@@ -118,32 +118,47 @@ public sealed class TripsRepository
         return e is null ? null : MapToDomain(e);
     }
 
-    /// <summary>Inserts a new trip row into the database.</summary>
+    /// <summary>Inserts a new trip. Enforces a 1-hour buffer between active trips for the same driver.</summary>
     public async Task CreateAsync(Trip trip, CancellationToken cancellationToken = default)
     {
+        var windowStart = trip.DepartureAt.AddMinutes(-60);
+        var windowEnd   = trip.DepartureAt.AddMinutes(60);
+
+        var hasConflict = await _dbContext.Trips.AnyAsync(t =>
+            t.DriverUserId == trip.DriverId &&
+            t.State != TripState.Cancelled &&
+            t.State != TripState.Completed &&
+            t.StartDateTime >= windowStart &&
+            t.StartDateTime <= windowEnd,
+            cancellationToken);
+
+        if (hasConflict)
+            throw new InvalidOperationException(
+                "Ya tienes un viaje programado dentro de 1 hora de ese horario. " +
+                "Debe haber al menos 1 hora de diferencia entre tus viajes.");
+
         var entity = new TripEntity
         {
-            TripId = trip.Id == Guid.Empty ? Guid.NewGuid(): trip.Id,
-            DriverUserId = trip.DriverId,
-            VehicleId = trip.VehicleId,
-            Rate = trip.Rate,
-            FromLocation = trip.Origin,
-            ToLocation = trip.Destination,
-            FromLatitude = trip.OriginLatitude,
-            FromLongitude = trip.OriginLongitude,
-            ToLatitude = trip.DestinationLatitude,
-            ToLongitude = trip.DestinationLongitude,
-
-            StartDateTime = trip.DepartureAt,
-            TotalSeats = trip.TotalSeats,
+            TripId         = trip.Id == Guid.Empty ? Guid.NewGuid() : trip.Id,
+            DriverUserId   = trip.DriverId,
+            VehicleId      = trip.VehicleId,
+            Rate           = trip.Rate,
+            FromLocation   = trip.Origin,
+            ToLocation     = trip.Destination,
+            FromLatitude   = trip.OriginLatitude,
+            FromLongitude  = trip.OriginLongitude,
+            ToLatitude     = trip.DestinationLatitude,
+            ToLongitude    = trip.DestinationLongitude,
+            StartDateTime  = trip.DepartureAt,
+            TotalSeats     = trip.TotalSeats,
             AvailableSeats = trip.AvailableSeats,
-            CreatedAt = trip.CreatedAt,
-            State = trip.State,
-            Notes = trip.Notes
-            };
+            CreatedAt      = trip.CreatedAt,
+            State          = trip.State,
+            Notes          = trip.Notes,
+        };
         _dbContext.Trips.Add(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        trip.Id = entity.TripId; 
+        trip.Id = entity.TripId;
     }
 
     /// <summary>Updates an existing trip row.</summary>

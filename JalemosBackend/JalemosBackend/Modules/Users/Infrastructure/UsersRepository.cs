@@ -13,21 +13,22 @@ namespace JalemosBackend.Modules.Users.Infrastructure
 
         private static User MapToDomain(UserEntity e) => new User
         {
-            Id             = e.UserId,
-            Username       = e.Username,
-            Email          = e.Email,
-            PasswordHash   = e.PasswordHash,
-            FirstName      = e.FirstName,
-            LastName       = e.LastName,
-            Role           = e.Role,
+            Id              = e.UserId,
+            Username        = e.Username,
+            Email           = e.Email,
+            PasswordHash    = e.PasswordHash,
+            FirstName       = e.FirstName,
+            LastName        = e.LastName,
+            Role            = e.Role,
             MeanRating      = e.MeanRating,
             TotalTrips      = e.TotalTrips,
             Kms             = e.Kms,
             ProfilePhotoUrl = e.ProfilePhotoUrl,
             SuspendedUntil  = e.SuspendedUntil,
             IsActive        = e.IsActive,
-            CreatedAt      = e.CreatedAt,
-            UpdatedAt      = e.UpdatedAt,
+            QrToken         = e.QrToken,
+            CreatedAt       = e.CreatedAt,
+            UpdatedAt       = e.UpdatedAt,
         };
 
         private static void MapToEntity(UserEntity e, User u)

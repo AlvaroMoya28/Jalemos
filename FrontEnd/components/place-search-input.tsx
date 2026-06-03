@@ -29,6 +29,7 @@ export interface PlacePrediction {
   description: string;
   mainText: string;
   secondaryText: string;
+  coords?: { lat: number; lng: number };
 }
 
 interface Props extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onFocus' | 'onBlur'> {
@@ -157,8 +158,9 @@ export default function PlaceSearchInput({
 
   const handleSelectLocation = async () => {
     setSuggestions([]);
-    const address = await fetchLocation();
-    if (address) {
+    const result = await fetchLocation();
+    if (result) {
+      const { address, coords } = result;
       lastTypedRef.current = address;
       skipFetchRef.current = true;
       onChangeText(address);
@@ -167,6 +169,7 @@ export default function PlaceSearchInput({
         description: address,
         mainText: 'Mi ubicación actual',
         secondaryText: address,
+        coords,
       });
     }
   };

@@ -24,6 +24,7 @@ namespace JalemosBackend.Modules.Users.Infrastructure.Entities
         public short? DekraExpiryYear { get; set; }
         public DateTime? SuspendedUntil { get; set; }
         public bool IsActive { get; set; }
+        public Guid QrToken { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

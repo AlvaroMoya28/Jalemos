@@ -15,4 +15,5 @@ public interface IDriverApplicationsService
     Task                                    RequestCorrectionAsync(Guid applicationId, ReviewActionRequest dto, CancellationToken ct = default);
     Task                                    ApproveAsync(Guid applicationId, CancellationToken ct = default);
     Task                                    RejectAsync(Guid applicationId, ReviewActionRequest dto, CancellationToken ct = default);
+    Task                                    LiftCooldownAsync(Guid applicationId, CancellationToken ct = default);
 }

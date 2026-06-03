@@ -9,7 +9,9 @@
 
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
+import QrDisplay from '@/components/qr-display';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { meApi } from '@/services/api';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
 import { VehicleDTO, vehiclesApi, ApiError } from '@/services/api';
@@ -258,19 +260,26 @@ export default function ProfileScreen() {
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [amount, setAmount] = useState(0);
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [showQr, setShowQr] = useState(false);
   const [vehicles, setVehicles] = useState<VehicleDTO[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
-    if (!isDriver || !token) return;
+    if (!token) return;
+    // Fetch QR token for all non-admin users
+    if (!isAdmin) {
+      meApi.get(token).then(me => setQrToken(me.qrToken)).catch(() => {});
+    }
+    if (!isDriver) return;
     setVehiclesLoading(true);
     vehiclesApi.getMy(token)
       .then(setVehicles)
       .catch(() => {})
       .finally(() => setVehiclesLoading(false));
     loadMyVehicleApplications().catch(() => {});
-  }, [isDriver, token]));
+  }, [isAdmin, isDriver, token]));
 
   const licenseState = expiryState(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null);
   const dekraState   = expiryState(user?.dekraExpiryMonth   ?? null, user?.dekraExpiryYear   ?? null);
@@ -716,6 +725,38 @@ export default function ProfileScreen() {
                 </GlassCard>
               </View>
             </>
+          )}
+
+          {/* QR Code section — visible to all non-admin users */}
+          {!isAdmin && qrToken && (
+            <View style={styles.sectionWrap}>
+              <Text style={styles.sectionTitle}>Mi QR de abordaje</Text>
+              <GlassCard style={[styles.sectionCard, { alignItems: 'center', paddingVertical: 20, gap: 14 }]}>
+                <Text style={[styles.itemDesc, { textAlign: 'center' }]}>
+                  Muestra este código al conductor para registrarte en el vehículo. Es único e intransferible.
+                </Text>
+                {showQr ? (
+                  <QrDisplay
+                    qrToken={qrToken}
+                    size={180}
+                    label="Tu identificación de abordaje"
+                  />
+                ) : null}
+                <Pressable
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                    backgroundColor: Brand.colors.green.normal,
+                    borderRadius: 12, paddingHorizontal: 20, paddingVertical: 11,
+                  }}
+                  onPress={() => setShowQr(v => !v)}
+                >
+                  <Ionicons name={showQr ? 'eye-off-outline' : 'qr-code-outline'} size={16} color="#fff" />
+                  <Text style={{ color: '#fff', fontFamily: Fonts.headingBold, fontSize: 13 }}>
+                    {showQr ? 'Ocultar QR' : 'Mostrar mi QR'}
+                  </Text>
+                </Pressable>
+              </GlassCard>
+            </View>
           )}
 
           {/* Always visible: Preferencias + Soporte */}

@@ -314,7 +314,7 @@ export default function RegisterScreen() {
                   <TextInput
                     value={nombre}
                     onChangeText={setNombre}
-                    placeholder="Nombre"
+                    placeholder="Nombre *"
                     placeholderTextColor={colors.textPlaceholder}
                     style={styles.input}
                     autoCapitalize="words"
@@ -324,7 +324,7 @@ export default function RegisterScreen() {
                   <TextInput
                     value={apellido}
                     onChangeText={setApellido}
-                    placeholder="Apellido"
+                    placeholder="Apellido *"
                     placeholderTextColor={colors.textPlaceholder}
                     style={styles.input}
                     autoCapitalize="words"
@@ -337,7 +337,7 @@ export default function RegisterScreen() {
                 <TextInput
                   value={username}
                   onChangeText={setUsername}
-                  placeholder="Nombre de usuario"
+                  placeholder="Nombre de usuario *"
                   placeholderTextColor={colors.textPlaceholder}
                   style={styles.input}
                   autoCapitalize="none"
@@ -349,7 +349,7 @@ export default function RegisterScreen() {
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="Correo electrónico"
+                  placeholder="Correo electrónico *"
                   placeholderTextColor={colors.textPlaceholder}
                   style={styles.input}
                   keyboardType="email-address"
@@ -362,7 +362,7 @@ export default function RegisterScreen() {
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Contraseña"
+                  placeholder="Contraseña *"
                   placeholderTextColor={colors.textPlaceholder}
                   style={styles.input}
                   secureTextEntry={!showPassword}
@@ -377,7 +377,7 @@ export default function RegisterScreen() {
                 <TextInput
                   value={confirm}
                   onChangeText={setConfirm}
-                  placeholder="Confirmar contraseña"
+                  placeholder="Confirmar contraseña *"
                   placeholderTextColor={colors.textPlaceholder}
                   style={styles.input}
                   secureTextEntry={!showConfirm}

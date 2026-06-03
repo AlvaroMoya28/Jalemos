@@ -189,15 +189,15 @@ describe('FrontEnd hooks', () => {
       }]);
 
       const { result } = renderHook(() => useCurrentLocation());
-      let address: string | null = null;
-      await act(async () => { address = await result.current.fetch(); });
+      let location: { address: string; coords: { lat: number; lng: number } } | null = null;
+      await act(async () => { location = await result.current.fetch(); });
 
       expect(result.current.state).toEqual({
         status: 'granted',
         address: 'Avenida Central 10, Centro, San José',
         coords: { lat: 9.9281, lng: -84.0907 },
       });
-      expect(address).toBe('Avenida Central 10, Centro, San José');
+      expect(location?.address).toBe('Avenida Central 10, Centro, San José');
     });
 
     it('uses only street name when streetNumber is absent', async () => {

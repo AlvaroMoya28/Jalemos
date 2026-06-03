@@ -16,18 +16,21 @@ public sealed class Booking
     public short SeatsReserved { get; set; }
     public decimal EstimatedAmount { get; set; }
     public BookingState State { get; set; } = BookingState.Pending;
+    public DateTime? BoardedAt { get; set; }
+    public string? CancelReason { get; set; }
+    public string? CancelDetails { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    // Helpers: mark as cancelled and confirmed
-    public void Cancel()
+    public void Cancel(string? reason = null, string? details = null)
     {
         State = BookingState.Cancelled;
+        CancelReason = reason;
+        CancelDetails = details;
         UpdatedAt = DateTime.UtcNow;
     }
-    public void Confirm()
-    {
-        State = BookingState.Confirmed;
-        UpdatedAt = DateTime.UtcNow;
-    }
+    public void Confirm() { State = BookingState.Confirmed; UpdatedAt = DateTime.UtcNow; }
+    public void Board() { State = BookingState.Boarded; BoardedAt = DateTime.UtcNow; UpdatedAt = DateTime.UtcNow; }
+    public void MarkNoShow() { State = BookingState.NoShow; UpdatedAt = DateTime.UtcNow; }
+    public void Complete() { State = BookingState.Completed; UpdatedAt = DateTime.UtcNow; }
 }

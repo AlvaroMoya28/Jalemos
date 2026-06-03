@@ -25,6 +25,12 @@ public sealed class Trip
     public short TotalSeats { get; set; }
     public short AvailableSeats { get; set; }
     public TripState State { get; set; }
+    public DateTime? BoardingStartedAt { get; set; }
+    public DateTime? JourneyStartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? CancelReason { get; set; }
+    public string? CancelDetails { get; set; }
     public DateTime CreatedAt { get; set; }
     public string Notes { get; set; } = string.Empty;
 

@@ -5,6 +5,7 @@
 using JalemosBackend.Modules.Bookings.Domain;
 using JalemosBackend.Modules.Bookings.Infrastructure;
 using JalemosBackend.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace JalemosBackend.Modules.Bookings.Application;
 
@@ -15,11 +16,12 @@ namespace JalemosBackend.Modules.Bookings.Application;
 public sealed class BookingsService : IBookingsService
 {
     private readonly BookingsRepository _repository;
+    private readonly ApplicationDbContext _db;
 
-    /// <summary>Injects the data access repository via constructor injection.</summary>
-    public BookingsService(BookingsRepository repository)
+    public BookingsService(BookingsRepository repository, ApplicationDbContext db)
     {
         _repository = repository;
+        _db         = db;
     }
 
     /// <inheritdoc/>
@@ -99,5 +101,50 @@ public sealed class BookingsService : IBookingsService
         if (existing.PassengerId != callerId) throw new UnauthorizedAccessException("No permission to delete this booking");
 
         await _repository.DeleteAsync(id, cancellationToken);
+    }
+
+    public async Task CancelBookingAsync(Guid id, string reason, string? details, Guid callerId, CancellationToken cancellationToken = default)
+    {
+        var booking = await _db.Bookings.FirstOrDefaultAsync(b => b.BookingId == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Reserva no encontrada.");
+
+        if (booking.PassengerId != callerId)
+            throw new UnauthorizedAccessException("Solo el pasajero puede cancelar su propia reserva.");
+
+        if (booking.State == BookingState.Cancelled || booking.State == BookingState.Completed)
+            throw new InvalidOperationException("Esta reserva ya está cancelada o completada.");
+
+        var trip = await _db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == booking.TripId, cancellationToken);
+
+        booking.State        = BookingState.Cancelled;
+        booking.CancelReason = reason;
+        booking.CancelDetails = details;
+        booking.UpdatedAt    = DateTime.UtcNow;
+
+        var reasonLabel = reason switch
+        {
+            "plans_changed"      => "Cambio de planes",
+            "found_alternative"  => "Encontró otra opción",
+            "personal_emergency" => "Emergencia personal",
+            _                    => "Otro motivo",
+        };
+
+        // Notify driver
+        if (trip is not null)
+        {
+            var passenger = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == callerId, cancellationToken);
+            var passengerName = passenger is null ? "Un pasajero" : $"{passenger.FirstName} {passenger.LastName}";
+            _db.Notifications.Add(new NotificationEntity
+            {
+                UserId    = trip.DriverUserId,
+                TripId    = trip.TripId,
+                BookingId = booking.BookingId,
+                Type      = NotificationType.PassengerCancelled,
+                Title     = $"{passengerName} canceló su reserva",
+                Body      = $"Motivo: {reasonLabel}. Revisa el estado de abordaje.",
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }
