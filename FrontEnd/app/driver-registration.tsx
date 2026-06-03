@@ -141,20 +141,21 @@ function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
 type PhotoSlot = { uri: string } | null;
 
 function PhotoPickerBtn({
-  photo, label, sublabel, onPress, style,
+  photo, label, sublabel, onPress, style, error,
 }: {
   photo: PhotoSlot;
   label: string;
   sublabel?: string;
   onPress: () => void;
   style?: object;
+  error?: boolean;
 }) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <Pressable
-      style={[style ?? styles.photoBtn, photo && styles.photoBtnDone]}
+      style={[style ?? styles.photoBtn, photo ? styles.photoBtnDone : error && { borderColor: Brand.colors.alerts.error, borderStyle: 'solid' }]}
       onPress={onPress}>
       {photo ? (
         <>
@@ -286,6 +287,31 @@ export default function DriverRegistrationScreen() {
   type CameraTarget = 'face' | 'licenciaFront' | 'licenciaBack' | 'dekra';
   const [cameraOpen, setCameraOpen] = useState<CameraTarget | null>(null);
 
+  // Form submission state — used to show error highlights after the first submit attempt
+  const [submitted, setSubmitted] = useState(false);
+
+  const licenseExpiryParsed = useMemo(() => parseExpiry(licenseExpiry), [licenseExpiry]);
+  const dekraExpiryParsed   = useMemo(() => parseExpiry(dekraExpiry),   [dekraExpiry]);
+
+  const fieldErrors = useMemo(() => ({
+    cedula:        !cedula.trim(),
+    address:       !address.trim(),
+    facePhoto:     !facePhoto,
+    marca:         !marca.trim(),
+    modelo:        !modelo.trim(),
+    año:           !año,
+    vehicleColor:  !vehicleColor.trim(),
+    placa:         placa.length !== 6,
+    licenciaFront: !licenciaFront,
+    licenciaBack:  !licenciaBack,
+    licenseExpiry: !licenseExpiryParsed.month || !licenseExpiryParsed.year,
+    dekraPhoto:    !dekraPhoto,
+    dekraExpiry:   !dekraExpiryParsed.month || !dekraExpiryParsed.year,
+  }), [cedula, address, facePhoto, marca, modelo, año, vehicleColor, placa,
+       licenciaFront, licenciaBack, licenseExpiryParsed, dekraPhoto, dekraExpiryParsed]);
+
+  const err = (field: keyof typeof fieldErrors) => submitted && fieldErrors[field];
+
   const cameraConfig: Record<CameraTarget, { label: string; type: 'face' | 'license' | 'document' }> = {
     face:          { label: 'Foto de perfil',          type: 'face'     },
     licenciaFront: { label: 'Licencia — Lado frontal', type: 'license'  },
@@ -332,14 +358,29 @@ export default function DriverRegistrationScreen() {
   };
 
   const handleRegister = async () => {
-    if (!cedula.trim()) {
-      Alert.alert('Campos requeridos', 'Ingresá tu número de cédula.');
+    setSubmitted(true);
+
+    const missing = ([
+      [fieldErrors.cedula,        'Número de cédula'],
+      [fieldErrors.address,       'Dirección de domicilio'],
+      [fieldErrors.facePhoto,     'Foto de perfil'],
+      [fieldErrors.marca,         'Marca del vehículo'],
+      [fieldErrors.modelo,        'Modelo del vehículo'],
+      [fieldErrors.año,           'Año del vehículo'],
+      [fieldErrors.vehicleColor,  'Color del vehículo'],
+      [fieldErrors.placa,         'Placa (formato ABC123 o 123456)'],
+      [fieldErrors.licenciaFront, 'Foto frontal de licencia'],
+      [fieldErrors.licenciaBack,  'Foto trasera de licencia'],
+      [fieldErrors.licenseExpiry, 'Fecha de vencimiento de licencia'],
+      [fieldErrors.dekraPhoto,    'Foto de revisión técnica Dekra'],
+      [fieldErrors.dekraExpiry,   'Fecha de vencimiento Dekra'],
+    ] as [boolean, string][]).filter(([has]) => has).map(([, label]) => `• ${label}`);
+
+    if (missing.length > 0) {
+      Alert.alert('Campos requeridos', `Completá los siguientes campos antes de enviar:\n\n${missing.join('\n')}`);
       return;
     }
-    if (!address.trim()) {
-      Alert.alert('Campos requeridos', 'Ingresá tu dirección de domicilio.');
-      return;
-    }
+
     showLoader('Subiendo imágenes...');
     try {
       const [faceB64, frontB64, backB64, dekraB64] = await Promise.all([
@@ -350,8 +391,6 @@ export default function DriverRegistrationScreen() {
       ]);
 
       showLoader('Enviando solicitud...');
-      const { month: licM, year: licY } = parseExpiry(licenseExpiry);
-      const { month: dkM,  year: dkY  } = parseExpiry(dekraExpiry);
       const payload = {
         cedula:             cedula.trim(),
         address:            address.trim(),
@@ -360,10 +399,10 @@ export default function DriverRegistrationScreen() {
         licensePhotoFront:  frontB64,
         licensePhotoBack:   backB64,
         dekraPhoto:         dekraB64,
-        licenseExpiryMonth: licM,
-        licenseExpiryYear:  licY,
-        dekraExpiryMonth:   dkM,
-        dekraExpiryYear:    dkY,
+        licenseExpiryMonth: licenseExpiryParsed.month,
+        licenseExpiryYear:  licenseExpiryParsed.year,
+        dekraExpiryMonth:   dekraExpiryParsed.month,
+        dekraExpiryYear:    dekraExpiryParsed.year,
       };
       if (isResubmit && myApplication) {
         await resubmitApplication(myApplication.id, payload);
@@ -421,12 +460,12 @@ export default function DriverRegistrationScreen() {
                 Este nombre se verificará contra tu licencia
               </Text>
 
-              <View style={styles.inputWrap}>
+              <View style={[styles.inputWrap, err('cedula') && { borderColor: Brand.colors.alerts.error }]}>
                 <Ionicons name="card-outline" size={18} color={Brand.colors.green.normal} />
                 <TextInput
                   value={cedula}
                   onChangeText={setCedula}
-                  placeholder="Número de cédula"
+                  placeholder="Número de cédula *"
                   placeholderTextColor={colors.textPlaceholder}
                   style={styles.input}
                   keyboardType="numeric"
@@ -439,8 +478,8 @@ export default function DriverRegistrationScreen() {
                 onChangeText={setAddress}
                 onSelect={(pred) => setAddress(pred.description)}
                 leadingIcon={<Ionicons name="location-outline" size={18} color={Brand.colors.green.normal} />}
-                fieldStyle={styles.inputWrap}
-                placeholder="Dirección de domicilio"
+                fieldStyle={{ ...styles.inputWrap, ...(err('address') ? { borderColor: Brand.colors.alerts.error } : {}) }}
+                placeholder="Dirección de domicilio *"
                 placeholderTextColor={colors.textPlaceholder}
                 style={styles.input}
               />
@@ -450,13 +489,14 @@ export default function DriverRegistrationScreen() {
           {/* Foto de perfil — required for drivers, face must be clearly visible */}
           <View style={styles.cardWrap}>
             <GlassCard style={styles.card} intensity={48}>
-              <Text style={styles.sectionLabel}>Foto de perfil</Text>
+              <Text style={styles.sectionLabel}>Foto de perfil <Text style={{ color: Brand.colors.alerts.error }}>*</Text></Text>
               <PhotoPickerBtn
                 photo={facePhoto}
                 label="Tu foto de perfil"
                 sublabel="Debe mostrar tu rostro claramente"
                 onPress={() => openPhotoOptions('face')}
                 style={styles.photoBtnFull}
+                error={err('facePhoto')}
               />
             </GlassCard>
           </View>
@@ -464,16 +504,16 @@ export default function DriverRegistrationScreen() {
           {/* Vehículo */}
           <View style={styles.cardWrap}>
             <GlassCard style={styles.card} intensity={48}>
-              <Text style={styles.sectionLabel}>Vehículo</Text>
+              <Text style={styles.sectionLabel}>Vehículo <Text style={{ color: Brand.colors.alerts.error }}>*</Text></Text>
 
               {/* Marca */}
               {marcaCustom ? (
-                <View style={styles.inputWrap}>
+                <View style={[styles.inputWrap, err('marca') && { borderColor: Brand.colors.alerts.error }]}>
                   <Ionicons name="car-outline" size={18} color={Brand.colors.green.normal} />
                   <TextInput
                     value={marca}
                     onChangeText={setMarca}
-                    placeholder="Marca del vehículo"
+                    placeholder="Marca del vehículo *"
                     placeholderTextColor={colors.textPlaceholder}
                     style={styles.input}
                     autoFocus
@@ -483,12 +523,12 @@ export default function DriverRegistrationScreen() {
                   </Pressable>
                 </View>
               ) : (
-                <Pressable style={styles.dropdownBtnFull} onPress={() => setOpenPicker('marca')}>
+                <Pressable style={[styles.dropdownBtnFull, err('marca') && { borderColor: Brand.colors.alerts.error }]} onPress={() => setOpenPicker('marca')}>
                   <Ionicons name="car-outline" size={18} color={Brand.colors.green.normal} />
                   {marca ? (
                     <Text style={styles.dropdownText}>{marca}</Text>
                   ) : (
-                    <Text style={styles.dropdownPlaceholder}>Seleccionar marca</Text>
+                    <Text style={styles.dropdownPlaceholder}>Seleccionar marca *</Text>
                   )}
                   <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
                 </Pressable>
@@ -496,11 +536,11 @@ export default function DriverRegistrationScreen() {
 
               {/* Modelo */}
               {modeloCustom ? (
-                <View style={styles.inputWrap}>
+                <View style={[styles.inputWrap, err('modelo') && { borderColor: Brand.colors.alerts.error }]}>
                   <TextInput
                     value={modelo}
                     onChangeText={setModelo}
-                    placeholder="Modelo del vehículo"
+                    placeholder="Modelo del vehículo *"
                     placeholderTextColor={colors.textPlaceholder}
                     style={styles.input}
                     autoFocus
@@ -511,14 +551,14 @@ export default function DriverRegistrationScreen() {
                 </View>
               ) : (
                 <Pressable
-                  style={[styles.dropdownBtnFull, (!marca) && { opacity: 0.5 }]}
+                  style={[styles.dropdownBtnFull, (!marca) && { opacity: 0.5 }, err('modelo') && { borderColor: Brand.colors.alerts.error }]}
                   onPress={() => marca ? setOpenPicker('modelo') : undefined}
                   disabled={!marca}>
                   {modelo ? (
                     <Text style={styles.dropdownText}>{modelo}</Text>
                   ) : (
                     <Text style={styles.dropdownPlaceholder}>
-                      {marca ? 'Seleccionar modelo' : 'Selecciona primero la marca'}
+                      {marca ? 'Seleccionar modelo *' : 'Selecciona primero la marca'}
                     </Text>
                   )}
                   <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
@@ -527,21 +567,21 @@ export default function DriverRegistrationScreen() {
 
               <View style={styles.row}>
                 {/* Año */}
-                <Pressable style={styles.dropdownBtn} onPress={() => setOpenPicker('año')}>
+                <Pressable style={[styles.dropdownBtn, err('año') && { borderColor: Brand.colors.alerts.error }]} onPress={() => setOpenPicker('año')}>
                   {año ? (
                     <Text style={styles.dropdownText}>{año}</Text>
                   ) : (
-                    <Text style={styles.dropdownPlaceholder}>Año</Text>
+                    <Text style={styles.dropdownPlaceholder}>Año *</Text>
                   )}
                   <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
                 </Pressable>
 
                 {/* Color */}
-                <View style={styles.inputFlex}>
+                <View style={[styles.inputFlex, err('vehicleColor') && { borderColor: Brand.colors.alerts.error }]}>
                   <TextInput
                     value={vehicleColor}
                     onChangeText={setVehicleColor}
-                    placeholder="Color"
+                    placeholder="Color *"
                     placeholderTextColor={colors.textPlaceholder}
                     style={styles.input}
                   />
@@ -549,12 +589,12 @@ export default function DriverRegistrationScreen() {
               </View>
 
               {/* Placa ABC123 */}
-              <View style={styles.inputWrap}>
+              <View style={[styles.inputWrap, err('placa') && { borderColor: Brand.colors.alerts.error }]}>
                 <Ionicons name="document-text-outline" size={18} color={Brand.colors.green.normal} />
                 <TextInput
                   value={placa}
                   onChangeText={handlePlacaChange}
-                  placeholder="Placa (ej. ABC123 o 123456)"
+                  placeholder="Placa (ej. ABC123 o 123456) *"
                   placeholderTextColor={colors.textPlaceholder}
                   style={styles.input}
                   autoCapitalize="characters"
@@ -593,43 +633,56 @@ export default function DriverRegistrationScreen() {
           {/* Licencia */}
           <View style={styles.cardWrap}>
             <GlassCard style={styles.card} intensity={48}>
-              <Text style={styles.sectionLabel}>Licencia de conducir</Text>
+              <Text style={styles.sectionLabel}>Licencia de conducir <Text style={{ color: Brand.colors.alerts.error }}>*</Text></Text>
 
               <View style={styles.photoRow}>
                 <PhotoPickerBtn
                   photo={licenciaFront}
-                  label="Lado frontal"
+                  label="Lado frontal *"
                   sublabel="Toca para adjuntar"
                   onPress={() => openPhotoOptions('licenciaFront')}
+                  error={err('licenciaFront')}
                 />
                 <PhotoPickerBtn
                   photo={licenciaBack}
-                  label="Lado trasero"
+                  label="Lado trasero *"
                   sublabel="Toca para adjuntar"
                   onPress={() => openPhotoOptions('licenciaBack')}
+                  error={err('licenciaBack')}
                 />
               </View>
 
-              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA)</Text>
-              <ExpiryInput value={licenseExpiry} onChangeText={setLicenseExpiry} fieldStyle={styles.inputWrap} inputStyle={styles.input} />
+              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA) <Text style={{ color: Brand.colors.alerts.error }}>*</Text></Text>
+              <ExpiryInput
+                value={licenseExpiry}
+                onChangeText={setLicenseExpiry}
+                fieldStyle={{ ...styles.inputWrap, ...(err('licenseExpiry') ? { borderColor: Brand.colors.alerts.error } : {}) }}
+                inputStyle={styles.input}
+              />
             </GlassCard>
           </View>
 
           {/* Revisión técnica Dekra */}
           <View style={styles.cardWrap}>
             <GlassCard style={styles.card} intensity={48}>
-              <Text style={styles.sectionLabel}>Revisión técnica Dekra</Text>
+              <Text style={styles.sectionLabel}>Revisión técnica Dekra <Text style={{ color: Brand.colors.alerts.error }}>*</Text></Text>
 
               <PhotoPickerBtn
                 photo={dekraPhoto}
-                label="Foto de la revisión técnica"
+                label="Foto de la revisión técnica *"
                 sublabel="Toca para adjuntar"
                 onPress={() => openPhotoOptions('dekra')}
                 style={styles.photoBtnFull}
+                error={err('dekraPhoto')}
               />
 
-              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA)</Text>
-              <ExpiryInput value={dekraExpiry} onChangeText={setDekraExpiry} fieldStyle={styles.inputWrap} inputStyle={styles.input} />
+              <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Fecha de vencimiento (MM/AA) <Text style={{ color: Brand.colors.alerts.error }}>*</Text></Text>
+              <ExpiryInput
+                value={dekraExpiry}
+                onChangeText={setDekraExpiry}
+                fieldStyle={{ ...styles.inputWrap, ...(err('dekraExpiry') ? { borderColor: Brand.colors.alerts.error } : {}) }}
+                inputStyle={styles.input}
+              />
             </GlassCard>
           </View>
 

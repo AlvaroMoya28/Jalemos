@@ -15,7 +15,6 @@ using JalemosBackend.Modules.Ratings.Infrastructure;
 using JalemosBackend.Modules.Vehicles.Application;
 using JalemosBackend.Modules.Vehicles.Infrastructure;
 using JalemosBackend.Modules.Trips.Application;
-using JalemosBackend.Modules.Trips.Domain;
 using JalemosBackend.Modules.Trips.Infrastructure;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Infrastructure;
@@ -92,6 +91,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Trips module — scoped per request so each request gets its own service and repository
 builder.Services.AddScoped<ITripsService, TripsService>();
+builder.Services.AddScoped<ITripLifecycleService, TripLifecycleService>();
 builder.Services.AddScoped<TripsRepository>();
 
 // Users module

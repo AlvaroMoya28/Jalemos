@@ -27,6 +27,7 @@ import { ApplicationsProvider } from "@/contexts/applications";
 import { AuthProvider } from "@/contexts/auth";
 import { LoadingProvider } from "@/contexts/loading";
 import { TripsProvider } from "@/contexts/trips";
+import { ActiveTripProvider } from "@/contexts/active-trip";
 import { UserModeProvider } from "@/contexts/user-mode";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -72,6 +73,7 @@ export default function RootLayout() {
                 value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
               >
                 <TripsProvider>
+                  <ActiveTripProvider>
                   <LoadingProvider>
                     <Stack
                       screenOptions={{
@@ -145,6 +147,7 @@ export default function RootLayout() {
                     </Stack>
                     <StatusBar style="auto" />
                   </LoadingProvider>
+                  </ActiveTripProvider>
                 </TripsProvider>
               </ThemeProvider>
             </UserModeProvider>

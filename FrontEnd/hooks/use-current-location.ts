@@ -12,7 +12,7 @@ export function useCurrentLocation() {
   const [state, setState] = useState<LocationState>({ status: 'idle' });
   const inFlightRef = useRef(false);
 
-  const fetch = useCallback(async (): Promise<string | null> => {
+  const fetch = useCallback(async (): Promise<{ address: string; coords: { lat: number; lng: number } } | null> => {
     if (inFlightRef.current) return null;
     inFlightRef.current = true;
     setState({ status: 'loading' });
@@ -37,9 +37,10 @@ export function useCurrentLocation() {
       ].filter(Boolean);
 
       const address = parts.length > 0 ? parts.join(', ') : `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      const coords = { lat: latitude, lng: longitude };
 
-      setState({ status: 'granted', address, coords: { lat: latitude, lng: longitude } });
-      return address;
+      setState({ status: 'granted', address, coords });
+      return { address, coords };
     } catch {
       setState({ status: 'error', message: 'No se pudo obtener la ubicación' });
       return null;
