@@ -5,8 +5,9 @@
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Brand, Fonts } from '@/constants/theme';
+import { Brand } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { styles } from './styles/glass-alert.styles';
 
 interface GlassAlertProps {
   visible: boolean;
@@ -57,7 +58,7 @@ export default function GlassAlert({
         tint={isDark ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}
       >
-        <Pressable style={s.backdrop} onPress={dismissible ? onDismiss : undefined}>
+        <Pressable style={styles.backdrop} onPress={dismissible ? onDismiss : undefined}>
 
           {/* ── Glass card with its own blur ── */}
           <Pressable onPress={() => {/* swallow tap so backdrop doesn't close */}}>
@@ -65,7 +66,7 @@ export default function GlassAlert({
               intensity={isDark ? 80 : 60}
               tint={isDark ? 'dark' : 'extraLight'}
               style={[
-                s.card,
+                styles.card,
                 {
                   backgroundColor: cardBg,
                   borderColor: rimColor,
@@ -76,37 +77,37 @@ export default function GlassAlert({
               ]}
             >
               {/* Top rim highlight — simulates glass edge refraction */}
-              <View style={[s.rimHighlight, { backgroundColor: rimColor }]} />
+              <View style={[styles.rimHighlight, { backgroundColor: rimColor }]} />
 
               {/* Icon */}
-              <Ionicons name={icon} size={52} color={ic} style={{ marginBottom: 6 }} />
+              <Ionicons name={icon} size={52} color={ic} style={styles.iconMargin} />
 
               {/* Title */}
-              <Text style={[s.title, { color: textPrim }]}>{title}</Text>
+              <Text style={[styles.title, { color: textPrim }]}>{title}</Text>
 
               {/* Body */}
-              <Text style={[s.body, { color: textSec }]}>{body}</Text>
+              <Text style={[styles.body, { color: textSec }]}>{body}</Text>
 
               {/* Actions */}
-              <View style={s.actions}>
+              <View style={styles.actions}>
                 {secondaryLabel && (
                   <Pressable
-                    style={[s.btn, { backgroundColor: btnSecBg, borderColor: rimColor, borderWidth: 1 }]}
+                    style={[styles.btn, { backgroundColor: btnSecBg, borderColor: rimColor, borderWidth: 1 }]}
                     onPress={handleSecondary}
                   >
-                    <Text style={[s.btnText, { color: btnSecText }]}>{secondaryLabel}</Text>
+                    <Text style={[styles.btnText, { color: btnSecText }]}>{secondaryLabel}</Text>
                   </Pressable>
                 )}
                 <Pressable
-                  style={[s.btn, { backgroundColor: ic }]}
+                  style={[styles.btn, { backgroundColor: ic }]}
                   onPress={handlePrimary}
                 >
-                  <Text style={[s.btnText, { color: '#fff' }]}>{primaryLabel}</Text>
+                  <Text style={[styles.btnText, { color: '#fff' }]}>{primaryLabel}</Text>
                 </Pressable>
               </View>
 
               {/* Bottom rim — subtler */}
-              <View style={[s.rimBottom, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.35)' }]} />
+              <View style={[styles.rimBottom, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.35)' }]} />
             </BlurView>
           </Pressable>
         </Pressable>
@@ -115,74 +116,3 @@ export default function GlassAlert({
   );
 }
 
-const s = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 26,
-  },
-  card: {
-    width: '100%',
-    borderRadius: 28,
-    overflow: 'hidden',
-    borderWidth: 1,
-    paddingHorizontal: 26,
-    paddingTop: 32,
-    paddingBottom: 26,
-    alignItems: 'center',
-    gap: 0,
-    // Shadow / glow
-    shadowOffset: { width: 0, height: 16 },
-    shadowRadius: 40,
-    elevation: 20,
-  },
-  // Thin top rim that catches light — key glassmorphism detail
-  rimHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1.5,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-  },
-  rimBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  title: {
-    fontFamily: Fonts.headingHeavy,
-    fontSize: 20,
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 10,
-  },
-  body: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 26,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-  btn: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnText: {
-    fontFamily: Fonts.headingBold,
-    fontSize: 14,
-  },
-});

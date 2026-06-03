@@ -18,9 +18,10 @@ import {
   View,
 } from 'react-native';
 
-import { Brand, Fonts } from '@/constants/theme';
+import { Brand } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCurrentLocation } from '@/hooks/use-current-location';
+import { styles as s } from './styles/place-search-input.styles';
 
 const PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? '';
 
@@ -227,7 +228,7 @@ export default function PlaceSearchInput({
                 style={[s.item, { backgroundColor: colors.inputBg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
                 onPress={handleSelectLocation}
               >
-                <Ionicons name="navigate" size={14} color={Brand.colors.green.dark} style={{ marginTop: 2 }} />
+                <Ionicons name="navigate" size={14} color={Brand.colors.green.dark} style={s.iconTopOffset} />
                 <View style={s.itemTexts}>
                   <Text style={[s.mainText, { color: Brand.colors.green.dark }]} numberOfLines={1}>
                     Mi ubicación actual
@@ -248,7 +249,7 @@ export default function PlaceSearchInput({
                 ]}
                 onPress={() => handleSelect(pred)}
               >
-                <Ionicons name="location-outline" size={14} color={Brand.colors.green.normal} style={{ marginTop: 2 }} />
+                <Ionicons name="location-outline" size={14} color={Brand.colors.green.normal} style={s.iconTopOffset} />
                 <View style={s.itemTexts}>
                   <Text style={[s.mainText, { color: colors.textPrimary }]} numberOfLines={1}>{pred.mainText}</Text>
                   {pred.secondaryText ? (
@@ -264,49 +265,3 @@ export default function PlaceSearchInput({
   );
 }
 
-const s = StyleSheet.create({
-  field: {
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: Fonts.heading,
-  },
-  // Dropdown is absolutely positioned within the Modal at the measured screen coords
-  dropdown: {
-    position: 'absolute',
-    borderRadius: Brand.radius[12],
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-  },
-  locationItem: {},
-  itemTexts: {
-    flex: 1,
-    gap: 1,
-  },
-  mainText: {
-    fontFamily: Fonts.heading,
-    fontSize: 13,
-  },
-  secondaryText: {
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-  },
-});

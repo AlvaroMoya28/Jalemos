@@ -14,6 +14,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -26,10 +27,10 @@ import { AdminUsersProvider } from "@/contexts/admin-users";
 import { ApplicationsProvider } from "@/contexts/applications";
 import { AuthProvider } from "@/contexts/auth";
 import { LoadingProvider } from "@/contexts/loading";
-import { TripsProvider } from "@/contexts/trips";
 import { ActiveTripProvider } from "@/contexts/active-trip";
 import { UserModeProvider } from "@/contexts/user-mode";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { styles } from "../styles/app/_layout.styles";
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
 export const unstable_settings = {
@@ -43,6 +44,15 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   // Load all Poppins weight variants used throughout the app
+  useAssets([
+    require('../assets/images/hero-banner.jpg'),
+    require('../assets/images/hero-banner-dark.jpg'),
+    require('../assets/images/tropical-bg.jpg'),
+    require('../assets/images/tropical-bg-dark.jpg'),
+    require('../assets/images/jalemos-loader-car.png'),
+    require('../assets/images/jalemos-logo2.png'),
+  ]);
+
   const [loaded, error] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -64,7 +74,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.root}>
       <AuthProvider>
         <ApplicationsProvider>
           <AdminUsersProvider>
@@ -72,7 +82,6 @@ export default function RootLayout() {
               <ThemeProvider
                 value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
               >
-                <TripsProvider>
                   <ActiveTripProvider>
                   <LoadingProvider>
                     <Stack
@@ -148,7 +157,6 @@ export default function RootLayout() {
                     <StatusBar style="auto" />
                   </LoadingProvider>
                   </ActiveTripProvider>
-                </TripsProvider>
               </ThemeProvider>
             </UserModeProvider>
           </AdminUsersProvider>
