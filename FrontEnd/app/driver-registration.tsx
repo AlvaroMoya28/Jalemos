@@ -201,7 +201,7 @@ export default function DriverRegistrationScreen() {
   const [cedula, setCedula]   = useState(myApplication?.cedula ?? '');
   const [address, setAddress] = useState(myApplication?.address ?? '');
 
-  // Vehicle form fields — marca/modelo/año use dropdown pickers; placa enforces ABC123 format
+  // Vehicle form fields — make/model/year use dropdown pickers; plate enforces ABC123 format
   const [marca, setMarca] = useState(myApplication?.vehicle.brand ?? '');
   const [modelo, setModelo] = useState(myApplication?.vehicle.model ?? '');
   const [año, setAño] = useState(myApplication?.vehicle.year ?? '');

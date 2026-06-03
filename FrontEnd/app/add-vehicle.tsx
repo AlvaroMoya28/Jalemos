@@ -1,7 +1,7 @@
 // Formulario para que un conductor registrado solicite agregar un vehículo adicional.
 // El admin recibe la solicitud igual que una de conductor, pero con badge "Nuevo vehículo".
 // Al aprobarse se crea el vehículo directo en la tabla vehicles sin cambiar el rol del usuario.
-// Updated by Claude Sonnet 4.6: dropdowns para marca/modelo/año, formato ABC123 en placa.
+// Updated by Claude Sonnet 4.6: make/model/year dropdowns, ABC123 plate format enforcement.
 
 import GlassCard from '@/components/glass-card';
 import SelectModal from '@/components/select-modal';
