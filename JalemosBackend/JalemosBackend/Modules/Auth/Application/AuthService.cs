@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Auth.Application.DTOs;
 using JalemosBackend.Modules.Users.Domain;
-using JalemosBackend.Modules.Users.Infrastructure.Entities;
+using JalemosBackend.Modules.Users.Infrastructure;
 
 namespace JalemosBackend.Modules.Auth.Application
 {
