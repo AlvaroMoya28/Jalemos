@@ -144,7 +144,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
     {/* Bubble is inside tabs layout so it never renders on login/register screens */}
     <ActiveTripBubble />
