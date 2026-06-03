@@ -118,6 +118,7 @@ export interface DriverApplicationDTO {
   applicantName: string | null;
   applicantEmail: string | null;
   applicantAvatar: string | null;
+  cooldownUntil: string | null;
 }
 
 export interface SubmitApplicationPayload {
@@ -320,6 +321,9 @@ export const applicationsApi = {
 
   reject: (id: string, payload: ReviewActionPayload, token: string) =>
     patch<void>(`/api/driver-applications/${id}/reject`, payload, token),
+
+  liftCooldown: (id: string, token: string) =>
+    patch<void>(`/api/driver-applications/${id}/lift-cooldown`, {}, token),
 
   submitVehicle: (payload: SubmitVehicleApplicationPayload, token: string) =>
     post<DriverApplicationDTO>('/api/driver-applications/vehicle', payload, token),

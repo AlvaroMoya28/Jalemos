@@ -213,7 +213,7 @@ export default function ApplicationDetailScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { applications, setUnderReview, requestCorrection, approveApplication, rejectApplication } = useApplications();
+  const { applications, setUnderReview, requestCorrection, approveApplication, rejectApplication, liftCooldown } = useApplications();
 
   const app = useMemo(
     () => applications.find((a) => a.id === (Array.isArray(id) ? id[0] : id)),
@@ -225,6 +225,7 @@ export default function ApplicationDetailScreen() {
   const [viewerPhoto, setViewerPhoto] = useState<{ url: string; label: string } | null>(null);
 
   const isEditable = app?.status === 'pending' || app?.status === 'under_review' || app?.status === 'needs_correction';
+  const hasCooldown = app?.status === 'rejected' && !!app.cooldownUntil;
 
   const toggleIssue = (issueId: string) => {
     setSelectedIssues((prev) =>
@@ -265,6 +266,24 @@ export default function ApplicationDetailScreen() {
           onPress: async () => {
             try { await approveApplication(app.id); router.back(); }
             catch (err: any) { Alert.alert('Error', err?.message ?? 'No se pudo aprobar.'); }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLiftCooldown = () => {
+    if (!app) return;
+    Alert.alert(
+      'Levantar cooldown',
+      `¿Permitir que ${app.applicantName} envíe una nueva solicitud de conductor sin esperar los 3 días?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Levantar', style: 'default',
+          onPress: async () => {
+            try { await liftCooldown(app.id); }
+            catch (err: any) { Alert.alert('Error', err?.message ?? 'No se pudo levantar el cooldown.'); }
           },
         },
       ]
@@ -573,7 +592,15 @@ export default function ApplicationDetailScreen() {
         )}
 
         {!isEditable && (
-          <Animated.View entering={FadeInDown.duration(200).delay(200)}>
+          <Animated.View entering={FadeInDown.duration(200).delay(200)} style={{ gap: 10 }}>
+            {hasCooldown && (
+              <AnimatedPressable pressedScale={0.98} onPress={handleLiftCooldown}>
+                <View style={[styles.btnWarning, { flexDirection: 'row', gap: 8, justifyContent: 'center' }]}>
+                  <Ionicons name="timer-outline" size={17} color="#fff" />
+                  <Text style={styles.btnWarningText}>Levantar cooldown</Text>
+                </View>
+              </AnimatedPressable>
+            )}
             <Pressable style={styles.btnSecondary} onPress={() => router.back()}>
               <Text style={styles.btnSecondaryText}>Volver a solicitudes</Text>
             </Pressable>

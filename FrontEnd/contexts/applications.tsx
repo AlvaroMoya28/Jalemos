@@ -38,6 +38,7 @@ export interface DriverApplication {
   dekraExpiryMonth: number | null;
   dekraExpiryYear: number | null;
   isRenewal: boolean;
+  cooldownUntil?: string;
   adminFeedback?: { issueIds: string[]; notes: string; reviewedAt: string };
 }
 
@@ -88,6 +89,7 @@ function fromDTO(dto: DriverApplicationDTO): DriverApplication {
     dekraExpiryMonth:    dto.dekraExpiryMonth ?? null,
     dekraExpiryYear:     dto.dekraExpiryYear ?? null,
     isRenewal:           dto.isRenewal ?? false,
+    cooldownUntil:       dto.cooldownUntil ?? undefined,
     adminFeedback: dto.adminIssueIds
       ? { issueIds: dto.adminIssueIds, notes: dto.adminNotes ?? '', reviewedAt: dto.reviewedAt ?? '' }
       : undefined,
@@ -115,6 +117,7 @@ interface ApplicationsContextType {
   requestCorrection: (id: string, issueIds: string[], notes: string) => Promise<void>;
   approveApplication: (id: string) => Promise<void>;
   rejectApplication: (id: string, issueIds: string[], notes: string) => Promise<void>;
+  liftCooldown: (id: string) => Promise<void>;
 
   // Admin-facing — reports (mock until backend is built)
   reports: UserReport[];
@@ -139,6 +142,7 @@ const ApplicationsContext = createContext<ApplicationsContextType>({
   requestCorrection:       async () => {},
   approveApplication:      async () => {},
   rejectApplication:       async () => {},
+  liftCooldown:            async () => {},
   reports:                 [],
   suspendUserFromReport:   () => {},
   deactivateUserFromReport: () => {},
@@ -278,7 +282,13 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
     optimisticUpdate(id, {
       status: 'rejected',
       adminFeedback: { issueIds, notes, reviewedAt: new Date().toISOString() },
+      cooldownUntil: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     });
+  };
+
+  const liftCooldown = async (id: string) => {
+    await applicationsApi.liftCooldown(id, requireToken());
+    optimisticUpdate(id, { cooldownUntil: undefined });
   };
 
   const resolveReport = (reportId: string, action: UserReport['adminAction']) => {
@@ -312,6 +322,7 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
       requestCorrection,
       approveApplication,
       rejectApplication,
+      liftCooldown,
       reports,
       suspendUserFromReport,
       deactivateUserFromReport,

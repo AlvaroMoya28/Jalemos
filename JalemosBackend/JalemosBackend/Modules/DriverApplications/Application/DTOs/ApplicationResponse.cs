@@ -29,5 +29,6 @@ public sealed record ApplicationResponse(
     string    UpdatedAt,
     string?   ApplicantName,
     string?   ApplicantEmail,
-    string?   ApplicantAvatar
+    string?   ApplicantAvatar,
+    string?   CooldownUntil
 );
