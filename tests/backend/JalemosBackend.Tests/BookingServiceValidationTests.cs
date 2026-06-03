@@ -12,7 +12,8 @@ public class BookingServiceValidationTests
         var opts = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new BookingsService(new BookingsRepository(new ApplicationDbContext(opts)));
+        var db = new ApplicationDbContext(opts);
+        return new BookingsService(new BookingsRepository(db), db);
     }
 
     [Fact]
