@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Bookings.Application;
+using JalemosBackend.Modules.Bookings.Application.DTOs;
 using JalemosBackend.Modules.Bookings.Infrastructure;
 
 namespace JalemosBackend.Tests;
