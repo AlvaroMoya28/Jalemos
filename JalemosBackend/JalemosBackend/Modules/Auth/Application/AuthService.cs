@@ -62,6 +62,7 @@ namespace JalemosBackend.Modules.Auth.Application
                 FirstName    = dto.FirstName.Trim(),
                 LastName     = dto.LastName.Trim(),
                 Role         = UserRole.passenger,
+                IsActive     = true,
                 CreatedAt    = DateTime.UtcNow,
                 UpdatedAt    = DateTime.UtcNow,
             };
