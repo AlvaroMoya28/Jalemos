@@ -14,6 +14,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -43,6 +44,15 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   // Load all Poppins weight variants used throughout the app
+  useAssets([
+    require('../assets/images/hero-banner.jpg'),
+    require('../assets/images/hero-banner-dark.jpg'),
+    require('../assets/images/tropical-bg.jpg'),
+    require('../assets/images/tropical-bg-dark.jpg'),
+    require('../assets/images/jalemos-loader-car.png'),
+    require('../assets/images/jalemos-logo2.png'),
+  ]);
+
   const [loaded, error] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
