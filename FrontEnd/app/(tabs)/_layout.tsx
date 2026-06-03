@@ -19,6 +19,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import ActiveTripBubble from '@/components/active-trip-bubble';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { styles } from '../../styles/tabs/_layout.styles';
 
 export default function TabLayout() {
   const { colors } = useAppTheme();
@@ -42,7 +43,7 @@ export default function TabLayout() {
 
   if (Platform.OS === 'ios') {
     return (
-      <View style={{ flex: 1 }}>
+      <View style={styles.root}>
         <NativeTabs
           blurEffect="systemDefault"
           minimizeBehavior="automatic"
@@ -68,7 +69,7 @@ export default function TabLayout() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.root}>
     <Tabs
       screenListeners={{
         tabPress: () => {
@@ -143,7 +144,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
     {/* Bubble is inside tabs layout so it never renders on login/register screens */}
     <ActiveTripBubble />

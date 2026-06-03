@@ -9,7 +9,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -17,7 +16,7 @@ import Animated, { FadeInDown, SlideInDown, SlideOutDown } from 'react-native-re
 
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
-import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { Brand } from '@/constants/theme';
 import {
   UserReport,
   ReportStatus,
@@ -25,6 +24,7 @@ import {
 } from '@/constants/mock-reports';
 import { useApplications } from '@/contexts/applications';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { resolvedLabelInline, metaDotInline, sheetReasonCard, makeStyles } from '../../styles/tabs/admin-reports.styles';
 
 type Filter = 'all' | ReportStatus;
 
@@ -45,103 +45,6 @@ const SUSPENSION_OPTIONS = [
   { days: 30, label: '30 días' },
 ];
 
-function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.screenBg },
-    heroHeader: {
-      paddingHorizontal: Brand.grid.margin,
-      paddingTop: 58, paddingBottom: 14,
-    },
-    heroMini: { color: Brand.colors.green.light, fontSize: 13, fontFamily: Fonts.heading },
-    heroTitle: { color: Brand.colors.black.b1, fontSize: 28, fontFamily: Fonts.headingHeavy },
-    surface: {
-      backgroundColor: c.bottomSurface,
-      borderTopLeftRadius: Brand.radius[24],
-      borderTopRightRadius: Brand.radius[24],
-      flex: 1,
-    },
-    scrollContent: { paddingTop: 16, paddingBottom: 40 },
-    chipsRow: {
-      flexDirection: 'row', flexWrap: 'wrap', gap: 8,
-      paddingHorizontal: Brand.grid.margin, paddingBottom: 14,
-    },
-    filterChip: {
-      borderRadius: 999, borderWidth: 1,
-      paddingHorizontal: 12, paddingVertical: 6,
-      overflow: 'hidden',
-    },
-    filterChipText: { fontSize: 12, fontFamily: Fonts.heading },
-    list: { paddingHorizontal: Brand.grid.margin, gap: 10 },
-    card: { borderRadius: Brand.radius[16], padding: Brand.spacing[16], gap: 10 },
-    cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-    avatar: {
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: Brand.colors.green.light,
-      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    },
-    avatarText: { fontSize: 14, color: Brand.colors.green.darker, fontFamily: Fonts.headingBold },
-    cardInfo: { flex: 1 },
-    reportedName: { fontSize: 14, color: c.textPrimary, fontFamily: Fonts.headingBold },
-    reportedRole: { fontSize: 11, color: c.textMuted, fontFamily: Fonts.sans, marginTop: 1 },
-    reasonBadge: {
-      borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
-      borderWidth: 1,
-    },
-    reasonText: { fontSize: 11, fontFamily: Fonts.headingBold },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.border },
-    detailsText: {
-      fontSize: 12, color: c.textSecondary,
-      fontFamily: Fonts.sans, lineHeight: 17,
-    },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-    metaText: { fontSize: 11, color: c.textMuted, fontFamily: Fonts.sans },
-    resolvedBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
-    },
-    resolvedText: { fontSize: 11, fontFamily: Fonts.headingBold },
-    emptyState: { alignItems: 'center', paddingVertical: 40, gap: 10 },
-    emptyText: { color: c.textMuted, fontFamily: Fonts.heading, fontSize: 14 },
-    // Action sheet
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    sheet: {
-      backgroundColor: c.surface,
-      borderTopLeftRadius: Brand.radius[24],
-      borderTopRightRadius: Brand.radius[24],
-      paddingHorizontal: Brand.grid.margin,
-      paddingTop: 16,
-      paddingBottom: 32,
-      gap: 14,
-    },
-    sheetHandle: {
-      width: 40, height: 4, borderRadius: 2,
-      backgroundColor: c.border, alignSelf: 'center', marginBottom: 4,
-    },
-    sheetTitle: { fontSize: 16, color: c.textPrimary, fontFamily: Fonts.headingBold, textAlign: 'center' },
-    sheetReported: { fontSize: 13, color: c.textMuted, fontFamily: Fonts.sans, textAlign: 'center', marginTop: -6 },
-    sheetSection: { fontSize: 11, color: c.textMuted, fontFamily: Fonts.headingBold, textTransform: 'uppercase' },
-    suspensionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-    suspensionChip: {
-      flex: 1, minWidth: 70,
-      borderRadius: 999, borderWidth: 1,
-      borderColor: '#ff7c2a55', backgroundColor: '#ff7c2a18',
-      alignItems: 'center', paddingVertical: 10,
-    },
-    suspensionChipText: { color: '#ff7c2a', fontFamily: Fonts.headingBold, fontSize: 13 },
-    btnDeactivate: {
-      borderRadius: 999, backgroundColor: Brand.colors.alerts.error,
-      alignItems: 'center', paddingVertical: 13,
-    },
-    btnDeactivateText: { color: '#fff', fontFamily: Fonts.headingBold, fontSize: 14 },
-    btnDismiss: {
-      borderRadius: 999, borderWidth: 1,
-      borderColor: c.border, backgroundColor: c.surfaceAlt,
-      alignItems: 'center', paddingVertical: 13,
-    },
-    btnDismissText: { color: c.textSecondary, fontFamily: Fonts.heading, fontSize: 14 },
-  });
-}
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
@@ -154,10 +57,11 @@ function ResolvedLabel({ report }: { report: UserReport }) {
     dismissed:   { label: 'Desestimado', color: Brand.colors.black.b6 },
   }[report.adminAction.type];
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: config.color + '22', borderRadius: 999, borderWidth: 1,
-      borderColor: config.color + '55', paddingHorizontal: 8, paddingVertical: 3 }}>
-      <Text style={{ fontSize: 11, fontFamily: Fonts.headingBold, color: config.color }}>{config.label}</Text>
+    <View style={[resolvedLabelInline.container, {
+      backgroundColor: config.color + '22',
+      borderColor: config.color + '55',
+    }]}>
+      <Text style={[resolvedLabelInline.text, { color: config.color }]}>{config.label}</Text>
     </View>
   );
 }
@@ -290,8 +194,8 @@ export default function AdminReportsScreen() {
                         <Text style={styles.metaText}>{formatDate(report.createdAt)}</Text>
                         {!isPending && <ResolvedLabel report={report} />}
                         {isPending && (
-                          <View style={{ marginLeft: 'auto' }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <View style={metaDotInline.pendingActionsContainer}>
+                            <View style={metaDotInline.pendingActionsRow}>
                               <Text style={[styles.metaText, { color: Brand.colors.green.normal }]}>Ver acciones</Text>
                               <Ionicons name="chevron-forward" size={12} color={Brand.colors.green.normal} />
                             </View>
@@ -326,14 +230,14 @@ export default function AdminReportsScreen() {
             <Text style={styles.sheetReported}>{selectedReport?.reportedUserName}</Text>
 
             {/* Reason summary */}
-            <GlassCard style={{ borderRadius: Brand.radius[12], padding: 12, gap: 4 }} intensity={28}>
-              <Text style={{ fontSize: 12, color: colors.textMuted, fontFamily: Fonts.headingBold, textTransform: 'uppercase' }}>
+            <GlassCard style={sheetReasonCard.card} intensity={28}>
+              <Text style={[sheetReasonCard.reasonLabel, { color: colors.textMuted }]}>
                 Motivo del reporte
               </Text>
-              <Text style={{ fontSize: 13, color: colors.textPrimary, fontFamily: Fonts.heading }}>
+              <Text style={[sheetReasonCard.reasonValue, { color: colors.textPrimary }]}>
                 {selectedReport ? REPORT_REASON_LABELS[selectedReport.reason] : ''}
               </Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: Fonts.sans, lineHeight: 17, marginTop: 2 }}
+              <Text style={[sheetReasonCard.reasonDetails, { color: colors.textSecondary }]}
                 numberOfLines={3}>
                 {selectedReport?.details}
               </Text>

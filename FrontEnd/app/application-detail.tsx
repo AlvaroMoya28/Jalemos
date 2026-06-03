@@ -11,7 +11,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -21,10 +20,11 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
-import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { ApplicationStatus, useApplications } from '@/contexts/applications';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { makeStyles } from '../styles/app/application-detail.styles';
 
 const STATUS_LABELS: Record<ApplicationStatus, { label: string; color: string }> = {
   pending:          { label: 'Pendiente',          color: '#f7a900' },
@@ -122,90 +122,6 @@ function PhotoViewer({ url, label, onClose }: { url: string; label: string; onCl
   );
 }
 
-function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.screenBg },
-    header: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: Brand.grid.margin, paddingVertical: 12,
-      backgroundColor: c.screenBg,
-    },
-    backBtn: {
-      width: 38, height: 38, borderRadius: 19,
-      backgroundColor: c.surface,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: c.border,
-      ...withElevation(100),
-    },
-    headerTitle: {
-      flex: 1, textAlign: 'center',
-      color: c.textPrimary, fontFamily: Fonts.headingBold, fontSize: 16,
-    },
-    statusBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
-      borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1,
-    },
-    content: { paddingHorizontal: Brand.grid.margin, paddingBottom: 32, gap: 14 },
-    card: { borderRadius: Brand.radius[16], padding: Brand.spacing[16], gap: 12 },
-    sectionLabel: {
-      fontSize: 11, color: c.textMuted,
-      fontFamily: Fonts.headingBold, textTransform: 'uppercase',
-    },
-    infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-    infoCell: { flex: 1 },
-    infoKey: { fontSize: 10, color: c.textMuted, fontFamily: Fonts.sans, textTransform: 'uppercase', marginBottom: 2 },
-    infoValue: { fontSize: 13, color: c.textPrimary, fontFamily: Fonts.heading },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.border },
-    photosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    issueItem: {
-      flexDirection: 'row', alignItems: 'center', gap: 10,
-      paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border,
-    },
-    issueText: { flex: 1, fontSize: 13, color: c.textSecondary, fontFamily: Fonts.sans },
-    checkbox: {
-      width: 22, height: 22, borderRadius: 6, borderWidth: 2,
-      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    },
-    notesInput: {
-      borderRadius: Brand.radius[12], borderWidth: 1,
-      borderColor: c.border, backgroundColor: c.inputBg,
-      paddingHorizontal: 12, paddingVertical: 10,
-      fontSize: 13, color: c.inputText, fontFamily: Fonts.sans,
-      minHeight: 80, textAlignVertical: 'top',
-    },
-    actionRow: { gap: 10 },
-    btnPrimary: {
-      borderRadius: 999, backgroundColor: Brand.colors.green.normal,
-      alignItems: 'center', paddingVertical: 13,
-    },
-    btnPrimaryText: { color: '#fff', fontFamily: Fonts.headingBold, fontSize: 14 },
-    btnWarning: {
-      borderRadius: 999, backgroundColor: '#ff7c2a',
-      alignItems: 'center', paddingVertical: 13,
-    },
-    btnWarningText: { color: '#fff', fontFamily: Fonts.headingBold, fontSize: 14 },
-    btnDanger: {
-      borderRadius: 999,
-      borderWidth: 1, borderColor: Brand.colors.alerts.error,
-      backgroundColor: Brand.colors.alerts.error + '18',
-      alignItems: 'center', paddingVertical: 13,
-    },
-    btnDangerText: { color: Brand.colors.alerts.error, fontFamily: Fonts.headingBold, fontSize: 14 },
-    btnSecondary: {
-      borderRadius: 999, borderWidth: 1,
-      borderColor: c.border, backgroundColor: c.surfaceAlt,
-      alignItems: 'center', paddingVertical: 13,
-    },
-    btnSecondaryText: { color: c.textSecondary, fontFamily: Fonts.heading, fontSize: 14 },
-    // Previous feedback
-    feedbackBox: {
-      borderRadius: Brand.radius[12], padding: 12, gap: 6,
-      backgroundColor: '#ff7c2a18', borderWidth: 1, borderColor: '#ff7c2a44',
-    },
-    feedbackTitle: { fontSize: 12, color: '#ff7c2a', fontFamily: Fonts.headingBold },
-    feedbackText: { fontSize: 12, color: c.textSecondary, fontFamily: Fonts.sans, lineHeight: 18 },
-  });
-}
 
 export default function ApplicationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

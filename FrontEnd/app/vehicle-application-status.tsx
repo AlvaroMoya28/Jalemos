@@ -2,7 +2,7 @@
 // de vehículo adicional (pending → under_review → approved / rejected / needs_correction).
 
 import GlassCard from '@/components/glass-card';
-import { Brand, Fonts, withElevation } from '@/constants/theme';
+import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { DriverApplication, useApplications } from '@/contexts/applications';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -12,12 +12,12 @@ import { useMemo } from 'react';
 import {
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { stepStyles, makeStyles } from '../styles/app/vehicle-application-status.styles';
 
 type StepState = 'done' | 'active' | 'pending' | 'error';
 
@@ -37,36 +37,29 @@ function PipelineStep({ state, label, sublabel, isLast = false, colors }: {
   const lineColor = state === 'done' ? Brand.colors.green.normal : colors.border;
 
   return (
-    <View style={{ flexDirection: 'row', gap: 14 }}>
-      <View style={{ alignItems: 'center', width: 28 }}>
-        <View style={[step.dot, { borderColor: dotColor, backgroundColor: state === 'pending' ? 'transparent' : dotColor }]}>
+    <View style={stepStyles.stepRow}>
+      <View style={stepStyles.dotColumn}>
+        <View style={[stepStyles.dot, { borderColor: dotColor, backgroundColor: state === 'pending' ? 'transparent' : dotColor }]}>
           {state === 'done'   && <Ionicons name="checkmark" size={13} color="#fff" />}
-          {state === 'active' && <View style={step.pulse} />}
+          {state === 'active' && <View style={stepStyles.pulse} />}
           {state === 'error'  && <Ionicons name="close" size={13} color="#fff" />}
         </View>
-        {!isLast && <View style={[step.line, { backgroundColor: lineColor }]} />}
+        {!isLast && <View style={[stepStyles.line, { backgroundColor: lineColor }]} />}
       </View>
-      <View style={{ flex: 1, paddingBottom: isLast ? 0 : 28, paddingTop: 2 }}>
-        <Text style={[step.label, {
+      <View style={[stepStyles.textColumn, { paddingBottom: isLast ? 0 : 28 }]}>
+        <Text style={[stepStyles.label, {
           color: state === 'pending' ? colors.textMuted :
                  state === 'error'   ? Brand.colors.alerts.error :
                  colors.textPrimary,
         }]}>{label}</Text>
-        {sublabel && <Text style={[step.sub, { color: colors.textMuted }]}>{sublabel}</Text>}
+        {sublabel && <Text style={[stepStyles.sub, { color: colors.textMuted }]}>{sublabel}</Text>}
       </View>
     </View>
   );
 }
 
-const step = StyleSheet.create({
-  dot:   { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  pulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
-  line:  { flex: 1, width: 2, minHeight: 16, marginTop: 4 },
-  label: { fontSize: 14, fontFamily: Fonts.headingBold },
-  sub:   { fontSize: 12, fontFamily: Fonts.sans, marginTop: 3, lineHeight: 17 },
-});
 
-function stepsFromApp(app: DriverApplication, colors: ReturnType<typeof useAppTheme>['colors']): Array<{ state: StepState; label: string; sublabel?: string; isLast?: boolean }> {
+function stepsFromApp(app: DriverApplication, colors: ReturnType<typeof useAppTheme>['colors']): { state: StepState; label: string; sublabel?: string; isLast?: boolean }[] {
   const s = app.status;
   const submitted:      StepState = 'done';
   const underReview:    StepState = s === 'pending' ? 'pending' : s === 'approved' || s === 'rejected' ? 'done' : 'active';
@@ -91,29 +84,6 @@ function stepsFromApp(app: DriverApplication, colors: ReturnType<typeof useAppTh
   ];
 }
 
-function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
-  return StyleSheet.create({
-    container:   { flex: 1, backgroundColor: c.screenBg },
-    header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Brand.grid.margin, paddingVertical: 12, backgroundColor: c.screenBg },
-    backBtn:     { width: 38, height: 38, borderRadius: 19, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border, ...withElevation(100) },
-    headerTitle: { flex: 1, textAlign: 'center', color: c.textPrimary, fontFamily: Fonts.headingBold, fontSize: 16 },
-    content:     { paddingHorizontal: Brand.grid.margin, paddingBottom: 32, gap: 14 },
-    card:        { borderRadius: Brand.radius[16], padding: Brand.spacing[16], gap: 12 },
-    label:       { fontSize: 11, color: c.textMuted, fontFamily: Fonts.headingBold, textTransform: 'uppercase' },
-    infoRow:     { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-    infoCell:    { flex: 1 },
-    infoKey:     { fontSize: 10, color: c.textMuted, fontFamily: Fonts.sans, textTransform: 'uppercase', marginBottom: 2 },
-    infoValue:   { fontSize: 13, color: c.textPrimary, fontFamily: Fonts.heading },
-    feedbackBox: { borderRadius: Brand.radius[12], padding: 12, gap: 6, backgroundColor: '#ff7c2a18', borderWidth: 1, borderColor: '#ff7c2a44' },
-    feedbackTitle: { fontSize: 12, color: '#ff7c2a', fontFamily: Fonts.headingBold },
-    feedbackText:  { fontSize: 12, color: c.textSecondary, fontFamily: Fonts.sans, lineHeight: 18 },
-    resubmitBtn: { borderRadius: 999, backgroundColor: Brand.colors.green.normal, alignItems: 'center', paddingVertical: 13 },
-    resubmitText: { color: '#fff', fontFamily: Fonts.headingBold, fontSize: 14 },
-    backBtnFull: { borderRadius: 999, borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceAlt, alignItems: 'center', paddingVertical: 13 },
-    backBtnFullText: { color: c.textSecondary, fontFamily: Fonts.heading, fontSize: 14 },
-  });
-}
-
 export default function VehicleApplicationStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -130,7 +100,7 @@ export default function VehicleApplicationStatusScreen() {
   if (!app) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ color: colors.textMuted, fontFamily: Fonts.heading, fontSize: 14 }}>Solicitud no encontrada</Text>
+        <Text style={[stepStyles.notFoundText, { color: colors.textMuted, fontFamily: Fonts.heading }]}>Solicitud no encontrada</Text>
       </View>
     );
   }
@@ -144,7 +114,7 @@ export default function VehicleApplicationStatusScreen() {
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Estado del vehículo</Text>
-        <View style={{ width: 38 }} />
+        <View style={stepStyles.spacerRight} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

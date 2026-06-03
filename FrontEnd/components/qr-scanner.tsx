@@ -20,7 +20,7 @@ export default function QrScanner({ visible, onScan, onClose }: Props) {
 
   useEffect(() => {
     if (visible && !permission?.granted) requestPermission();
-  }, [visible]);
+  }, [visible, permission?.granted, requestPermission]);
 
   useEffect(() => {
     if (!visible) setScanned(false);

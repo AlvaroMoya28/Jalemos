@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { styles, infoRowStyles } from './styles/active-trip-bubble.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -58,7 +59,7 @@ export default function ActiveTripBubble() {
     );
     anim.start();
     return () => anim.stop();
-  }, []);
+  }, [pulse]);
 
   // Fetch QR token lazily when there's an active trip
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function ActiveTripBubble() {
     if (passengerTrip.tripState === 'boarding' || passengerTrip.tripState === 'in_progress') {
       meApi.get(token).then(me => setQrToken(me.qrToken)).catch(() => {});
     }
-  }, [token, passengerTrip?.tripId, passengerTrip?.tripState]);
+  }, [token, passengerTrip, passengerTrip?.tripId, passengerTrip?.tripState]);
 
   // Seatbelt alert when journey starts
   useEffect(() => {
@@ -91,7 +92,7 @@ export default function ActiveTripBubble() {
       shownCancelFor.current = passengerTrip.tripId;
       setShowCancelledAlert(true);
     }
-  }, [passengerTrip?.tripState, passengerTrip?.tripId]);
+  }, [passengerTrip?.tripState, passengerTrip?.tripId, passengerTrip?.cancelledAt]);
 
   // Rating prompt after trip completed (once per trip)
   useEffect(() => {
@@ -175,15 +176,15 @@ export default function ActiveTripBubble() {
     <>
       {/* Floating bubble — only when trip is active */}
       {isActive && passengerTrip && (
-        <Animated.View style={[s.bubble, { bottom: insets.bottom + 84, transform: [{ scale: pulse }] }]}>
+        <Animated.View style={[styles.bubble, { bottom: insets.bottom + 84, transform: [{ scale: pulse }] }]}>
           <Pressable onPress={() => setExpanded(true)}>
-            <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={s.bubbleInner}>
-              <View style={[s.dot, { backgroundColor: stateColor }]} />
+            <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={styles.bubbleInner}>
+              <View style={[styles.dot, { backgroundColor: stateColor }]} />
               <View style={{ flex: 1 }}>
-                <Text style={[s.bubbleState, { color: stateColor }]}>
+                <Text style={[styles.bubbleState, { color: stateColor }]}>
                   {stateLabel[passengerTrip.tripState] ?? passengerTrip.tripState}
                 </Text>
-                <Text style={[s.bubbleRoute, { color: colors.textPrimary }]} numberOfLines={1}>
+                <Text style={[styles.bubbleRoute, { color: colors.textPrimary }]} numberOfLines={1}>
                   {passengerTrip.origin} → {passengerTrip.destination}
                 </Text>
               </View>
@@ -197,49 +198,49 @@ export default function ActiveTripBubble() {
       {passengerTrip && (
         <Modal visible={expanded} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setExpanded(false)}>
           <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill}>
-            <View style={s.modalBg}>
-              <View style={[s.sheet, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}>
-                <Pressable onPress={() => setExpanded(false)} style={s.handleWrap}>
-                  <View style={s.handle} />
+            <View style={styles.modalBg}>
+              <View style={[styles.sheet, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}>
+                <Pressable onPress={() => setExpanded(false)} style={styles.handleWrap}>
+                  <View style={styles.handle} />
                 </Pressable>
 
-                <View style={[s.statusBadge, { backgroundColor: stateColor + '22' }]}>
-                  <View style={[s.statusDot, { backgroundColor: stateColor }]} />
-                  <Text style={[s.statusText, { color: stateColor }]}>
+                <View style={[styles.statusBadge, { backgroundColor: stateColor + '22' }]}>
+                  <View style={[styles.statusDot, { backgroundColor: stateColor }]} />
+                  <Text style={[styles.statusText, { color: stateColor }]}>
                     {stateLabel[passengerTrip.tripState] ?? passengerTrip.tripState}
                   </Text>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 16 }}>
                   {/* Route */}
-                  <View style={[s.card, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <View style={[styles.card, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                     <InfoRow icon="radio-button-on" label="Origen"  value={passengerTrip.origin}     colors={colors} />
-                    <View style={[s.divider, { backgroundColor: colors.border }]} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <InfoRow icon="location"        label="Destino" value={passengerTrip.destination} colors={colors} />
                   </View>
 
                   {/* Driver */}
-                  <View style={[s.card, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <View style={[styles.card, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                     <InfoRow icon="person" label="Conductor"    value={`${passengerTrip.driverFirstName} ${passengerTrip.driverLastName}`} colors={colors} />
-                    <View style={[s.divider, { backgroundColor: colors.border }]} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <InfoRow icon="star"   label="Calificación" value={`${passengerTrip.driverRating.toFixed(1)} ★`} colors={colors} />
-                    <View style={[s.divider, { backgroundColor: colors.border }]} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <InfoRow icon="cash"   label="Tarifa"       value={`₡${passengerTrip.rate.toLocaleString()}`}    colors={colors} />
                   </View>
 
                   {/* Boarding state badge */}
                   {passengerTrip.bookingState === 'boarded' && (
-                    <View style={[s.boardedBadge, { backgroundColor: Brand.colors.green.normal + '22' }]}>
+                    <View style={[styles.boardedBadge, { backgroundColor: Brand.colors.green.normal + '22' }]}>
                       <Ionicons name="checkmark-circle" size={20} color={Brand.colors.green.normal} />
-                      <Text style={[s.boardedText, { color: Brand.colors.green.normal }]}>
+                      <Text style={[styles.boardedText, { color: Brand.colors.green.normal }]}>
                         Ya estás registrado en el vehículo
                       </Text>
                     </View>
                   )}
                   {passengerTrip.bookingState === 'confirmed' && passengerTrip.tripState === 'boarding' && (
-                    <View style={[s.boardedBadge, { backgroundColor: '#f4a52222' }]}>
+                    <View style={[styles.boardedBadge, { backgroundColor: '#f4a52222' }]}>
                       <Ionicons name="qr-code" size={20} color="#f4a522" />
-                      <Text style={[s.boardedText, { color: '#f4a522' }]}>
+                      <Text style={[styles.boardedText, { color: '#f4a522' }]}>
                         Muestra tu QR al conductor para subir
                       </Text>
                     </View>
@@ -248,11 +249,11 @@ export default function ActiveTripBubble() {
                   {/* QR toggle — only during boarding */}
                   {passengerTrip.tripState === 'boarding' && (
                     <Pressable
-                      style={[s.qrBtn, { backgroundColor: Brand.colors.green.normal }]}
+                      style={[styles.qrBtn, { backgroundColor: Brand.colors.green.normal }]}
                       onPress={() => setShowQr(v => !v)}
                     >
                       <Ionicons name={showQr ? 'eye-off' : 'qr-code'} size={18} color="#fff" />
-                      <Text style={s.qrBtnText}>{showQr ? 'Ocultar QR' : 'Mostrar mi QR'}</Text>
+                      <Text style={styles.qrBtnText}>{showQr ? 'Ocultar QR' : 'Mostrar mi QR'}</Text>
                     </Pressable>
                   )}
                   {showQr && qrToken && (
@@ -266,9 +267,9 @@ export default function ActiveTripBubble() {
 
                   {/* Cancellation reason (when cancelled) */}
                   {passengerTrip.tripState === 'cancelled' && passengerTrip.cancelReason && (
-                    <View style={[s.boardedBadge, { backgroundColor: '#e53e3e22' }]}>
+                    <View style={[styles.boardedBadge, { backgroundColor: '#e53e3e22' }]}>
                       <Ionicons name="close-circle" size={20} color="#e53e3e" />
-                      <Text style={[s.boardedText, { color: '#e53e3e', flex: 1 }]}>
+                      <Text style={[styles.boardedText, { color: '#e53e3e', flex: 1 }]}>
                         {buildCancelBody(passengerTrip)}
                       </Text>
                     </View>
@@ -276,8 +277,8 @@ export default function ActiveTripBubble() {
 
                   {/* Cancel booking — only if active and not yet boarded */}
                   {isActive && passengerTrip.bookingState !== 'boarded' && (
-                    <Pressable style={s.cancelLink} onPress={() => setShowCancel(true)}>
-                      <Text style={[s.cancelLinkText, { color: '#e53e3e' }]}>Cancelar mi reserva</Text>
+                    <Pressable style={styles.cancelLink} onPress={() => setShowCancel(true)}>
+                      <Text style={[styles.cancelLinkText, { color: '#e53e3e' }]}>Cancelar mi reserva</Text>
                     </Pressable>
                   )}
                 </ScrollView>
@@ -382,48 +383,10 @@ function InfoRow({ icon, label, value, colors }: {
   colors: ReturnType<typeof useAppTheme>['colors'];
 }) {
   return (
-    <View style={r.row}>
+    <View style={infoRowStyles.row}>
       <Ionicons name={icon} size={14} color={Brand.colors.green.normal} />
-      <Text style={[r.label, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[r.value, { color: colors.textPrimary }]} numberOfLines={1}>{value}</Text>
+      <Text style={[infoRowStyles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[infoRowStyles.value, { color: colors.textPrimary }]} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
-
-const r = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 },
-  label: { fontFamily: Fonts.sans, fontSize: 12, width: 76 },
-  value: { fontFamily: Fonts.heading, fontSize: 13, flex: 1 },
-});
-
-const s = StyleSheet.create({
-  bubble: {
-    position: 'absolute', left: 16, right: 16, zIndex: 9999,
-    borderRadius: 20, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2, shadowRadius: 12, elevation: 10,
-  },
-  bubbleInner:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
-  dot:          { width: 8, height: 8, borderRadius: 4 },
-  bubbleState:  { fontFamily: Fonts.headingBold, fontSize: 11 },
-  bubbleRoute:  { fontFamily: Fonts.heading, fontSize: 13 },
-  modalBg:      { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 36,
-    maxHeight: '90%', gap: 14,
-  },
-  handleWrap:   { alignItems: 'center', paddingVertical: 8 },
-  handle:       { width: 36, height: 4, borderRadius: 2, backgroundColor: '#ccc' },
-  statusBadge:  { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20 },
-  statusDot:    { width: 8, height: 8, borderRadius: 4 },
-  statusText:   { fontFamily: Fonts.headingBold, fontSize: 13 },
-  card:         { borderRadius: 12, borderWidth: 1, padding: 14, gap: 8 },
-  divider:      { height: StyleSheet.hairlineWidth },
-  boardedBadge: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 12 },
-  boardedText:  { fontFamily: Fonts.heading, fontSize: 13, flex: 1 },
-  qrBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 13 },
-  qrBtnText:    { color: '#fff', fontFamily: Fonts.headingBold, fontSize: 14 },
-  cancelLink:   { alignItems: 'center', paddingVertical: 8 },
-  cancelLinkText: { fontFamily: Fonts.heading, fontSize: 13 },
-});

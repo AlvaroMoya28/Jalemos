@@ -7,7 +7,6 @@ import {
     Modal,
     Platform,
     Pressable,
-    StyleSheet,
     Text,
     View,
 } from "react-native";
@@ -15,8 +14,9 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DetailedRide } from "@/constants/mock-rides";
-import { Brand, Fonts } from "@/constants/theme";
+import { Brand } from "@/constants/theme";
 import { useAppTheme } from "@/hooks/use-app-theme";
+import { styles as s } from "./styles/map-modal.native.styles";
 
 // Dark style JSON for Android Google Maps — mirrors the app's dark palette.
 const DARK_MAP_STYLE = [
@@ -167,11 +167,11 @@ export default function InteractiveMapModal({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={{ flex: 1 }}>
+      <View style={s.container}>
         {hasCoords ? (
           <MapView
             ref={mapRef}
-            style={{ flex: 1 }}
+            style={s.mapFull}
             provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
             userInterfaceStyle={isDark ? "dark" : "light"}
             customMapStyle={isDark ? DARK_MAP_STYLE : LIGHT_MAP_STYLE}
@@ -218,32 +218,16 @@ export default function InteractiveMapModal({
             )}
           </MapView>
         ) : (
-          <View
-            style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 24,
-            }}
-          >
+          <View style={s.noCoordsFallback}>
             <Ionicons
               name="map-outline"
               size={48}
               color={Brand.colors.green.normal}
             />
-            <Text
-              style={{ fontFamily: Fonts.heading, fontSize: 16, marginTop: 12 }}
-            >
+            <Text style={s.noCoordsTitle}>
               Coordenadas no disponibles para este viaje.
             </Text>
-            <Text
-              style={{
-                fontFamily: Fonts.sans,
-                color: "#707070",
-                textAlign: "center",
-                marginTop: 8,
-              }}
-            >
+            <Text style={s.noCoordsBody}>
               No se puede mostrar un mapa interactivo porque la información de
               ubicación no está presente.
             </Text>
@@ -275,48 +259,3 @@ export default function InteractiveMapModal({
   );
 }
 
-const s = StyleSheet.create({
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  routeChip: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    backgroundColor: "rgba(0,0,0,0.62)",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  originDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Brand.colors.green.normal,
-    flexShrink: 0,
-  },
-  chipText: {
-    color: "#ffffff",
-    fontFamily: Fonts.heading,
-    fontSize: 12,
-    flexShrink: 1,
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.62)",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-});
