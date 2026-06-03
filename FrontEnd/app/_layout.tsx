@@ -31,6 +31,7 @@ import { TripsProvider } from "@/contexts/trips";
 import { ActiveTripProvider } from "@/contexts/active-trip";
 import { UserModeProvider } from "@/contexts/user-mode";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { styles } from "../styles/app/_layout.styles";
 
 // Tell Expo Router the default tab group so the navigator anchors there on launch
 export const unstable_settings = {
@@ -74,7 +75,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.root}>
       <AuthProvider>
         <ApplicationsProvider>
           <AdminUsersProvider>
