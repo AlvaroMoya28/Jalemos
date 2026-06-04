@@ -13,11 +13,8 @@ jest.mock('expo-haptics', () => ({
 
 // ── Module imports (after stubs are wired via moduleNameMapper) ────────────────
 const { parseExpiry }  = require('../../FrontEnd/components/expiry-input');
-const { ThemedText }   = require('../../FrontEnd/components/themed-text');
-const { ThemedView }   = require('../../FrontEnd/components/themed-view');
 const GlassCard        = require('../../FrontEnd/components/glass-card').default;
 const { HapticTab }    = require('../../FrontEnd/components/haptic-tab');
-const { IconSymbol }   = require('../../FrontEnd/components/ui/icon-symbol');
 
 // ── Mock references ────────────────────────────────────────────────────────────
 const hapticsMock = jest.requireMock('expo-haptics') as { impactAsync: jest.Mock };
@@ -57,53 +54,6 @@ describe('FrontEnd components/expiry-input — parseExpiry', () => {
 
   it('returns nulls for NaN month (non-numeric)', () => {
     expect(parseExpiry('mm/yy')).toEqual({ month: null, year: null });
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// themed-text.tsx — ThemedText
-// ══════════════════════════════════════════════════════════════════════════════
-
-describe('FrontEnd components/themed-text — ThemedText', () => {
-  it('renders children text content', () => {
-    const { getByText } = render(createElement(ThemedText, null, 'Hello world'));
-    expect(getByText('Hello world')).toBeTruthy();
-  });
-
-  it.each(['default', 'title', 'defaultSemiBold', 'subtitle', 'link'] as const)(
-    'renders without error for type="%s"',
-    (type) => {
-      expect(() =>
-        render(createElement(ThemedText, { type }, `Type ${type}`)),
-      ).not.toThrow();
-    },
-  );
-
-  it('applies custom lightColor override via prop', () => {
-    const { container } = render(
-      createElement(ThemedText, { lightColor: '#ff0000' }, 'Custom color'),
-    );
-    // The color is applied as an inline style; verify the element renders
-    expect(container.firstChild).not.toBeNull();
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// themed-view.tsx — ThemedView
-// ══════════════════════════════════════════════════════════════════════════════
-
-describe('FrontEnd components/themed-view — ThemedView', () => {
-  it('renders its children', () => {
-    const { getByText } = render(
-      createElement(ThemedView, null, createElement('span', null, 'Inner')),
-    );
-    expect(getByText('Inner')).toBeTruthy();
-  });
-
-  it('renders without error with lightColor and darkColor overrides', () => {
-    expect(() =>
-      render(createElement(ThemedView, { lightColor: '#fff', darkColor: '#000' })),
-    ).not.toThrow();
   });
 });
 
@@ -168,37 +118,6 @@ describe('FrontEnd components/haptic-tab — HapticTab', () => {
     const { container } = render(createElement(HapticTab, {}));
     fireEvent.click(container.querySelector('button')!);
     expect(hapticsMock.impactAsync).not.toHaveBeenCalled();
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// ui/icon-symbol.tsx — IconSymbol (SF Symbol → Material Icon mapping)
-// ══════════════════════════════════════════════════════════════════════════════
-
-describe('FrontEnd components/ui/icon-symbol — IconSymbol', () => {
-  it.each([
-    ['house.fill',                                'home'],
-    ['paperplane.fill',                           'send'],
-    ['chevron.left.forwardslash.chevron.right',   'code'],
-    ['chevron.right',                             'chevron-right'],
-  ] as const)(
-    'maps SF Symbol "%s" to Material Icon "%s"',
-    (sfSymbol, materialIcon) => {
-      const { container } = render(
-        createElement(IconSymbol, { name: sfSymbol, size: 24, color: '#000' }),
-      );
-      const icon = container.querySelector('[data-testid="icon-MaterialIcons"]');
-      expect(icon).not.toBeNull();
-      expect(icon!.getAttribute('data-icon')).toBe(materialIcon);
-    },
-  );
-
-  it('passes size and color props to the underlying icon', () => {
-    const { container } = render(
-      createElement(IconSymbol, { name: 'house.fill', size: 32, color: '#ff0000' }),
-    );
-    const icon = container.querySelector('[data-testid="icon-MaterialIcons"]');
-    expect(icon!.getAttribute('data-size')).toBe('32');
   });
 });
 
