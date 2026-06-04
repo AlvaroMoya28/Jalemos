@@ -1,5 +1,6 @@
 // Admin user management endpoints.
 // All routes require an authenticated admin JWT.
+// Updated by Claude Sonnet 4.6: POST /me/photo profile-photo upload and admin-role authorization.
 
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Application.DTOs;
@@ -42,6 +43,33 @@ public sealed class UsersController : ControllerBase
             profilePhotoUrl = user.ProfilePhotoUrl,
             qrToken         = user.QrToken,
         });
+    }
+
+    /// <summary>POST /api/users/me/photo — uploads the authenticated user's profile photo (base64).</summary>
+    [HttpPost("me/photo")]
+    [Authorize]
+    public async Task<IActionResult> UploadMyPhoto([FromBody] UploadPhotoRequest dto, CancellationToken ct)
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (!Guid.TryParse(sub, out var userId)) return Unauthorized();
+        if (dto is null || string.IsNullOrWhiteSpace(dto.Image))
+            return BadRequest(new { error = "La imagen es requerida." });
+
+        try
+        {
+            var url = await _usersService.UpdateProfilePhotoAsync(userId, dto.Image, ct);
+            return Ok(new { profilePhotoUrl = url });
+        }
+        catch (KeyNotFoundException)          { return NotFound(); }
+        catch (InvalidOperationException ex)  { return BadRequest(new { error = ex.Message }); }
+        catch (ArgumentException ex)          { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex)                  { return Problem(detail: ex.Message, statusCode: 500); }
+    }
+
+    public sealed class UploadPhotoRequest
+    {
+        /// <summary>Base64-encoded JPEG (optionally with a data: prefix).</summary>
+        public string Image { get; set; } = string.Empty;
     }
 
     // GET /api/users?search=&role=&status=&sortBy=name_asc&page=1&pageSize=30

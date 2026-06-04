@@ -28,4 +28,7 @@ public interface ITripsService
 
     /// <summary>Removes a trip (and optionally cancels related bookings).</summary>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns all trips offered by the given driver across all states (for My Rides history).</summary>
+    Task<IEnumerable<TripDto>> GetByDriverAsync(Guid driverId, CancellationToken cancellationToken = default);
 }

@@ -60,4 +60,8 @@ public sealed class TripsService : ITripsService
         // TODO: cascade-cancel all active bookings before deleting the trip
         return _repository.DeleteAsync(id, cancellationToken);
     }
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<TripDto>> GetByDriverAsync(Guid driverId, CancellationToken cancellationToken = default)
+        => _repository.GetByDriverAsync(driverId, cancellationToken);
 }

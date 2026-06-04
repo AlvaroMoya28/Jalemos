@@ -1,19 +1,23 @@
 // Application service for the Users module.
 // Enforces user-related business rules and delegates data persistence to UsersRepository.
+// Updated by Claude Sonnet 4.6: profile-photo upload to S3 (respects the driver photo lock).
 
 using JalemosBackend.Modules.Users.Application.DTOs;
 using JalemosBackend.Modules.Users.Domain;
 using JalemosBackend.Modules.Users.Infrastructure;
+using JalemosBackend.Modules.Storage;
 
 namespace JalemosBackend.Modules.Users.Application;
 
 public sealed class UsersService : IUsersService
 {
     private readonly UsersRepository _repository;
+    private readonly IStorageService _storage;
 
-    public UsersService(UsersRepository repository)
+    public UsersService(UsersRepository repository, IStorageService storage)
     {
         _repository = repository;
+        _storage    = storage;
     }
 
     public Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default) =>
@@ -87,4 +91,22 @@ public sealed class UsersService : IUsersService
 
     public Task ActivateAsync(Guid id, CancellationToken cancellationToken = default) =>
         _repository.ActivateAsync(id, cancellationToken);
+
+    public async Task<string> UpdateProfilePhotoAsync(Guid id, string base64, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(base64))
+            throw new ArgumentException("La imagen está vacía.");
+
+        // Drivers have their profile photo locked to the verified face photo.
+        var locked = await _repository.GetProfilePhotoLockedAsync(id, cancellationToken);
+        if (locked is null) throw new KeyNotFoundException("Usuario no encontrado.");
+        if (locked.Value)
+            throw new InvalidOperationException("Tu foto de perfil está vinculada a tu verificación de conductor y no se puede cambiar.");
+
+        var url = await _storage.UploadBase64Async(base64, "user-profiles", cancellationToken)
+            ?? throw new InvalidOperationException("No se pudo subir la imagen.");
+
+        await _repository.UpdateProfilePhotoUrlAsync(id, url, cancellationToken);
+        return url;
+    }
 }

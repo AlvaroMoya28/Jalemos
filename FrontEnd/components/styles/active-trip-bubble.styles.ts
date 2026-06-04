@@ -39,4 +39,14 @@ export const styles = StyleSheet.create({
   qrBtnText:    { color: '#fff', fontFamily: Fonts.headingBold, fontSize: 14 },
   cancelLink:   { alignItems: 'center', paddingVertical: 8 },
   cancelLinkText: { fontFamily: Fonts.heading, fontSize: 13 },
+  // In-progress map + navigation
+  mapWrap:      { borderRadius: 14, overflow: 'hidden', height: 180 },
+  mapImage:     { width: '100%', height: 180 },
+  mapFallback:  { width: '100%', height: 180, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  mapFallbackText: { fontFamily: Fonts.heading, fontSize: 13 },
+  mapPin:       { position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  navBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 13, backgroundColor: '#3182ce' },
+  navBtnText:   { color: '#fff', fontFamily: Fonts.headingBold, fontSize: 14 },
+  enjoyBanner:  { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12 },
+  enjoyText:    { fontFamily: Fonts.headingBold, fontSize: 14, flex: 1 },
 });

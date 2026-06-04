@@ -1,3 +1,4 @@
+// Updated by Claude Sonnet 4.6: profile-photo persistence (get lock flag, update photo URL).
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Users.Application.DTOs;
@@ -144,6 +145,24 @@ namespace JalemosBackend.Modules.Users.Infrastructure
             var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct);
             if (entity is null) return;
             _dbContext.Users.Remove(entity);
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        /// <summary>Returns the user's profile-photo lock flag, or null if the user does not exist.</summary>
+        public async Task<bool?> GetProfilePhotoLockedAsync(Guid id, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.UserId == id, ct);
+            return entity?.ProfilePhotoLocked;
+        }
+
+        /// <summary>Persists a new profile photo URL for the user.</summary>
+        public async Task UpdateProfilePhotoUrlAsync(Guid id, string? url, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
+                ?? throw new KeyNotFoundException("User not found");
+            entity.ProfilePhotoUrl = url;
+            entity.UpdatedAt       = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(ct);
         }
 

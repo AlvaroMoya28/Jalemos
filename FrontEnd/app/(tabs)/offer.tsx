@@ -1,4 +1,6 @@
 // Offer (Ofrecer) tab — driver's screen for publishing a new trip.
+// Updated by Claude Sonnet 4.6: collapsible upcoming-trip strip (within 60 min), infinite
+// time picker, glass alerts, and rating-flow freeze so the boarding screen stays mounted.
 // Lets the driver set origin, destination, date, time, available seats, price per seat,
 // and select which registered vehicle to use. Shares the same hero-banner + rounded
 // bottom surface visual pattern as the other tab screens.
@@ -10,7 +12,6 @@ import { useNavigation } from 'expo-router';
 import { useLoading } from '@/contexts/loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Image,
   Modal,
   NativeScrollEvent,
@@ -24,10 +25,11 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '@/contexts/auth';
-import { get, post, ApiError, tripLifecycleApi } from '@/services/api';
+import { get, post, ApiError, tripLifecycleApi, TripStatusResponse } from '@/services/api';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import GlassCard from '@/components/glass-card';
+import GlassAlert from '@/components/glass-alert';
 import NotificationsModal from '@/components/NotificationsModal';
 import PlaceSearchInput, { PlacePrediction } from '@/components/place-search-input';
 import BoardingScreen from '@/components/boarding-screen';
@@ -76,8 +78,16 @@ async function fetchPlaceCoords(placeId: string): Promise<PlaceCoords | null> {
 }
 
 const PICKER_ITEM_HEIGHT = 36;
-const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-const minutes = Array.from({ length: 60 }, (_, idx) => idx);
+const HOUR_COUNT   = 12;
+const MIN_COUNT    = 60;
+// Repeat arrays enough times that reaching an edge requires ~10 000 px of scrolling
+const HOUR_REPS    = 100;
+const MIN_REPS     = 10;
+const infiniteHours   = Array.from({ length: HOUR_REPS * HOUR_COUNT }, (_, i) => (i % HOUR_COUNT) + 1);
+const infiniteMinutes = Array.from({ length: MIN_REPS  * MIN_COUNT  }, (_, i) => i % MIN_COUNT);
+// Midpoints — where we park the scroll when the picker opens
+const HOURS_CENTER = Math.floor(HOUR_REPS / 2) * HOUR_COUNT; // 600
+const MINS_CENTER  = Math.floor(MIN_REPS  / 2) * MIN_COUNT;  // 300
 
 function monthLabel(date: Date) {
   return date.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
@@ -129,18 +139,39 @@ export default function OfferScreen() {
   } | null>(null);
   const [startBoardingLoading, setStartBoardingLoading] = useState(false);
   const [minsUntilBoarding, setMinsUntilBoarding] = useState<number | null>(null);
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  // Frozen copy of the trip kept mounted while the driver rates passengers,
+  // so the BoardingScreen (and its rating modal) survives driverTrip becoming null.
+  const [completedTrip, setCompletedTrip] = useState<TripStatusResponse | null>(null);
+  // Glass alert replaces all native Alert.alert in this screen
+  const [offerAlert, setOfferAlert] = useState<{
+    icon: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap;
+    iconColor: string;
+    title: string;
+    body: string;
+  } | null>(null);
+  const showError   = (title: string, body: string) =>
+    setOfferAlert({ icon: 'alert-circle',    iconColor: '#e53e3e',                    title, body });
+  const showSuccess = (title: string, body: string) =>
+    setOfferAlert({ icon: 'checkmark-circle', iconColor: Brand.colors.green.normal,   title, body });
 
   useEffect(() => {
     if (!token || !user?.id || driverTrip) return;
     const check = async () => {
       try {
         const trips = await get<any[]>('/api/trips', token);
+        // Sort ascending so the soonest trip is first
         const mine = trips
           .filter((t: any) => t.driverId === user.id && (t.state === 'Scheduled' || t.state === 'scheduled'))
           .sort((a: any, b: any) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
-        if (mine.length > 0) {
-          const next = mine[0];
+        // Only surface the strip when departure is within the next 60 minutes
+        const withinHour = mine.filter(
+          (t: any) => new Date(t.departureAt).getTime() - Date.now() <= 60 * 60_000
+        );
+        if (withinHour.length > 0) {
+          const next = withinHour[0];
           setUpcomingTrip({ id: next.id, origin: next.origin, destination: next.destination, departureAt: next.departureAt });
+          // minsUntilBoarding counts down to the 5-min-before-departure boarding window
           const msUntil = new Date(next.departureAt).getTime() - Date.now() - 5 * 60_000;
           setMinsUntilBoarding(msUntil > 0 ? Math.ceil(msUntil / 60_000) : 0);
         } else {
@@ -216,18 +247,21 @@ export default function OfferScreen() {
       setUpcomingTrip(null);       // Hide the card immediately
       await refreshActiveTrip();   // Fetch driver's active boarding trip → triggers BoardingScreen
     } catch (e: any) {
-      Alert.alert('No se puede iniciar', e.message ?? 'Inténtalo de nuevo.');
+      showError('No se puede iniciar', e.message ?? 'Inténtalo de nuevo.');
     } finally {
       setStartBoardingLoading(false);
     }
   };
 
   // ── Conditional renders after all hooks ────────────────────────────────
-  if (driverTrip) {
+  // Use the live driverTrip, or the frozen completedTrip while rating passengers.
+  const activeTrip = driverTrip ?? completedTrip;
+  if (activeTrip) {
     return (
       <BoardingScreen
-        trip={driverTrip}
-        onTripEnded={() => { refreshActiveTrip(); }}
+        trip={activeTrip}
+        onTripCompleted={(t) => setCompletedTrip(t)}
+        onTripEnded={() => { setCompletedTrip(null); refreshActiveTrip(); }}
       />
     );
   }
@@ -244,20 +278,20 @@ export default function OfferScreen() {
     setDraftPeriod(period);
     setCalendarOpen(true);
     setTimeout(() => {
-      hourScrollRef.current?.scrollTo({ y: (h12 - 1) * PICKER_ITEM_HEIGHT, animated: false });
-      minuteScrollRef.current?.scrollTo({ y: source.getMinutes() * PICKER_ITEM_HEIGHT, animated: false });
+      hourScrollRef.current?.scrollTo({ y: (HOURS_CENTER + h12 - 1) * PICKER_ITEM_HEIGHT, animated: false });
+      minuteScrollRef.current?.scrollTo({ y: (MINS_CENTER + source.getMinutes()) * PICKER_ITEM_HEIGHT, animated: false });
     }, 0);
   };
 
   const onHourScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.max(0, Math.min(11, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
-    setDraftHour(idx + 1);
+    const idx = Math.max(0, Math.min(infiniteHours.length - 1, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+    setDraftHour(infiniteHours[idx]);
     hourScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
   const onMinuteScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.max(0, Math.min(59, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
-    setDraftMinute(idx);
+    const idx = Math.max(0, Math.min(infiniteMinutes.length - 1, Math.round(e.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT)));
+    setDraftMinute(infiniteMinutes[idx]);
     minuteScrollRef.current?.scrollTo({ y: idx * PICKER_ITEM_HEIGHT, animated: true });
   };
 
@@ -274,23 +308,23 @@ export default function OfferScreen() {
 
   const publish = async () => {
     if (!from || !to || !selectedDate) {
-      Alert.alert('Campos incompletos', 'Completa origen, destino, fecha y hora.');
+      showError('Campos incompletos', 'Completa origen, destino, fecha y hora.');
       return;
     }
     if (!vehicleId) {
-      Alert.alert('Sin vehículo', 'Selecciona un vehículo para ofrecer el viaje.');
+      showError('Sin vehículo', 'Selecciona un vehículo para ofrecer el viaje.');
       return;
     }
     if (!user?.id) {
-      Alert.alert('Sesión expirada', 'Vuelve a iniciar sesión.');
+      showError('Sesión expirada', 'Vuelve a iniciar sesión.');
       return;
     }
     if (!fromCoords) {
-      Alert.alert('Origen sin coordenadas', 'Selecciona el origen desde las sugerencias para obtener su ubicación.');
+      showError('Origen sin coordenadas', 'Selecciona el origen desde las sugerencias para obtener su ubicación.');
       return;
     }
     if (!toCoords) {
-      Alert.alert('Destino sin coordenadas', 'Selecciona el destino desde las sugerencias para obtener su ubicación.');
+      showError('Destino sin coordenadas', 'Selecciona el destino desde las sugerencias para obtener su ubicación.');
       return;
     }
     const payload = {
@@ -314,7 +348,7 @@ export default function OfferScreen() {
     try {
       await post('/api/trips', payload, token ?? undefined);
       hideLoader();
-      Alert.alert('¡Viaje publicado!', 'Tu viaje ya está disponible para los pasajeros.');
+      showSuccess('¡Viaje publicado!', 'Tu viaje ya está disponible para los pasajeros.');
       setFrom(''); setFromCoords(null);
       setTo(''); setToCoords(null);
       setSelectedDate(null);
@@ -325,53 +359,13 @@ export default function OfferScreen() {
       const msg = err instanceof ApiError
         ? `[${(err as ApiError).status}] ${err.message}`
         : 'No se pudo publicar el viaje.';
-      Alert.alert('Error al publicar', msg);
+      showError('Error al publicar', msg);
     }
   };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: colors.bottomSurface }}>
-
-        {/* ── Upcoming trip card: Iniciar abordaje ── */}
-        {upcomingTrip && (
-          <View style={upcomingStyles.wrapper}>
-            <View style={[upcomingStyles.card, { backgroundColor: colors.inputBg, borderColor: Brand.colors.green.normal + '55' }]}>
-              <View style={upcomingStyles.headerRow}>
-                <View style={[upcomingStyles.dot, { backgroundColor: minsUntilBoarding === 0 ? Brand.colors.green.normal : '#f4a522' }]} />
-                <Text style={[upcomingStyles.label, { color: minsUntilBoarding === 0 ? Brand.colors.green.normal : '#f4a522' }]}>
-                  {minsUntilBoarding === 0 ? '¡Listo para abordar!' : `Abordaje en ${minsUntilBoarding} min`}
-                </Text>
-              </View>
-              <Text style={[upcomingStyles.route, { color: colors.textPrimary }]} numberOfLines={1}>
-                {upcomingTrip.origin} → {upcomingTrip.destination}
-              </Text>
-              <Text style={[upcomingStyles.time, { color: colors.textSecondary }]}>
-                {new Date(upcomingTrip.departureAt).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-              <Pressable
-                style={[
-                  upcomingStyles.btn,
-                  { backgroundColor: minsUntilBoarding === 0 ? Brand.colors.green.normal : colors.border },
-                  startBoardingLoading && { opacity: 0.6 },
-                ]}
-                onPress={handleStartBoarding}
-                disabled={startBoardingLoading}
-              >
-                {startBoardingLoading ? (
-                  <Text style={[upcomingStyles.btnText, { color: '#fff' }]}>Iniciando…</Text>
-                ) : (
-                  <>
-                    <Ionicons name="car-sport" size={16} color={minsUntilBoarding === 0 ? '#fff' : colors.textMuted} />
-                    <Text style={[upcomingStyles.btnText, { color: minsUntilBoarding === 0 ? '#fff' : colors.textMuted }]}>
-                      {minsUntilBoarding === 0 ? 'Iniciar abordaje' : 'Iniciar abordaje (aún no disponible)'}
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        )}
 
         <View style={[styles.heroWrap, { height: heroHeight }]}>
           <Image
@@ -464,6 +458,68 @@ export default function OfferScreen() {
         </View>
 
         <View style={styles.bottomSurface}>
+
+          {/* ── Upcoming trip strip: shown when departure is within 60 min ── */}
+          {upcomingTrip && (
+            <View style={[upcomingStyles.strip, { borderColor: colors.border, backgroundColor: colors.inputBg }]}>
+              {/* Header row — always visible, tap to toggle expand */}
+              <Pressable style={upcomingStyles.stripHeader} onPress={() => setUpcomingExpanded(p => !p)}>
+                <View style={[upcomingStyles.stripDot, {
+                  backgroundColor: minsUntilBoarding === 0 ? Brand.colors.green.normal : '#f4a522',
+                }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[upcomingStyles.stripRoute, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {upcomingTrip.origin} → {upcomingTrip.destination}
+                  </Text>
+                  <Text style={[upcomingStyles.stripMeta, {
+                    color: minsUntilBoarding === 0 ? Brand.colors.green.normal : '#f4a522',
+                  }]}>
+                    {minsUntilBoarding === 0 ? '¡Listo para abordar!' : `Sale en ${minsUntilBoarding} min`}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={upcomingExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+
+              {/* Expandable section — departure details + boarding button */}
+              {upcomingExpanded && (
+                <Animated.View entering={FadeInDown.duration(180)} exiting={FadeOut.duration(120)}>
+                  <View style={[upcomingStyles.stripDivider, { backgroundColor: colors.border }]} />
+                  <View style={upcomingStyles.stripBody}>
+                    <Text style={[upcomingStyles.stripTime, { color: colors.textSecondary }]}>
+                      {new Date(upcomingTrip.departureAt).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}
+                      {' · '}
+                      {new Date(upcomingTrip.departureAt).toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </Text>
+                    <Pressable
+                      style={[
+                        upcomingStyles.stripBtn,
+                        { backgroundColor: minsUntilBoarding === 0 ? Brand.colors.green.normal : colors.border },
+                        startBoardingLoading && { opacity: 0.6 },
+                      ]}
+                      onPress={handleStartBoarding}
+                      disabled={startBoardingLoading || minsUntilBoarding !== 0}
+                    >
+                      <Ionicons
+                        name="car-sport"
+                        size={15}
+                        color={minsUntilBoarding === 0 ? '#fff' : colors.textMuted}
+                      />
+                      <Text style={[upcomingStyles.stripBtnText, {
+                        color: minsUntilBoarding === 0 ? '#fff' : colors.textMuted,
+                      }]}>
+                        {startBoardingLoading ? 'Iniciando…' : minsUntilBoarding === 0 ? 'Iniciar abordaje' : 'No disponible aún'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </Animated.View>
+              )}
+            </View>
+          )}
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Detalles del viaje</Text>
 
@@ -621,8 +677,8 @@ export default function OfferScreen() {
                     decelerationRate="fast"
                     onMomentumScrollEnd={onHourScrollEnd}
                   >
-                    {hours.map((hour) => (
-                      <View key={hour} style={styles.wheelItem}>
+                    {infiniteHours.map((hour, idx) => (
+                      <View key={idx} style={styles.wheelItem}>
                         <Text style={[styles.wheelItemText, draftHour === hour && styles.wheelItemTextActive]}>
                           {String(hour).padStart(2, '0')}
                         </Text>
@@ -645,8 +701,8 @@ export default function OfferScreen() {
                     decelerationRate="fast"
                     onMomentumScrollEnd={onMinuteScrollEnd}
                   >
-                    {minutes.map((minute) => (
-                      <View key={minute} style={styles.wheelItem}>
+                    {infiniteMinutes.map((minute, idx) => (
+                      <View key={idx} style={styles.wheelItem}>
                         <Text style={[styles.wheelItemText, draftMinute === minute && styles.wheelItemTextActive]}>
                           {String(minute).padStart(2, '0')}
                         </Text>
@@ -725,6 +781,16 @@ export default function OfferScreen() {
       </Modal>
 
       <NotificationsModal visible={notifOpen} onClose={() => setNotifOpen(false)} />
+
+      <GlassAlert
+        visible={!!offerAlert}
+        icon={offerAlert?.icon ?? 'information-circle'}
+        iconColor={offerAlert?.iconColor}
+        title={offerAlert?.title ?? ''}
+        body={offerAlert?.body ?? ''}
+        primaryLabel="Entendido"
+        onDismiss={() => setOfferAlert(null)}
+      />
     </View>
   );
 }

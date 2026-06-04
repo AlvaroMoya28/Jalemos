@@ -79,6 +79,8 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   upgradeToDriver: () => Promise<string>;
   setDriverActivated: (v: boolean) => Promise<void>;
+  /** Updates the in-memory user's profile photo URL after a successful upload. */
+  setProfilePhotoUrl: (url: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -91,6 +93,7 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => ({ success: false }),
   upgradeToDriver: async () => "passenger",
   setDriverActivated: async () => {},
+  setProfilePhotoUrl: () => {},
 });
 
 function mapResponse(r: AuthResponse): User {
@@ -237,6 +240,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setProfilePhotoUrl = (url: string | null) => {
+    setUser((prev) => (prev ? { ...prev, profilePhotoUrl: url } : prev));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -249,6 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         upgradeToDriver,
         setDriverActivated,
+        setProfilePhotoUrl,
       }}
     >
       {children}

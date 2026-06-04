@@ -43,4 +43,8 @@ public interface IUsersService
 
     /// <summary>Reactivates a user account and clears any suspension.</summary>
     Task ActivateAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Uploads a new profile photo (base64) to storage and saves its URL. Returns the new URL.
+    /// Throws if the user's photo is locked (set from driver verification).</summary>
+    Task<string> UpdateProfilePhotoAsync(Guid id, string base64, CancellationToken cancellationToken = default);
 }

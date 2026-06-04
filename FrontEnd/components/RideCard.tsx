@@ -1,6 +1,7 @@
 // Card component used to display a single available ride in the search results list.
 // Tapping it fires a press animation and calls the onPress prop to open the ride detail screen.
 // Text and border colors adapt automatically to the device light/dark mode setting.
+// Updated by Claude Sonnet 4.6: trip status row (Completado / Cancelado) for the My Rides history.
 
 import AnimatedPressable from "@/components/animated-pressable";
 import GlassCard from "@/components/glass-card";
@@ -25,6 +26,10 @@ export interface Ride {
   avatar: string;
   /** Whether the current user is already booked on this ride */
   userBooked?: boolean;
+  /** Optional status label shown at the bottom of the card (e.g. "Completado") */
+  statusLabel?: string;
+  /** Color for the status dot and text */
+  statusColor?: string;
 }
 
 interface RideCardProps {
@@ -116,6 +121,15 @@ export default function RideCard({ ride, onPress, mode = 'search' }: RideCardPro
             <Text style={styles.ratingText}>{ride.rating}</Text>
           </View>
         </View>
+
+        {ride.statusLabel && (
+          <View style={styles.statusRow}>
+            <View style={[styles.statusDot, { backgroundColor: ride.statusColor ?? '#aaa' }]} />
+            <Text style={[styles.statusText, { color: ride.statusColor ?? '#aaa' }]}>
+              {ride.statusLabel}
+            </Text>
+          </View>
+        )}
       </GlassCard>
     </AnimatedPressable>
   );

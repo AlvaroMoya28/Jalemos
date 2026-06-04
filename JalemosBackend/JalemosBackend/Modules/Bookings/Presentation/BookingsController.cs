@@ -32,6 +32,25 @@ public sealed class BookingsController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>GET /api/bookings/mine — caller's own bookings with embedded trip snapshot (all states).</summary>
+    [HttpGet("mine")]
+    public async Task<IActionResult> GetMine(CancellationToken cancellationToken)
+    {
+        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var callerId))
+            return Unauthorized(new { error = "Invalid or missing authentication token" });
+        try
+        {
+            var result = await _bookingsService.GetMyBookingsWithTripsAsync(callerId, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Bookings.GetMine] unexpected error");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
     /// <summary>GET /api/bookings — retrieves all bookings.</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<BookingDto>>> GetAll(CancellationToken cancellationToken)

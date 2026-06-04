@@ -1,3 +1,5 @@
+// Updated by Claude Sonnet 4.6: lifecycle state serialization (in_progress/no_show),
+// boarding auto-expiry, and one-time rating gating so completed trips stop resurfacing.
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Notifications.Infrastructure;
@@ -429,6 +431,28 @@ public sealed class TripLifecycleService : ITripLifecycleService
         var validStates = new[] { TripState.Boarding, TripState.InProgress, TripState.Completed, TripState.Cancelled };
         if (!validStates.Contains(trip.State))
             return null;
+
+        // Cancelled trips are only returned for 15 min — just enough for the one-time notification.
+        // After that the API returns null so the bubble disappears on its own.
+        if (trip.State == TripState.Cancelled &&
+            trip.CancelledAt.HasValue &&
+            (DateTime.UtcNow - trip.CancelledAt.Value).TotalMinutes > 15)
+            return null;
+
+        // Completed trips surface only so the passenger can rate the driver ONCE.
+        // Stop returning the trip as soon as the passenger has rated, or after a 60-min
+        // grace window if they skipped — so the rating prompt never reappears on every login.
+        if (trip.State == TripState.Completed)
+        {
+            var alreadyRated = await _db.Ratings.AsNoTracking().AnyAsync(
+                r => r.TripId == trip.TripId && r.RaterId == passengerId && r.RatedId == trip.DriverUserId, ct);
+
+            var pastGrace = trip.CompletedAt.HasValue &&
+                            (DateTime.UtcNow - trip.CompletedAt.Value).TotalMinutes > 60;
+
+            if (alreadyRated || pastGrace)
+                return null;
+        }
 
         var driver = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == trip.DriverUserId, ct);
 

@@ -1,9 +1,22 @@
 // Post-trip rating modal. Shows after trip completes for both driver and passengers.
 // Star selector + tag chips + optional review text.
+// Updated by Claude Sonnet 4.6: keyboard-aware scrolling and dark-mode-legible tag chips.
 
 import { useState } from 'react';
 import { BlurView } from 'expo-blur';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  Keyboard,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -60,10 +73,23 @@ export default function RatingModal({ visible, ratedUser, onSubmit, onSkip, load
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
       <BlurView intensity={25} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill}>
+        <KeyboardAvoidingView
+          style={s.flex1}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <View style={s.backdrop}>
+          {/* Tap above the sheet to dismiss the keyboard */}
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={s.flex1} />
+          </TouchableWithoutFeedback>
           <View style={[s.sheet, { backgroundColor: isDark ? '#1c1c1e' : '#f8f8f8' }]}>
             <View style={s.handle} />
 
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={s.scrollContent}
+            >
             <Text style={[s.title, { color: colors.textPrimary }]}>Califica tu experiencia</Text>
             {ratedUser && (
               <Text style={[s.subtitle, { color: colors.textSecondary }]}>
@@ -93,15 +119,29 @@ export default function RatingModal({ visible, ratedUser, onSubmit, onSkip, load
             {/* Tag chips */}
             {availableTags.length > 0 && (
               <View style={s.tags}>
-                {availableTags.map(t => (
-                  <Pressable
-                    key={t}
-                    style={[s.chip, tags.includes(t) && { backgroundColor: Brand.colors.green.normal }]}
-                    onPress={() => toggleTag(t)}
-                  >
-                    <Text style={[s.chipText, { color: tags.includes(t) ? '#fff' : colors.textSecondary }]}>{t}</Text>
-                  </Pressable>
-                ))}
+                {availableTags.map(t => {
+                  const selected = tags.includes(t);
+                  return (
+                    <Pressable
+                      key={t}
+                      style={[
+                        s.chip,
+                        {
+                          backgroundColor: selected
+                            ? Brand.colors.green.normal
+                            : (isDark ? '#2c2c2e' : '#e8e8e8'),
+                          borderWidth: 1,
+                          borderColor: selected
+                            ? Brand.colors.green.normal
+                            : (isDark ? '#3a3a3c' : '#d8d8d8'),
+                        },
+                      ]}
+                      onPress={() => toggleTag(t)}
+                    >
+                      <Text style={[s.chipText, { color: selected ? '#fff' : colors.textPrimary }]}>{t}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
 
@@ -130,18 +170,25 @@ export default function RatingModal({ visible, ratedUser, onSubmit, onSkip, load
                 <Text style={[s.btnText, { color: '#fff' }]}>Enviar calificación</Text>
               </Pressable>
             </View>
+            </ScrollView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </BlurView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
+  flex1: { flex: 1 },
   backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 20, paddingBottom: 40, paddingTop: 12, gap: 14,
+    paddingTop: 12,
+    maxHeight: '85%',
+  },
+  scrollContent: {
+    paddingHorizontal: 20, paddingBottom: 40, gap: 14,
   },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#ccc', alignSelf: 'center', marginBottom: 4 },
   title: { fontFamily: Fonts.headingHeavy, fontSize: 22, textAlign: 'center' },
@@ -151,7 +198,7 @@ const s = StyleSheet.create({
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, backgroundColor: '#e8e8e8',
+    borderRadius: 20,
   },
   chipText: { fontFamily: Fonts.heading, fontSize: 12 },
   input: {
