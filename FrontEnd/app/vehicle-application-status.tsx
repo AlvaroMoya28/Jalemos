@@ -5,6 +5,7 @@ import GlassCard from '@/components/glass-card';
 import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { DriverApplication, useApplications } from '@/contexts/applications';
+import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -91,6 +92,7 @@ export default function VehicleApplicationStatusScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { myVehicleApplications } = useApplications();
+  const { showLoader, hideLoader } = useLoading();
 
   const app = useMemo(
     () => myVehicleApplications.find((a) => a.id === (Array.isArray(id) ? id[0] : id)),
@@ -110,7 +112,7 @@ export default function VehicleApplicationStatusScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+        <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }} hitSlop={8}>
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Estado del vehículo</Text>
@@ -186,7 +188,7 @@ export default function VehicleApplicationStatusScreen() {
         )}
 
         <Animated.View entering={FadeInDown.duration(200).delay(160)}>
-          <Pressable style={styles.backBtnFull} onPress={() => router.back()}>
+          <Pressable style={styles.backBtnFull} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
             <Text style={styles.backBtnFullText}>Volver al perfil</Text>
           </Pressable>
         </Animated.View>

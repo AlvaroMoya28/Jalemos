@@ -326,7 +326,7 @@ export default function RideDetailScreen() {
           color={colors.textMuted}
         />
         <Text style={styles.errorText}>Viaje no encontrado</Text>
-        <Pressable style={styles.errorBackBtn} onPress={() => router.back()}>
+        <Pressable style={styles.errorBackBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
           <Text style={styles.errorBackBtnText}>Volver</Text>
         </Pressable>
       </View>
@@ -396,7 +396,7 @@ export default function RideDetailScreen() {
       <View style={styles.header}>
         <Pressable
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}
           hitSlop={8}
         >
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />

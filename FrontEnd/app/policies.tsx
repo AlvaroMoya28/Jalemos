@@ -2,6 +2,7 @@
 // Accesible desde el registro (antes de aceptar) y desde Perfil > Soporte.
 
 import { Brand } from '@/constants/theme';
+import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -136,11 +137,12 @@ const SECTIONS = [
 export default function PoliciesScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { showLoader, hideLoader } = useLoading();
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
           <Ionicons name="arrow-back" size={18} color="#ecfff9" />
         </Pressable>
         <View style={styles.headerText}>
