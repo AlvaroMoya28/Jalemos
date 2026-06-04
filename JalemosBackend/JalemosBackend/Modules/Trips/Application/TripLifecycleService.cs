@@ -437,6 +437,21 @@ public sealed class TripLifecycleService : ITripLifecycleService
             (DateTime.UtcNow - trip.CancelledAt.Value).TotalMinutes > 15)
             return null;
 
+        // Completed trips surface only so the passenger can rate the driver ONCE.
+        // Stop returning the trip as soon as the passenger has rated, or after a 60-min
+        // grace window if they skipped — so the rating prompt never reappears on every login.
+        if (trip.State == TripState.Completed)
+        {
+            var alreadyRated = await _db.Ratings.AsNoTracking().AnyAsync(
+                r => r.TripId == trip.TripId && r.RaterId == passengerId && r.RatedId == trip.DriverUserId, ct);
+
+            var pastGrace = trip.CompletedAt.HasValue &&
+                            (DateTime.UtcNow - trip.CompletedAt.Value).TotalMinutes > 60;
+
+            if (alreadyRated || pastGrace)
+                return null;
+        }
+
         var driver = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == trip.DriverUserId, ct);
 
         // Late cancellation = driver cancelled < 60 min BEFORE departure (not auto-expired).
