@@ -87,8 +87,7 @@ export default function RootLayout() {
                     <Stack
                       screenOptions={{
                         headerShown: false,
-                        animation: "fade",
-                        animationDuration: 220,
+                        animation: "none",
                         gestureEnabled: true,
                       }}
                     >
@@ -117,7 +116,7 @@ export default function RootLayout() {
                         name="ride-detail"
                         options={{
                           headerShown: false,
-                          animation: "slide_from_right",
+                          animation: "none",
                         }}
                       />
                       {/* Driver application status — shown after submitting driver registration */}
@@ -125,7 +124,7 @@ export default function RootLayout() {
                         name="driver-status"
                         options={{
                           headerShown: false,
-                          animation: "slide_from_right",
+                          animation: "none",
                         }}
                       />
                       {/* Admin: full application review */}
@@ -133,7 +132,7 @@ export default function RootLayout() {
                         name="application-detail"
                         options={{
                           headerShown: false,
-                          animation: "slide_from_right",
+                          animation: "none",
                         }}
                       />
                       {/* Políticas de uso */}
@@ -141,7 +140,7 @@ export default function RootLayout() {
                         name="policies"
                         options={{
                           headerShown: false,
-                          animation: "slide_from_right",
+                          animation: "none",
                         }}
                       />
                       {/* Transparent modal overlay that slides up from the bottom */}

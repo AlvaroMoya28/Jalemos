@@ -1,3 +1,5 @@
+// Updated by Claude Sonnet 4.6: lifecycle state serialization (in_progress/no_show),
+// boarding auto-expiry, and one-time rating gating so completed trips stop resurfacing.
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Notifications.Infrastructure;

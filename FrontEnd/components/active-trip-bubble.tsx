@@ -1,5 +1,7 @@
 // Floating liquid-glass bubble shown to passengers when a trip is boarding or in progress.
 // All hooks are declared BEFORE any conditional return (Rules of Hooks).
+// Updated by Claude Sonnet 4.6: live in-trip view with route map, boarded alert, and
+// persistent one-time cancellation/rating prompts.
 
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';

@@ -1,6 +1,8 @@
 // Ride detail screen — shown when the user taps a ride card in the search results.
 // Displays a Google Static Maps preview of the route, full trip details, driver profile
 // with ratings, recent reviews, and a fixed booking panel at the bottom.
+// Updated by Claude Sonnet 4.6: history mode (direct trip fetch), real driver reviews,
+// one-time rating prompt, and driver trip cancellation.
 // Uses mock data from constants/mock-rides.ts until the backend API is ready.
 
 import { useLoading } from "@/contexts/loading";
@@ -468,7 +470,7 @@ export default function RideDetailScreen() {
           color={colors.textMuted}
         />
         <Text style={styles.errorText}>Viaje no encontrado</Text>
-        <Pressable style={styles.errorBackBtn} onPress={() => router.back()}>
+        <Pressable style={styles.errorBackBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
           <Text style={styles.errorBackBtnText}>Volver</Text>
         </Pressable>
       </View>
@@ -536,7 +538,7 @@ export default function RideDetailScreen() {
       <View style={styles.header}>
         <Pressable
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}
           hitSlop={8}
         >
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />

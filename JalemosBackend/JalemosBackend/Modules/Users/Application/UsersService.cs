@@ -1,5 +1,6 @@
 // Application service for the Users module.
 // Enforces user-related business rules and delegates data persistence to UsersRepository.
+// Updated by Claude Sonnet 4.6: profile-photo upload to S3 (respects the driver photo lock).
 
 using JalemosBackend.Modules.Users.Application.DTOs;
 using JalemosBackend.Modules.Users.Domain;

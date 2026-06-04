@@ -1,3 +1,5 @@
+// Updated by Claude Sonnet 4.6: include rater names in responses and exclude cancelled
+// bookings when validating who participated in a trip.
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Notifications.Infrastructure;

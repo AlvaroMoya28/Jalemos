@@ -3,7 +3,7 @@
 // Approved and rejected are grouped under collapsible section headers, collapsed by default.
 
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRouter } from 'expo-router';
+import { Redirect, useNavigation, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -17,6 +17,8 @@ import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand } from '@/constants/theme';
 import { ApplicationStatus, DriverApplication, useApplications } from '@/contexts/applications';
+import { useAuth } from '@/contexts/auth';
+import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { badge, appCardInline, makeStyles } from '../../styles/tabs/admin-applications.styles';
 
@@ -131,6 +133,8 @@ function CollapsibleSection({ title, count, color, apps, onPress, styles, colors
 }
 
 export default function AdminApplicationsScreen() {
+  const { user } = useAuth();
+  const { mode } = useUserMode();
   const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
@@ -139,7 +143,7 @@ export default function AdminApplicationsScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage]     = useState(1);
 
-  useEffect(() => { loadApplications(); }, [loadApplications]);
+  useEffect(() => { if (user?.role === 'admin') loadApplications(); }, [loadApplications, user?.role]);
   useEffect(() => { navigation.setOptions({ title: 'Solicitudes', icon: { sf: 'doc.text' } }); }, [navigation]);
   useEffect(() => { setPage(1); }, [filter]);
 
@@ -165,6 +169,12 @@ export default function AdminApplicationsScreen() {
     approved:         approved.length,
     rejected:         rejected.length,
   }), [applications, approved, rejected]);
+
+  // Non-admins must never see this screen. Redirect them to the appropriate user tab based on their mode.
+  if (user?.role !== 'admin') {
+    const fallback = (mode === 'driver' && user?.role === 'passenger+driver') ? '/(tabs)/offer' : '/(tabs)/search';
+    return <Redirect href={fallback} />;
+  }
 
   const filters: { key: Filter; label: string }[] = [
     { key: 'all',              label: `Todas (${counts.all})` },
