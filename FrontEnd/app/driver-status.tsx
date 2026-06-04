@@ -162,7 +162,7 @@ export default function DriverStatusScreen() {
       <View style={[styles.container, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
         <Ionicons name="document-outline" size={48} color={colors.textMuted} />
         <Text style={[styles.successBody, { marginTop: 12 }]}>No hay ninguna solicitud activa</Text>
-        <Pressable style={[styles.secondaryBtn, { marginTop: 16, paddingHorizontal: 24 }]} onPress={() => router.back()}>
+        <Pressable style={[styles.secondaryBtn, { marginTop: 16, paddingHorizontal: 24 }]} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
           <Text style={styles.secondaryBtnText}>Volver</Text>
         </Pressable>
       </View>
@@ -172,7 +172,7 @@ export default function DriverStatusScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+        <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }} hitSlop={8}>
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Solicitud de conductor</Text>
@@ -292,7 +292,7 @@ export default function DriverStatusScreen() {
             <Pressable style={styles.primaryBtn} onPress={handleResubmit}>
               <Text style={styles.primaryBtnText}>Corregir y reenviar solicitud</Text>
             </Pressable>
-            <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
+            <Pressable style={styles.secondaryBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
               <Text style={styles.secondaryBtnText}>Volver al perfil</Text>
             </Pressable>
           </Animated.View>
@@ -315,7 +315,7 @@ export default function DriverStatusScreen() {
             >
               <Text style={styles.primaryBtnText}>Nueva solicitud</Text>
             </Pressable>
-            <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
+            <Pressable style={styles.secondaryBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
               <Text style={styles.secondaryBtnText}>Volver al perfil</Text>
             </Pressable>
           </Animated.View>
@@ -323,7 +323,7 @@ export default function DriverStatusScreen() {
 
         {(status === 'pending' || status === 'under_review') ? (
           <Animated.View entering={FadeInDown.duration(240).delay(200)}>
-            <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
+            <Pressable style={styles.secondaryBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
               <Text style={styles.secondaryBtnText}>Volver al perfil</Text>
             </Pressable>
           </Animated.View>

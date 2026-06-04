@@ -245,7 +245,7 @@ export default function RegisterScreen() {
 
               <Text style={styles.loginText}>
                 ¿Ya tienes cuenta?{' '}
-                <Text style={styles.loginLink} onPress={() => router.back()}>
+                <Text style={styles.loginLink} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
                   Ingresa aquí
                 </Text>
               </Text>

@@ -1,6 +1,55 @@
 import { StyleSheet } from 'react-native';
 import { Brand, Fonts } from '@/constants/theme';
 
+export const androidStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+  },
+  sheet: {
+    borderTopLeftRadius: Brand.radius[24],
+    borderTopRightRadius: Brand.radius[24],
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    gap: 12,
+  },
+  title: {
+    fontSize: 16,
+    fontFamily: Fonts.heading,
+    textAlign: 'center',
+  },
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Brand.colors.green.normal,
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  btnText: {
+    color: '#ffffff',
+    fontFamily: Fonts.headingBold,
+    fontSize: 14,
+  },
+  cancelBtn: {
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    alignItems: 'center',
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  cancelText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+  },
+});
+
 export const styles = StyleSheet.create({
   container: {
     flex: 1,

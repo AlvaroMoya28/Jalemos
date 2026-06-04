@@ -55,7 +55,8 @@ export default function LoginScreen() {
       if (result.user?.role === 'passenger+driver') {
         setDriverRegistered(true);
       }
-      router.replace('/(tabs)/search');
+      // Redirect based on role: admins go to applications, regular users go to search.
+      router.replace(result.user?.role === 'admin' ? '/(tabs)/admin-applications' : '/(tabs)/search');
     } finally {
       hideLoader();
     }

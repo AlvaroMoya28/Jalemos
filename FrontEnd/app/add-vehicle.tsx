@@ -8,6 +8,7 @@ import SelectModal from '@/components/select-modal';
 import { VEHICLE_MAKES, VEHICLE_MODELS, VEHICLE_YEARS } from '@/constants/vehicle-data';
 import { Brand } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';
+import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -29,6 +30,7 @@ export default function AddVehicleScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { submitVehicleApplication } = useApplications();
+  const { showLoader, hideLoader } = useLoading();
 
   const [brand,   setBrand]   = useState('');
   const [model,   setModel]   = useState('');
@@ -133,7 +135,7 @@ export default function AddVehicleScreen() {
           <Text style={styles.successSub}>
             El administrador revisará tu vehículo. Cuando sea aprobado aparecerá en tu perfil de conductor.
           </Text>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
             <Text style={styles.backBtnText}>Volver al perfil</Text>
           </Pressable>
         </View>

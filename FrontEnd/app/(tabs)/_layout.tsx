@@ -68,9 +68,13 @@ export default function TabLayout() {
     );
   }
 
+  // Set the initial route based on user role and mode. Admins start on applications, drivers on offer, passengers on search.
+  const initialRouteName = isAdmin ? 'admin-applications' : isDriver ? 'offer' : 'search';
+
   return (
     <View style={styles.root}>
     <Tabs
+      initialRouteName={initialRouteName}
       screenListeners={{
         tabPress: () => {
           showLoader('Cargando...');

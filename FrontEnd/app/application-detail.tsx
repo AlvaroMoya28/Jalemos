@@ -23,6 +23,7 @@ import GlassCard from '@/components/glass-card';
 import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { ApplicationStatus, useApplications } from '@/contexts/applications';
+import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { makeStyles } from '../styles/app/application-detail.styles';
 
@@ -130,6 +131,7 @@ export default function ApplicationDetailScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { applications, setUnderReview, requestCorrection, approveApplication, rejectApplication, liftCooldown } = useApplications();
+  const { showLoader, hideLoader } = useLoading();
 
   const app = useMemo(
     () => applications.find((a) => a.id === (Array.isArray(id) ? id[0] : id)),
@@ -237,7 +239,7 @@ export default function ApplicationDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+        <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }} hitSlop={8}>
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{app.applicantName}</Text>
@@ -517,7 +519,7 @@ export default function ApplicationDetailScreen() {
                 </View>
               </AnimatedPressable>
             )}
-            <Pressable style={styles.btnSecondary} onPress={() => router.back()}>
+            <Pressable style={styles.btnSecondary} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
               <Text style={styles.btnSecondaryText}>Volver a solicitudes</Text>
             </Pressable>
           </Animated.View>

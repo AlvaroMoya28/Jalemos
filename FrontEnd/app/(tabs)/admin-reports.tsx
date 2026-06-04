@@ -3,7 +3,7 @@
 // where the admin can suspend the user for N days, deactivate their account, or dismiss.
 
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from 'expo-router';
+import { Redirect, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
@@ -23,6 +23,8 @@ import {
   REPORT_REASON_LABELS,
 } from '@/constants/mock-reports';
 import { useApplications } from '@/contexts/applications';
+import { useAuth } from '@/contexts/auth';
+import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { resolvedLabelInline, metaDotInline, sheetReasonCard, makeStyles } from '../../styles/tabs/admin-reports.styles';
 
@@ -67,6 +69,8 @@ function ResolvedLabel({ report }: { report: UserReport }) {
 }
 
 export default function AdminReportsScreen() {
+  const { user } = useAuth();
+  const { mode } = useUserMode();
   const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
@@ -89,6 +93,12 @@ export default function AdminReportsScreen() {
     resolved:  reports.filter((r) => r.status === 'resolved').length,
     dismissed: reports.filter((r) => r.status === 'dismissed').length,
   }), [reports]);
+
+  // Non-admins must never see this screen. Redirect them to the appropriate user tab based on their mode.
+  if (user?.role !== 'admin') {
+    const fallback = (mode === 'driver' && user?.role === 'passenger+driver') ? '/(tabs)/offer' : '/(tabs)/search';
+    return <Redirect href={fallback} />;
+  }
 
   const filterList: { key: Filter; label: string }[] = [
     { key: 'all',       label: `Todos (${counts.all})` },

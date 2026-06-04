@@ -325,7 +325,7 @@ export default function DriverRegistrationScreen() {
       <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
             <Ionicons name="arrow-back" size={18} color="#ffffff" />
             <Text style={styles.backText}>Volver</Text>
           </Pressable>
