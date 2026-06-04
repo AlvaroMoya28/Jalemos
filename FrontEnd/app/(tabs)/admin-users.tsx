@@ -2,7 +2,7 @@
 // Paginated list with search, filters by role/status, sort options and admin actions.
 
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from 'expo-router';
+import { Redirect, useNavigation, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,6 +28,8 @@ import {
   UserRole,
   useAdminUsers,
 } from '@/contexts/admin-users';
+import { useAuth } from '@/contexts/auth';
+import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { badge, starsInline, loadingOverlay, makeStyles } from '../../styles/tabs/admin-users.styles';
 
@@ -237,6 +239,8 @@ const SORT_OPTIONS: { key: SortBy; label: string }[] = [
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function AdminUsersScreen() {
+  const { user } = useAuth();
+  const { mode } = useUserMode();
   const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
@@ -256,8 +260,8 @@ export default function AdminUsersScreen() {
   }, [navigation]);
 
   // Reload whenever filters change or tab comes back into focus
-  useEffect(() => { loadUsers(); }, [filters, loadUsers]);
-  useFocusEffect(useCallback(() => { loadUsers(); }, [loadUsers]));
+  useEffect(() => { if (user?.role === 'admin') loadUsers(); }, [filters, loadUsers, user?.role]);
+  useFocusEffect(useCallback(() => { if (user?.role === 'admin') loadUsers(); }, [loadUsers, user?.role]));
 
   // Debounce search input → filters.search
   useEffect(() => {
@@ -344,6 +348,12 @@ export default function AdminUsersScreen() {
     setSearchInput('');
     setFilters({ role: 'all', status: 'all', sortBy: 'name_asc', page: 1 });
   }, [setFilters]);
+
+  // Non-admins must never see this screen. Redirect them to the appropriate user tab based on their mode.
+  if (user?.role !== 'admin') {
+    const fallback = (mode === 'driver' && user?.role === 'passenger+driver') ? '/(tabs)/offer' : '/(tabs)/search';
+    return <Redirect href={fallback} />;
+  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
