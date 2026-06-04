@@ -1,3 +1,4 @@
+// Updated by Claude Sonnet 4.6 for the Jalemos trip-route map previews.
 // Shared helpers for building Google Static Maps previews of a trip route.
 // Used by boarding-screen (driver) and active-trip-bubble (passenger) so both
 // show an identical map. The Directions polyline is optional — without it the

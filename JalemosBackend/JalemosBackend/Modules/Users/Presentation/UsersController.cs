@@ -1,5 +1,6 @@
 // Admin user management endpoints.
 // All routes require an authenticated admin JWT.
+// Updated by Claude Sonnet 4.6: POST /me/photo profile-photo upload and admin-role authorization.
 
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Application.DTOs;

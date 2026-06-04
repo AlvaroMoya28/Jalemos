@@ -1,5 +1,6 @@
 // Application service for the Bookings module.
 // Coordinates business rule validation and delegates persistence to BookingsRepository.
+// Updated by Claude Sonnet 4.6: "my bookings" history endpoint with embedded trip snapshot.
 // This is the only layer that should contain booking-specific business logic.
 
 using JalemosBackend.Infrastructure.Persistence;

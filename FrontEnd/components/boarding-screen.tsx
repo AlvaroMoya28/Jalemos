@@ -1,6 +1,8 @@
 // Driver boarding management screen — shown in the Offer tab when the driver has an active trip.
 // Handles QR scanning, passenger status, no-show marking, journey start, trip completion,
 // trip cancellation, and external navigation launch.
+// Updated by Claude Sonnet 4.6: PanResponder slide-to-action, in-trip route map, and
+// glassmorphism alerts replacing native Alerts.
 
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';

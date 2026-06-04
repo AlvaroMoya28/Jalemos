@@ -1,4 +1,6 @@
 // Offer (Ofrecer) tab — driver's screen for publishing a new trip.
+// Updated by Claude Sonnet 4.6: collapsible upcoming-trip strip (within 60 min), infinite
+// time picker, glass alerts, and rating-flow freeze so the boarding screen stays mounted.
 // Lets the driver set origin, destination, date, time, available seats, price per seat,
 // and select which registered vehicle to use. Shares the same hero-banner + rounded
 // bottom surface visual pattern as the other tab screens.

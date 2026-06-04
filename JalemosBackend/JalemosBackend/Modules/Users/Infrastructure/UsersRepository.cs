@@ -1,3 +1,4 @@
+// Updated by Claude Sonnet 4.6: profile-photo persistence (get lock flag, update photo URL).
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Users.Application.DTOs;

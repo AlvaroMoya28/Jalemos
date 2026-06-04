@@ -1,6 +1,7 @@
 // My Rides screen — shows the user's personal trip history.
 // Follows the same hero-banner + rounded bottom surface visual pattern
 // as the Search and Offer screens for consistency.
+// Updated by Claude Sonnet 4.6: real completed/cancelled history via /mine endpoints with status badges.
 
 import GlassCard from "@/components/glass-card";
 import NotificationsModal from "@/components/NotificationsModal";

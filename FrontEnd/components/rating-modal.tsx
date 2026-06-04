@@ -1,5 +1,6 @@
 // Post-trip rating modal. Shows after trip completes for both driver and passengers.
 // Star selector + tag chips + optional review text.
+// Updated by Claude Sonnet 4.6: keyboard-aware scrolling and dark-mode-legible tag chips.
 
 import { useState } from 'react';
 import { BlurView } from 'expo-blur';
