@@ -65,7 +65,7 @@ export default function ProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
-  const { user, token, logout, driverActivated, setDriverActivated } = useAuth();
+  const { user, token, logout, driverActivated, setDriverActivated, setProfilePhotoUrl } = useAuth();
   const { showLoader, hideLoader } = useLoading();
   const { mode, profilePhoto, setMode, setProfilePhoto } = useUserMode();
   const { loadMyApplication, myVehicleApplications, loadMyVehicleApplications } = useApplications();
@@ -113,6 +113,28 @@ export default function ProfileScreen() {
     state === 'soon'    ? '#f7a900' :
                           Brand.colors.green.normal;
 
+  /** Uploads the picked asset to the backend (S3) and updates the user's photo URL. */
+  const uploadProfilePhoto = async (asset: ImagePicker.ImagePickerAsset) => {
+    if (!token || !asset.base64) {
+      Alert.alert('Error', 'No se pudo leer la imagen seleccionada.');
+      return;
+    }
+    // Show the local URI immediately for instant feedback
+    setProfilePhoto(asset.uri);
+    showLoader('Guardando foto...');
+    try {
+      const { profilePhotoUrl } = await meApi.uploadPhoto(asset.base64, token);
+      // Persist into the auth user so it survives reloads; clear the local override
+      setProfilePhotoUrl(profilePhotoUrl);
+      setProfilePhoto(null);
+    } catch (e: any) {
+      setProfilePhoto(null); // revert optimistic preview on failure
+      Alert.alert('No se pudo guardar', e?.message ?? 'Inténtalo de nuevo.');
+    } finally {
+      hideLoader();
+    }
+  };
+
   /** Opens ActionSheet / Alert so the user can retake or pick a new profile photo. */
   const handleEditPhoto = () => {
     if (user?.profilePhotoLocked && user.role === 'passenger+driver') {
@@ -120,11 +142,11 @@ export default function ProfileScreen() {
       return;
     }
     const takePhoto = () =>
-      ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1] })
-        .then(r => { if (!r.canceled) setProfilePhoto(r.assets[0].uri); });
+      ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1], base64: true })
+        .then(r => { if (!r.canceled) uploadProfilePhoto(r.assets[0]); });
     const pickPhoto = () =>
-      ImagePicker.launchImageLibraryAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1] })
-        .then(r => { if (!r.canceled) setProfilePhoto(r.assets[0].uri); });
+      ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1], base64: true })
+        .then(r => { if (!r.canceled) uploadProfilePhoto(r.assets[0]); });
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(

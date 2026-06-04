@@ -105,6 +105,61 @@ public sealed class BookingsService : IBookingsService
         await _repository.DeleteAsync(id, cancellationToken);
     }
 
+    public async Task<IEnumerable<MyBookingDto>> GetMyBookingsWithTripsAsync(Guid passengerId, CancellationToken cancellationToken = default)
+    {
+        var bookings = await _db.Bookings.AsNoTracking()
+            .Where(b => b.PassengerId == passengerId)
+            .OrderByDescending(b => b.UpdatedAt)
+            .ToListAsync(cancellationToken);
+
+        var tripIds   = bookings.Select(b => b.TripId).Distinct().ToList();
+        var trips     = await _db.Trips.AsNoTracking().Where(t => tripIds.Contains(t.TripId)).ToListAsync(cancellationToken);
+        var driverIds = trips.Select(t => t.DriverUserId).Distinct().ToList();
+        var drivers   = await _db.Users.AsNoTracking().Where(u => driverIds.Contains(u.UserId)).ToListAsync(cancellationToken);
+
+        var tripMap   = trips.ToDictionary(t => t.TripId);
+        var driverMap = drivers.ToDictionary(u => u.UserId);
+
+        return bookings.Select(b =>
+        {
+            tripMap.TryGetValue(b.TripId, out var trip);
+            driverMap.TryGetValue(trip?.DriverUserId ?? Guid.Empty, out var driver);
+            return new MyBookingDto
+            {
+                BookingId       = b.BookingId,
+                TripId          = b.TripId,
+                BookingState    = BookingStr(b.State),
+                SeatsReserved   = b.SeatsReserved,
+                EstimatedAmount = b.EstimatedAmount,
+                CancelReason    = b.CancelReason,
+                CreatedAt       = b.CreatedAt,
+                Origin          = trip?.FromLocation  ?? string.Empty,
+                Destination     = trip?.ToLocation    ?? string.Empty,
+                DepartureAt     = trip?.StartDateTime,
+                TripState       = trip is null ? null : TripStr(trip.State),
+                Rate            = trip?.Rate,
+                DriverId        = trip?.DriverUserId ?? Guid.Empty,
+                DriverFirstName = driver?.FirstName  ?? string.Empty,
+                DriverLastName  = driver?.LastName   ?? string.Empty,
+                DriverRating    = driver?.MeanRating ?? 0m,
+                DriverTrips     = driver?.TotalTrips ?? 0,
+                DriverCreatedAt = driver?.CreatedAt,
+            };
+        }).ToList();
+    }
+
+    private static string BookingStr(BookingState s) => s switch
+    {
+        BookingState.NoShow => "no_show",
+        _ => s.ToString().ToLower()
+    };
+
+    private static string TripStr(TripState s) => s switch
+    {
+        TripState.InProgress => "in_progress",
+        _ => s.ToString().ToLower()
+    };
+
     public async Task CancelBookingAsync(Guid id, string reason, string? details, Guid callerId, CancellationToken cancellationToken = default)
     {
         var booking = await _db.Bookings.FirstOrDefaultAsync(b => b.BookingId == id, cancellationToken)

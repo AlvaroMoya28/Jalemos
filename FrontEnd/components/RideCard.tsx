@@ -25,6 +25,10 @@ export interface Ride {
   avatar: string;
   /** Whether the current user is already booked on this ride */
   userBooked?: boolean;
+  /** Optional status label shown at the bottom of the card (e.g. "Completado") */
+  statusLabel?: string;
+  /** Color for the status dot and text */
+  statusColor?: string;
 }
 
 interface RideCardProps {
@@ -116,6 +120,15 @@ export default function RideCard({ ride, onPress, mode = 'search' }: RideCardPro
             <Text style={styles.ratingText}>{ride.rating}</Text>
           </View>
         </View>
+
+        {ride.statusLabel && (
+          <View style={styles.statusRow}>
+            <View style={[styles.statusDot, { backgroundColor: ride.statusColor ?? '#aaa' }]} />
+            <Text style={[styles.statusText, { color: ride.statusColor ?? '#aaa' }]}>
+              {ride.statusLabel}
+            </Text>
+          </View>
+        )}
       </GlassCard>
     </AnimatedPressable>
   );

@@ -12,14 +12,15 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Fonts.heading,
   },
-  // Dropdown is absolutely positioned within the Modal at the measured screen coords
+  // Dropdown is absolutely positioned within the Modal at the measured screen coords.
+  // backgroundColor and borderColor are always supplied as inline styles by the component
+  // so they adapt to the active theme. Hardcoded colors here would cause white-on-white
+  // in dark mode because StyleSheet.create values can win over inline overrides on some RN versions.
   dropdown: {
     position: 'absolute',
     borderRadius: Brand.radius[12],
     overflow: 'hidden',
-    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

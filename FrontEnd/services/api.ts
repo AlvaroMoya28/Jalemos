@@ -332,11 +332,33 @@ export const applicationsApi = {
     get<DriverApplicationDTO[]>('/api/driver-applications/my-vehicles', token),
 };
 
+export interface MyBookingDTO {
+  bookingId: string;
+  tripId: string;
+  bookingState: string;
+  seatsReserved: number;
+  estimatedAmount: number;
+  cancelReason: string | null;
+  createdAt: string;
+  origin: string;
+  destination: string;
+  departureAt: string | null;
+  tripState: string | null;
+  rate: number | null;
+  driverId: string;
+  driverFirstName: string;
+  driverLastName: string;
+  driverRating: number;
+  driverTrips: number;
+  driverCreatedAt: string | null;
+}
+
 // Bookings
 export const bookingsApi = {
   create: (tripId: string, seatsReserved: number, estimatedAmount: number | null, token?: string) =>
     post<any>(`/api/bookings`, { tripId, seatsReserved, estimatedAmount }, token),
   getAll: (token?: string) => get<any[]>(`/api/bookings`, token),
+  getMine: (token: string) => get<MyBookingDTO[]>('/api/bookings/mine', token),
   getById: (id: string, token?: string) => get<any>(`/api/bookings/${id}`, token),
   delete: (id: string, token?: string) =>
     request<void>(`/api/bookings/${id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} }),
@@ -427,6 +449,11 @@ export interface MeResponse {
   qrToken: string;
 }
 
+// My driver trips (all states) for the My Rides history screen
+export const tripsApi = {
+  getMine: (token: string) => get<any[]>('/api/trips/mine', token),
+};
+
 // Trip lifecycle API
 export const tripLifecycleApi = {
   getActiveDriver: (token: string) =>
@@ -473,6 +500,8 @@ export interface RatingDTO {
   score: number;
   comment: string | null;
   createdAt: string;
+  raterFirstName: string;
+  raterLastName: string;
 }
 
 export const ratingsApi = {
@@ -489,4 +518,16 @@ export const ratingsApi = {
 // User /me endpoint
 export const meApi = {
   get: (token: string) => get<MeResponse>('/api/users/me', token),
+  // Uploads a base64 JPEG profile photo. Returns the stored public URL.
+  // Uses the longer upload timeout since base64 payloads can be large.
+  uploadPhoto: (base64: string, token: string) =>
+    request<{ profilePhotoUrl: string }>(
+      '/api/users/me/photo',
+      {
+        method: 'POST',
+        body: JSON.stringify({ image: base64 }),
+        headers: { Authorization: `Bearer ${token}` },
+      },
+      UPLOAD_TIMEOUT_MS,
+    ),
 };

@@ -124,5 +124,23 @@ export function makeStyles(c: AppColors) {
       fontFamily: Fonts.heading,
       color: c.textPrimary,
     },
+    statusRow: {
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+      paddingTop: 8,
+      marginTop: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    statusDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+    },
+    statusText: {
+      fontSize: 11,
+      fontFamily: Fonts.headingBold,
+    },
   });
 }

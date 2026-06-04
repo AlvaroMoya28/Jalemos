@@ -161,6 +161,49 @@ public sealed class TripsRepository
         trip.Id = entity.TripId;
     }
 
+    /// <summary>Returns all trips for a driver across all states — used by the My Rides history screen.</summary>
+    public async Task<IEnumerable<TripDto>> GetByDriverAsync(Guid driverId, CancellationToken cancellationToken = default)
+    {
+        var trips = await _dbContext.Trips.AsNoTracking()
+            .Where(t => t.DriverUserId == driverId)
+            .OrderByDescending(t => t.StartDateTime)
+            .ToListAsync(cancellationToken);
+
+        var user = await _dbContext.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.UserId == driverId, cancellationToken);
+
+        return trips.Select(t => new TripDto
+        {
+            Id                   = t.TripId,
+            DriverId             = t.DriverUserId,
+            DriverFirstName      = user?.FirstName  ?? string.Empty,
+            DriverLastName       = user?.LastName   ?? string.Empty,
+            DriverMeanRating     = user?.MeanRating ?? 0,
+            DriverTotalTrips     = user?.TotalTrips ?? 0,
+            DriverCreatedAt      = user?.CreatedAt  ?? DateTime.MinValue,
+            VehicleId            = t.VehicleId,
+            Rate                 = t.Rate,
+            Origin               = t.FromLocation,
+            Destination          = t.ToLocation,
+            OriginLatitude       = t.FromLatitude,
+            OriginLongitude      = t.FromLongitude,
+            DestinationLatitude  = t.ToLatitude,
+            DestinationLongitude = t.ToLongitude,
+            DepartureAt          = t.StartDateTime,
+            TotalSeats           = t.TotalSeats,
+            AvailableSeats       = t.AvailableSeats,
+            Notes                = t.Notes ?? string.Empty,
+            State                = DriverTripStateStr(t.State),
+            CreatedAt            = t.CreatedAt,
+        }).ToList();
+    }
+
+    private static string DriverTripStateStr(TripState s) => s switch
+    {
+        TripState.InProgress => "in_progress",
+        _ => s.ToString().ToLower()
+    };
+
     /// <summary>Updates an existing trip row.</summary>
     public Task UpdateAsync(Trip ride, CancellationToken cancellationToken = default)
     {

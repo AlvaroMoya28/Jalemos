@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Storage;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Application.DTOs;
 using JalemosBackend.Modules.Users.Infrastructure;
@@ -8,12 +9,19 @@ namespace JalemosBackend.Tests;
 
 public class UsersServiceValidationTests
 {
+    // Minimal storage stub — these tests never touch photo uploads.
+    private sealed class FakeStorageService : IStorageService
+    {
+        public Task<string?> UploadBase64Async(string? base64Data, string folder, CancellationToken ct = default)
+            => Task.FromResult<string?>(null);
+    }
+
     private static UsersService BuildService()
     {
         var opts = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new UsersService(new UsersRepository(new ApplicationDbContext(opts)));
+        return new UsersService(new UsersRepository(new ApplicationDbContext(opts)), new FakeStorageService());
     }
 
     [Fact]

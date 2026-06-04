@@ -8,52 +8,67 @@ import { AppColors } from '@/hooks/use-app-theme';
 const PICKER_ITEM_HEIGHT = 36;
 const PICKER_HEIGHT = PICKER_ITEM_HEIGHT * 5;
 
+// Collapsible strip placed at the top of the bottom surface.
+// Collapsed: single compact row (route + countdown + chevron).
+// Expanded:  departure time + boarding button.
+// Does NOT push the hero — it lives inside the scroll surface, not above it.
 export const upcomingStyles = StyleSheet.create({
-  wrapper: {
-    paddingHorizontal: Brand.grid.margin,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  card: {
+  strip: {
+    marginHorizontal: Brand.grid.margin,
+    marginBottom: 14,
     borderRadius: Brand.radius[16],
-    borderWidth: 1.5,
-    padding: 16,
-    gap: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+    ...withElevation(100),
   },
-  headerRow: {
+  // Tap-target for expand / collapse
+  stripHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  dot: {
+  stripDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    flexShrink: 0,
   },
-  label: {
-    fontFamily: Fonts.headingBold,
-    fontSize: 12,
-  },
-  route: {
+  stripRoute: {
     fontFamily: Fonts.heading,
-    fontSize: 15,
+    fontSize: 13,
   },
-  time: {
+  stripMeta: {
+    fontFamily: Fonts.headingBold,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  stripDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
+  },
+  stripBody: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  stripTime: {
     fontFamily: Fonts.sans,
     fontSize: 12,
   },
-  btn: {
+  stripBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
     borderRadius: Brand.radius[12],
-    paddingVertical: 12,
-    marginTop: 4,
+    paddingVertical: 11,
   },
-  btnText: {
+  stripBtnText: {
     fontFamily: Fonts.headingBold,
-    fontSize: 14,
+    fontSize: 13,
   },
 });
 

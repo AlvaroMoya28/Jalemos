@@ -46,6 +46,25 @@ public sealed class TripsController : ControllerBase
         }
     }
 
+    /// <summary>GET /api/trips/mine — all trips offered by the authenticated driver (all states), for My Rides history.</summary>
+    [HttpGet("mine")]
+    [Authorize]
+    public async Task<IActionResult> GetMine(CancellationToken cancellationToken)
+    {
+        var callerId = GetCallerId();
+        if (callerId is null) return Unauthorized();
+        try
+        {
+            var trips = await _ridesService.GetByDriverAsync(callerId.Value, cancellationToken);
+            return Ok(trips);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Trips.GetMine] Failed for driverId={DriverId}", callerId);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
     /// <summary>GET /api/rides/{id} — returns a single trip. 404 if not found.</summary>
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Trip>> GetById(Guid id, CancellationToken cancellationToken)

@@ -6,15 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
+  Image,
+  PanResponder,
+  Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { styles, passengerRowStyles, slideStyles } from './styles/boarding-screen.styles';
+import { styles, passengerRowStyles, slideStyles, mapStyles } from './styles/boarding-screen.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -27,13 +28,55 @@ import GlassAlert from './glass-alert';
 import CancellationModal from './cancellation-modal';
 import RatingModal from './rating-modal';
 
+// ── Map helpers (same pattern as ride-detail) ──────────────────────────────
+const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? '';
+
+async function fetchRoutePolyline(fLat: number, fLng: number, tLat: number, tLng: number): Promise<string | null> {
+  if (!GOOGLE_MAPS_KEY || Platform.OS === 'web') return null;
+  try {
+    const params = new URLSearchParams({ origin: `${fLat},${fLng}`, destination: `${tLat},${tLng}`, key: GOOGLE_MAPS_KEY });
+    const res  = await fetch(`https://maps.googleapis.com/maps/api/directions/json?${params}`);
+    const json = await res.json();
+    if (json.status !== 'OK' || !json.routes?.[0]) return null;
+    return json.routes[0].overview_polyline.points as string;
+  } catch { return null; }
+}
+
+const DARK_STYLES = [
+  'feature:all|element:geometry|color:0x060e0d',
+  'feature:all|element:labels.text.fill|color:0x4a7a74',
+  'feature:road|element:geometry|color:0x0f1f1d',
+  'feature:road.highway|element:geometry.stroke|color:0x1a9e8f',
+  'feature:water|element:geometry|color:0x040a09',
+];
+const LIGHT_STYLES = [
+  'feature:water|element:geometry|color:0xbae2dd',
+  'feature:road|element:geometry|color:0xffffff',
+  'feature:road.highway|element:geometry.stroke|color:0x1a9e8f',
+];
+
+function buildMapUrl(fLat: number, fLng: number, tLat: number, tLng: number, poly: string | null, isDark: boolean): string | null {
+  if (!GOOGLE_MAPS_KEY) return null;
+  let url = `https://maps.googleapis.com/maps/api/staticmap?size=800x440&scale=2&maptype=roadmap`
+    + `&markers=color:0x1a9e8f|size:mid|label:A|${fLat},${fLng}`
+    + `&markers=color:0xE53935|size:mid|label:B|${tLat},${tLng}`;
+  url += poly
+    ? `&path=color:0x1a9e8fff|weight:4|enc:${poly}`
+    : `&path=color:0x1a9e8fff|weight:4|${fLat},${fLng}|${tLat},${tLng}`;
+  for (const s of isDark ? DARK_STYLES : LIGHT_STYLES) url += `&style=${encodeURIComponent(s)}`;
+  return url + `&key=${GOOGLE_MAPS_KEY}`;
+}
+
 interface Props {
   trip: TripStatusResponse;
   onTripEnded: () => void;
+  /** Called right after the trip is completed, so the parent can freeze this screen
+   *  mounted while the driver rates each passenger. */
+  onTripCompleted?: (trip: TripStatusResponse) => void;
 }
 
-export default function BoardingScreen({ trip, onTripEnded }: Props) {
-  const { colors } = useAppTheme();
+export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: Props) {
+  const { colors, isDark } = useAppTheme();
   const { token }          = useAuth();
   const { refresh }        = useActiveTrip();
   const insets             = useSafeAreaInsets();
@@ -47,6 +90,13 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
   const [currentRatingIdx, setCurrentRatingIdx] = useState(0);
   const [submitting, setSubmitting]           = useState(false);
   const seatbeltShown                         = useRef(false);
+  // Glass alert state for native Alert replacements
+  const [noShowConfirm, setNoShowConfirm]     = useState<{ bookingId: string; name: string } | null>(null);
+  const [errorMsg, setErrorMsg]               = useState<{ title: string; body: string } | null>(null);
+  // Map state (shown when in_progress)
+  const [mapUrl, setMapUrl]                   = useState<string | null>(null);
+  const [mapError, setMapError]               = useState(false);
+  const [polyline, setPolyline]               = useState<string | null>(null);
 
   const boardedPassengers  = trip.passengers.filter(p => p.bookingState === 'boarded');
   const pendingPassengers  = trip.passengers.filter(p => p.bookingState === 'confirmed' || p.bookingState === 'pending');
@@ -71,6 +121,27 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
     ? `${Math.floor(graceLeft / 60000)}:${String(Math.floor((graceLeft % 60000) / 1000)).padStart(2, '0')}`
     : null;
 
+  // Fetch route polyline when journey starts
+  useEffect(() => {
+    if (!isInProgress) return;
+    const fLat = Number(trip.originLatitude);
+    const fLng = Number(trip.originLongitude);
+    const tLat = Number(trip.destinationLatitude);
+    const tLng = Number(trip.destinationLongitude);
+    fetchRoutePolyline(fLat, fLng, tLat, tLng).then(setPolyline);
+  }, [isInProgress, trip.tripId]);
+
+  // Build static map URL whenever polyline or theme changes
+  useEffect(() => {
+    if (!isInProgress) return;
+    const fLat = Number(trip.originLatitude);
+    const fLng = Number(trip.originLongitude);
+    const tLat = Number(trip.destinationLatitude);
+    const tLng = Number(trip.destinationLongitude);
+    setMapError(false);
+    setMapUrl(buildMapUrl(fLat, fLng, tLat, tLng, polyline, isDark));
+  }, [isInProgress, polyline, isDark, trip.tripId]);
+
   // QR scan handler
   const handleScan = useCallback(async (qrToken: string) => {
     if (scanning || !token) return;
@@ -81,27 +152,26 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
       setScanFeedback({ name: `${result.firstName} ${result.lastName}`, boarded: !result.alreadyBoarded });
       refresh();
     } catch (e: any) {
-      Alert.alert('QR inválido', e.message ?? 'No se pudo escanear el QR.');
+      setErrorMsg({ title: 'QR inválido', body: e.message ?? 'No se pudo escanear el QR.' });
     } finally {
       setScanning(false);
     }
   }, [scanning, token, trip.tripId, refresh]);
 
-  // Mark no-show
-  const handleNoShow = async (bookingId: string, name: string) => {
-    Alert.alert(
-      `¿Marcar a ${name} como no presentado?`,
-      graceLeft > 0 ? `Quedan ${graceMinSec} de período de gracia.` : 'El período de gracia ha finalizado.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sí, no se presentó', style: 'destructive', onPress: async () => {
-          try {
-            await tripLifecycleApi.markNoShow(bookingId, token!);
-            refresh();
-          } catch (e: any) { Alert.alert('Error', e.message); }
-        }},
-      ],
-    );
+  // Mark no-show — opens a GlassAlert confirmation
+  const handleNoShow = (bookingId: string, name: string) => {
+    setNoShowConfirm({ bookingId, name });
+  };
+  const confirmNoShow = async () => {
+    if (!noShowConfirm) return;
+    const { bookingId } = noShowConfirm;
+    setNoShowConfirm(null);
+    try {
+      await tripLifecycleApi.markNoShow(bookingId, token!);
+      refresh();
+    } catch (e: any) {
+      setErrorMsg({ title: 'Error', body: e.message ?? 'No se pudo marcar la inasistencia.' });
+    }
   };
 
   // Start journey
@@ -110,10 +180,11 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
     setSubmitting(true);
     try {
       await tripLifecycleApi.startJourney(trip.tripId, token);
-      await refresh();  // await so trip state updates before re-render
+      await refresh();
       if (!seatbeltShown.current) { seatbeltShown.current = true; setShowSeatbelt(true); }
-    } catch (e: any) { Alert.alert('No se puede iniciar', e.message); }
-    finally { setSubmitting(false); }
+    } catch (e: any) {
+      setErrorMsg({ title: 'No se puede iniciar', body: e.message ?? 'Inténtalo de nuevo.' });
+    } finally { setSubmitting(false); }
   };
 
   // Complete trip
@@ -122,13 +193,18 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
     setSubmitting(true);
     try {
       await tripLifecycleApi.completeTrip(trip.tripId, token);
-      // Show rating BEFORE refreshing context so BoardingScreen stays mounted for the modal.
-      // onTripEnded (called after rating or when no passengers) triggers refreshActiveTrip,
-      // which sets driverTrip = null and unmounts this screen.
-      if (boardedPassengers.length > 0) { setCurrentRatingIdx(0); setShowRating(true); }
-      else onTripEnded();
-    } catch (e: any) { Alert.alert('Error', e.message); }
-    finally { setSubmitting(false); }
+      if (boardedPassengers.length > 0) {
+        // Freeze this screen mounted in the parent so the rating flow isn't unmounted
+        // when the next poll sets driverTrip = null.
+        onTripCompleted?.(trip);
+        setCurrentRatingIdx(0);
+        setShowRating(true);
+      } else {
+        onTripEnded();
+      }
+    } catch (e: any) {
+      setErrorMsg({ title: 'Error al finalizar', body: e.message ?? 'Inténtalo de nuevo.' });
+    } finally { setSubmitting(false); }
   };
 
   // Cancel trip
@@ -140,8 +216,9 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
       setShowCancel(false);
       refresh();
       onTripEnded();
-    } catch (e: any) { Alert.alert('Error', e.message); }
-    finally { setSubmitting(false); }
+    } catch (e: any) {
+      setErrorMsg({ title: 'Error al cancelar', body: e.message ?? 'Inténtalo de nuevo.' });
+    } finally { setSubmitting(false); }
   };
 
   // Rating flow for each boarded passenger
@@ -180,20 +257,22 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
         </Pressable>
       </View>
 
-      {/* Route info */}
-      <View style={[styles.routeCard, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-        <View style={styles.routeRow}>
-          <Ionicons name="radio-button-on" size={14} color={Brand.colors.green.dark} />
-          <Text style={[styles.routeText, { color: colors.textPrimary }]} numberOfLines={1}>{trip.origin}</Text>
+      {/* Route text card — boarding only */}
+      {isBoarding && (
+        <View style={[styles.routeCard, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+          <View style={styles.routeRow}>
+            <Ionicons name="radio-button-on" size={14} color={Brand.colors.green.dark} />
+            <Text style={[styles.routeText, { color: colors.textPrimary }]} numberOfLines={1}>{trip.origin}</Text>
+          </View>
+          <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.routeRow}>
+            <Ionicons name="location" size={14} color={Brand.colors.green.normal} />
+            <Text style={[styles.routeText, { color: colors.textPrimary }]} numberOfLines={1}>{trip.destination}</Text>
+          </View>
         </View>
-        <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.routeRow}>
-          <Ionicons name="location" size={14} color={Brand.colors.green.normal} />
-          <Text style={[styles.routeText, { color: colors.textPrimary }]} numberOfLines={1}>{trip.destination}</Text>
-        </View>
-      </View>
+      )}
 
-      {/* Scan QR button — always visible, not inside ScrollView */}
+      {/* Scan QR button — boarding only */}
       {isBoarding && (
         <Pressable
           style={[styles.scanBtn, { marginHorizontal: 16, marginBottom: 10 }, scanning && { opacity: 0.6 }]}
@@ -208,19 +287,49 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
         </Pressable>
       )}
 
-      {/* Navigation button — always visible when in_progress */}
+      {/* Map + navigation — in_progress only */}
       {isInProgress && (
-        <Pressable
-          style={[styles.scanBtn, { backgroundColor: '#3182ce', marginHorizontal: 16, marginBottom: 10 }]}
-          onPress={() => openInMaps(
-            Number(trip.originLatitude), Number(trip.originLongitude),
-            Number(trip.destinationLatitude), Number(trip.destinationLongitude),
-            trip.origin, trip.destination,
-          )}
-        >
-          <Ionicons name="navigate-outline" size={20} color="#fff" />
-          <Text style={styles.scanBtnText}>Abrir navegación</Text>
-        </Pressable>
+        <>
+          <Pressable
+            style={mapStyles.container}
+            onPress={() => openInMaps(
+              Number(trip.originLatitude), Number(trip.originLongitude),
+              Number(trip.destinationLatitude), Number(trip.destinationLongitude),
+              trip.origin, trip.destination,
+            )}
+          >
+            {mapUrl && !mapError ? (
+              <Image
+                source={{ uri: mapUrl }}
+                style={mapStyles.image}
+                resizeMode="cover"
+                onError={() => setMapError(true)}
+              />
+            ) : (
+              <View style={[mapStyles.fallback, { backgroundColor: colors.inputBg }]}>
+                <Ionicons name="map-outline" size={36} color={colors.textMuted} />
+                <Text style={[mapStyles.fallbackText, { color: colors.textMuted }]} numberOfLines={1}>
+                  {trip.origin} → {trip.destination}
+                </Text>
+              </View>
+            )}
+            <View style={mapStyles.expandIcon}>
+              <Ionicons name="navigate" size={14} color="#fff" />
+            </View>
+          </Pressable>
+
+          <Pressable
+            style={[styles.scanBtn, { backgroundColor: '#3182ce', marginHorizontal: 16, marginBottom: 10 }]}
+            onPress={() => openInMaps(
+              Number(trip.originLatitude), Number(trip.originLongitude),
+              Number(trip.destinationLatitude), Number(trip.destinationLongitude),
+              trip.origin, trip.destination,
+            )}
+          >
+            <Ionicons name="navigate-outline" size={20} color="#fff" />
+            <Text style={styles.scanBtnText}>Abrir en mapa</Text>
+          </Pressable>
+        </>
       )}
 
       {/* Passengers */}
@@ -302,6 +411,34 @@ export default function BoardingScreen({ trip, onTripEnded }: Props) {
         onDismiss={() => setShowSeatbelt(false)}
       />
 
+      {/* No-show confirmation */}
+      <GlassAlert
+        visible={!!noShowConfirm}
+        icon="person-remove"
+        iconColor="#e53e3e"
+        title={noShowConfirm ? `¿Marcar a ${noShowConfirm.name}?` : ''}
+        body={graceLeft > 0
+          ? `Quedan ${graceMinSec} de período de gracia.`
+          : 'El período de gracia ha finalizado. El pasajero no se presentó.'}
+        primaryLabel="Sí, no se presentó"
+        onPrimary={confirmNoShow}
+        secondaryLabel="Cancelar"
+        onSecondary={() => setNoShowConfirm(null)}
+        dismissible={false}
+        onDismiss={() => setNoShowConfirm(null)}
+      />
+
+      {/* Generic error */}
+      <GlassAlert
+        visible={!!errorMsg}
+        icon="alert-circle"
+        iconColor="#e53e3e"
+        title={errorMsg?.title ?? 'Error'}
+        body={errorMsg?.body ?? ''}
+        primaryLabel="Entendido"
+        onDismiss={() => setErrorMsg(null)}
+      />
+
       <CancellationModal
         visible={showCancel}
         type="driver"
@@ -371,6 +508,11 @@ function PassengerRow({
 }
 
 // ── Slide to action ──────────────────────────────────────────────────────────
+// Real PanResponder drag: pull the thumb to the right edge to trigger.
+// GlassAlert confirmation appears when the threshold is reached.
+const THUMB_SIZE = 62;
+const DRAG_THRESHOLD = 0.82; // fraction of track width that triggers confirm
+
 function SlideToAction({ label, onSlide, disabled, color, insets }: {
   label: string;
   onSlide?: () => void;
@@ -378,38 +520,84 @@ function SlideToAction({ label, onSlide, disabled, color, insets }: {
   color: string;
   insets: { bottom: number };
 }) {
-  const { colors } = useAppTheme();
-  const x          = useRef(new Animated.Value(0)).current;
+  const { colors }     = useAppTheme();
+  const x              = useRef(new Animated.Value(0)).current;
+  const [, setTrackW] = useState(0);
+  const [showConfirm, setShowConfirm] = useState(false);
+  // Refs so PanResponder closures always read the latest values
+  // (PanResponder.create is called once and captures the initial closure)
+  const trackWRef   = useRef(0);
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !disabledRef.current,
+      onMoveShouldSetPanResponder:  () => !disabledRef.current,
+      onPanResponderMove: (_, { dx }) => {
+        const mX = Math.max(0, trackWRef.current - THUMB_SIZE - 8);
+        x.setValue(Math.min(Math.max(0, dx), mX));
+      },
+      onPanResponderRelease: (_, { dx }) => {
+        const mX = Math.max(0, trackWRef.current - THUMB_SIZE - 8);
+        if (mX > 0 && dx / mX >= DRAG_THRESHOLD) {
+          x.setValue(mX);
+          setShowConfirm(true);
+        } else {
+          Animated.spring(x, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    }),
+  ).current;
+
+  const resetThumb = () => {
+    Animated.spring(x, { toValue: 0, useNativeDriver: true }).start();
+  };
+
+  const handleConfirm = () => {
+    setShowConfirm(false);
+    resetThumb();
+    onSlide?.();
+  };
+
+  const handleCancel = () => {
+    setShowConfirm(false);
+    resetThumb();
+  };
 
   return (
     <View style={[slideStyles.wrapper, { paddingBottom: insets.bottom + 12 }]}>
       <View
         style={[slideStyles.track, { backgroundColor: disabled ? colors.border : color + '33' }]}
+        onLayout={e => {
+          const w = e.nativeEvent.layout.width;
+          trackWRef.current = w;
+          setTrackW(w);
+        }}
       >
         <Animated.View
           style={[slideStyles.thumb, { backgroundColor: disabled ? '#aaa' : color, transform: [{ translateX: x }] }]}
-          {...(disabled ? {} : {
-            // Simple drag simulation — in prod use PanResponder
-          })}
+          {...(disabled ? {} : panResponder.panHandlers)}
         >
           <Ionicons name="chevron-forward-outline" size={22} color="#fff" />
         </Animated.View>
-        <Text style={[slideStyles.label, { color: disabled ? '#aaa' : color }]}>{label}</Text>
+        <Text style={[slideStyles.label, { color: disabled ? '#aaa' : color, opacity: disabled ? 0.5 : 1 }]}>
+          {label}
+        </Text>
       </View>
-      {/* Tap fallback when not draggable */}
-      <Pressable
-        style={StyleSheet.absoluteFill}
-        onPress={disabled ? undefined : () => {
-          Alert.alert(
-            label,
-            '¿Estás seguro?',
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Confirmar', onPress: onSlide },
-            ],
-          );
-        }}
-        disabled={disabled}
+
+      <GlassAlert
+        visible={showConfirm}
+        icon="checkmark-circle"
+        iconColor={color}
+        title="¿Confirmas esta acción?"
+        body={label}
+        primaryLabel="Confirmar"
+        onPrimary={handleConfirm}
+        secondaryLabel="Cancelar"
+        onSecondary={handleCancel}
+        dismissible={false}
+        onDismiss={handleCancel}
       />
     </View>
   );

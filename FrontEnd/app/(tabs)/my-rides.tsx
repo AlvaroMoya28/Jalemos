@@ -8,9 +8,8 @@ import RideCard, { Ride } from "@/components/RideCard";
 import { Brand } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth";
 import { useAppTheme } from "@/hooks/use-app-theme";
-import { Trip as TripModel, useTripsData } from "@/hooks/use-trips-data";
 
-import { bookingsApi } from "@/services/api";
+import { bookingsApi, tripsApi, MyBookingDTO } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -53,76 +52,66 @@ export default function MyRidesScreen() {
   const [tab, setTab] = useState<"passenger" | "driver">("passenger");
   const [onlyCompleted, setOnlyCompleted] = useState(false);
 
-  const { trips, refreshTrips } = useTripsData();
   const { user, token } = useAuth();
-  const [bookings, setBookings] = useState<any[] | null>(null);
+  // Raw data from the two new history endpoints
+  const [myBookings, setMyBookings]   = useState<MyBookingDTO[] | null>(null);
+  const [myDriverTrips, setMyDriverTrips] = useState<any[] | null>(null);
 
-  // Refresh trips and bookings every time the screen is focused, to ensure we show the latest data.
   useFocusEffect(
     useCallback(() => {
-      refreshTrips();
+      if (!token) return;
       let mounted = true;
       (async () => {
-        if (!token) {
-          setBookings([]);
-          return;
-        }
         try {
-          const list = await bookingsApi.getAll(token);
+          const [bookingList, driverList] = await Promise.all([
+            bookingsApi.getMine(token),
+            tripsApi.getMine(token),
+          ]);
           if (!mounted) return;
-          setBookings(Array.isArray(list) ? list : []);
+          setMyBookings(Array.isArray(bookingList) ? bookingList : []);
+          setMyDriverTrips(Array.isArray(driverList) ? driverList : []);
         } catch {
-          if (mounted) setBookings([]);
+          if (mounted) { setMyBookings([]); setMyDriverTrips([]); }
         }
       })();
-
-      return () => {
-        mounted = false;
-      };
-    }, [refreshTrips, token]),
+      return () => { mounted = false; };
+    }, [token]),
   );
 
-  // Compute totals from real data. For now no trips are 'completed', so totals are 0.
   const totalSpent = useMemo(() => {
-    if (!bookings || !trips || !user) return 0;
-    return bookings.reduce((acc, b: any) => {
-      if (b.passengerId !== user.id) return acc;
-      const trip = trips.find((t) => t.id === b.tripId);
-      if (!trip) return acc;
-      const seats = typeof b.seatsReserved === "number" ? b.seatsReserved : 1;
-      return acc + seats * (trip.rate ?? 0);
-    }, 0);
-  }, [bookings, trips, user]);
+    if (!myBookings) return 0;
+    return myBookings
+      .filter(b => b.bookingState === 'completed')
+      .reduce((acc, b) => acc + b.estimatedAmount, 0);
+  }, [myBookings]);
 
   const totalEarned = useMemo(() => {
-    if (!trips || !user) return 0;
-    return trips.reduce((acc, t) => {
-      if (t.driverId !== user.id) return acc;
-      // no completed trips yet
-      return acc;
-    }, 0);
-  }, [trips, user]);
+    if (!myDriverTrips || !user) return 0;
+    return myDriverTrips
+      .filter((t: any) => t.driverId === user.id && t.state === 'completed')
+      .reduce((acc: number, t: any) => acc + (t.rate ?? 0), 0);
+  }, [myDriverTrips, user]);
 
-  // Build lists for display
-  const driverTrips = useMemo<TripModel[]>(
-    () => (trips ? trips.filter((t) => t.driverId === user?.id) : []),
-    [trips, user],
+  // ── Display lists ──────────────────────────────────────────────────────────
+  // Passenger tab: use MyBookingDTO directly (has embedded trip snapshot)
+  const passengerItems: MyBookingDTO[] = useMemo(
+    () => myBookings ?? [],
+    [myBookings],
   );
-  const passengerTrips = useMemo<TripModel[]>(() => {
-    if (!bookings || !trips) return [];
-    const ids = new Set(
-      bookings
-        .filter((b: any) => b.passengerId === user?.id)
-        .map((b: any) => b.tripId),
-    );
-    return trips.filter((t) => ids.has(t.id));
-  }, [bookings, trips, user]);
 
-  const sourceDisplayTrips: TripModel[] =
-    tab === "passenger" ? passengerTrips : driverTrips;
-  const displayTrips = onlyCompleted
-    ? sourceDisplayTrips.filter(() => false /* no completed yet */)
-    : sourceDisplayTrips;
+  // Driver tab: driver's own trips (all states)
+  const driverItems: any[] = useMemo(
+    () => myDriverTrips ?? [],
+    [myDriverTrips],
+  );
+
+  const sourceItems = tab === 'passenger' ? passengerItems : driverItems;
+  const displayItems = onlyCompleted
+    ? sourceItems.filter((item: any) => {
+        const state = (item.tripState ?? item.state ?? '').toLowerCase();
+        return state === 'completed';
+      })
+    : sourceItems;
 
   return (
     <View style={styles.container}>
@@ -256,80 +245,88 @@ export default function MyRidesScreen() {
 
           {/* Trip list */}
           <View style={styles.tripList}>
-            {displayTrips.length > 0 ? (
-              displayTrips.map((t) => {
-                const dep = new Date(
-                  t.departureAt ?? t.departureAt ?? Date.now(),
-                );
-                const nameParts = (t.driverName ?? "").split(" ");
-                const firstName = nameParts[0] ?? "";
-                const avatar =
-                  `${firstName[0] ?? ""}${nameParts[1]?.[0] ?? ""}`.toUpperCase();
-                // Determine seats to display:
-                // - In passenger tab: seats reserved by the current user for this trip
-                // - In driver tab: total seats reserved by passengers for this trip
-                // - Fallback: available seats
-                let seatsCount = t.availableSeats ?? t.totalSeats ?? 1;
-                if (tab === "passenger") {
-                  const myBooking = (bookings || []).find(
-                    (b: any) => b.tripId === t.id && b.passengerId === user?.id,
-                  );
-                  seatsCount =
-                    typeof myBooking?.seatsReserved === "number"
-                      ? myBooking.seatsReserved
-                      : seatsCount;
-                } else {
-                  const totalReserved = (bookings || [])
-                    .filter((b: any) => b.tripId === t.id)
-                    .reduce(
-                      (acc: number, b: any) =>
-                        acc +
-                        (typeof b.seatsReserved === "number"
-                          ? b.seatsReserved
-                          : 1),
-                      0,
-                    );
-                  // if there are any reservations, show that number; otherwise fallback to seatsCount
-                  if (totalReserved > 0) seatsCount = totalReserved;
-                }
+            {displayItems.length > 0 ? (
+              displayItems.map((item: any) => {
+                // Normalize fields from both MyBookingDTO (passenger) and TripDto (driver)
+                const origin      = item.origin      ?? item.from       ?? 'Origen';
+                const destination = item.destination ?? item.to         ?? 'Destino';
+                const departAt    = item.departureAt ?? item.departureAt;
+                const dep         = new Date(departAt ?? Date.now());
+                const rate        = item.rate        ?? item.price      ?? 0;
+                const driverFirst = item.driverFirstName ?? '';
+                const driverLast  = item.driverLastName  ?? '';
+                const driverName  = `${driverFirst} ${driverLast}`.trim() || item.driverName || 'Conductor';
+                const seats       = item.seatsReserved ?? item.availableSeats ?? 1;
+                const tripId      = item.tripId ?? item.id;
+                const tripState   = (item.tripState ?? item.state ?? '').toLowerCase();
+
+                const nameParts = driverName.split(' ');
+                const avatar    = `${nameParts[0]?.[0] ?? ''}${nameParts[1]?.[0] ?? ''}`.toUpperCase();
+
+                const stateBadge = tripState === 'completed' ? 'Completado'
+                  : tripState === 'cancelled' ? 'Cancelado'
+                  : tripState === 'in_progress' ? 'En curso'
+                  : tripState === 'boarding'  ? 'Abordaje'
+                  : null;
+
+                const statusColor =
+                  tripState === 'completed'   ? '#1a9e6a'
+                  : tripState === 'cancelled' ? '#e53e3e'
+                  : tripState === 'in_progress' ? Brand.colors.green.normal
+                  : tripState === 'boarding'  ? '#f4a522'
+                  : undefined;
 
                 const ride: Ride = {
-                  id: t.id,
-                  from: t.origin ?? t.origin ?? "Origen",
-                  to: t.destination ?? t.destination ?? "Destino",
-                  date: dep.toLocaleDateString("es-CR", {
-                    day: "numeric",
-                    month: "short",
-                  }),
-                  time: dep.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                  price: t.rate ?? 0,
-                  seats: seatsCount,
-                  driver: t.driverName ?? "Conductor",
-                  rating: t.driverRating ?? 0,
+                  id: tripId,
+                  from: origin,
+                  to: destination,
+                  date: dep.toLocaleDateString('es-CR', { day: 'numeric', month: 'short' }),
+                  time: dep.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                  price: rate,
+                  seats,
+                  driver: driverName,
+                  rating: item.driverRating ?? item.driverMeanRating ?? 0,
                   avatar,
+                  statusLabel: stateBadge ?? undefined,
+                  statusColor,
                 };
-                const isExpired = tab === "driver" && dep < new Date();
+
                 return (
-                  <View key={t.id} style={myRidesInline.tripCardWrapper}>
-                    {isExpired && (
-                      <View style={myRidesInline.expiredBadge}>
-                        <Text style={myRidesInline.expiredBadgeText}>
-                          Vencido
-                        </Text>
-                      </View>
-                    )}
+                  <View key={item.bookingId ?? item.id} style={myRidesInline.tripCardWrapper}>
                     <RideCard
                       ride={ride}
                       mode="my-rides"
-                      onPress={() =>
+                      onPress={() => {
+                        // Format memberSince from whichever date field is available
+                        const rawCreated = item.driverCreatedAt ?? item.driverMemberSince ?? null;
+                        const memberSince = rawCreated
+                          ? (() => {
+                              const d = new Date(rawCreated);
+                              return isNaN(d.getTime())
+                                ? rawCreated
+                                : new Intl.DateTimeFormat('es-CR', { month: 'long', year: 'numeric' }).format(d);
+                            })()
+                          : '';
+
                         router.push({
-                          pathname: "/ride-detail",
-                          params: { id: t.id },
-                        })
-                      }
+                          pathname: '/ride-detail',
+                          params: {
+                            id: tripId,
+                            historyMode: '1',
+                            bookingId:       item.bookingId    ?? '',
+                            bookingState:    item.bookingState ?? '',
+                            driverId:        item.driverId     ?? '',
+                            tripState:       (item.tripState ?? item.state ?? '').toLowerCase(),
+                            driverName:      `${item.driverFirstName ?? ''} ${item.driverLastName ?? ''}`.trim()
+                                              || item.driverName || '',
+                            isDriverView:    tab === 'driver' ? '1' : '0',
+                            // Driver stats for the detail card
+                            driverRating:    String(item.driverRating ?? item.driverMeanRating ?? 0),
+                            driverTrips:     String(item.driverTrips  ?? item.driverTotalTrips ?? 0),
+                            driverMemberSince: memberSince,
+                          },
+                        });
+                      }}
                     />
                   </View>
                 );

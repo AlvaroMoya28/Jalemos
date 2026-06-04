@@ -31,4 +31,31 @@ public interface IBookingsService
 
     /// <summary>Passenger cancels their own booking with a reason. Notifies the driver.</summary>
     Task CancelBookingAsync(Guid id, string reason, string? details, Guid callerId, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns the passenger's own bookings with an embedded trip snapshot (all states).</summary>
+    Task<IEnumerable<MyBookingDto>> GetMyBookingsWithTripsAsync(Guid passengerId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Booking history item with embedded trip snapshot — returned by GET /api/bookings/mine.</summary>
+public sealed class MyBookingDto
+{
+    public Guid   BookingId      { get; init; }
+    public Guid   TripId         { get; init; }
+    public string BookingState   { get; init; } = string.Empty;
+    public short  SeatsReserved  { get; init; }
+    public decimal EstimatedAmount { get; init; }
+    public string? CancelReason  { get; init; }
+    public DateTime CreatedAt    { get; init; }
+    // Trip snapshot
+    public string  Origin         { get; init; } = string.Empty;
+    public string  Destination    { get; init; } = string.Empty;
+    public DateTime? DepartureAt  { get; init; }
+    public string? TripState      { get; init; }
+    public decimal? Rate          { get; init; }
+    public Guid    DriverId        { get; init; }
+    public string  DriverFirstName { get; init; } = string.Empty;
+    public string  DriverLastName  { get; init; } = string.Empty;
+    public decimal DriverRating    { get; init; }
+    public int     DriverTrips     { get; init; }
+    public DateTime? DriverCreatedAt { get; init; }
 }

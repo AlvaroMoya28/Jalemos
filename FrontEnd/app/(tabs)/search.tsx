@@ -50,8 +50,14 @@ const quickRoutes = [
 
 // Scroll-wheel picker constants — each row is 36 px tall and 5 rows are visible at once
 const PICKER_ITEM_HEIGHT = 36;
-const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-const minutes = Array.from({ length: 60 }, (_, idx) => idx);
+const HOUR_COUNT   = 12;
+const MIN_COUNT    = 60;
+const HOUR_REPS    = 100;
+const MIN_REPS     = 10;
+const infiniteHours   = Array.from({ length: HOUR_REPS * HOUR_COUNT }, (_, i) => (i % HOUR_COUNT) + 1);
+const infiniteMinutes = Array.from({ length: MIN_REPS  * MIN_COUNT  }, (_, i) => i % MIN_COUNT);
+const HOURS_CENTER = Math.floor(HOUR_REPS / 2) * HOUR_COUNT; // 600
+const MINS_CENTER  = Math.floor(MIN_REPS  / 2) * MIN_COUNT;  // 300
 
 function monthLabel(date: Date) {
   return date.toLocaleDateString("es-CR", { month: "long", year: "numeric" });
@@ -264,11 +270,11 @@ export default function SearchScreen() {
     setCalendarOpen(true);
     setTimeout(() => {
       hourScrollRef.current?.scrollTo({
-        y: (h12 - 1) * PICKER_ITEM_HEIGHT,
+        y: (HOURS_CENTER + h12 - 1) * PICKER_ITEM_HEIGHT,
         animated: false,
       });
       minuteScrollRef.current?.scrollTo({
-        y: source.getMinutes() * PICKER_ITEM_HEIGHT,
+        y: (MINS_CENTER + source.getMinutes()) * PICKER_ITEM_HEIGHT,
         animated: false,
       });
     }, 0);
@@ -278,11 +284,11 @@ export default function SearchScreen() {
     const idx = Math.max(
       0,
       Math.min(
-        11,
+        infiniteHours.length - 1,
         Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT),
       ),
     );
-    setDraftHour(idx + 1);
+    setDraftHour(infiniteHours[idx]);
     hourScrollRef.current?.scrollTo({
       y: idx * PICKER_ITEM_HEIGHT,
       animated: true,
@@ -295,11 +301,11 @@ export default function SearchScreen() {
     const idx = Math.max(
       0,
       Math.min(
-        59,
+        infiniteMinutes.length - 1,
         Math.round(event.nativeEvent.contentOffset.y / PICKER_ITEM_HEIGHT),
       ),
     );
-    setDraftMinute(idx);
+    setDraftMinute(infiniteMinutes[idx]);
     minuteScrollRef.current?.scrollTo({
       y: idx * PICKER_ITEM_HEIGHT,
       animated: true,
@@ -718,8 +724,8 @@ export default function SearchScreen() {
                     decelerationRate="fast"
                     onMomentumScrollEnd={onHourScrollEnd}
                   >
-                    {hours.map((hour) => (
-                      <View key={hour} style={styles.wheelItem}>
+                    {infiniteHours.map((hour, idx) => (
+                      <View key={idx} style={styles.wheelItem}>
                         <Text
                           style={[
                             styles.wheelItemText,
@@ -747,8 +753,8 @@ export default function SearchScreen() {
                     decelerationRate="fast"
                     onMomentumScrollEnd={onMinuteScrollEnd}
                   >
-                    {minutes.map((minute) => (
-                      <View key={minute} style={styles.wheelItem}>
+                    {infiniteMinutes.map((minute, idx) => (
+                      <View key={idx} style={styles.wheelItem}>
                         <Text
                           style={[
                             styles.wheelItemText,

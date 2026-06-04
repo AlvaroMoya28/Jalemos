@@ -430,6 +430,13 @@ public sealed class TripLifecycleService : ITripLifecycleService
         if (!validStates.Contains(trip.State))
             return null;
 
+        // Cancelled trips are only returned for 15 min — just enough for the one-time notification.
+        // After that the API returns null so the bubble disappears on its own.
+        if (trip.State == TripState.Cancelled &&
+            trip.CancelledAt.HasValue &&
+            (DateTime.UtcNow - trip.CancelledAt.Value).TotalMinutes > 15)
+            return null;
+
         var driver = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == trip.DriverUserId, ct);
 
         // Late cancellation = driver cancelled < 60 min BEFORE departure (not auto-expired).

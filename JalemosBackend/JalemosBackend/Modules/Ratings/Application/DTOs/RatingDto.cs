@@ -9,4 +9,7 @@ public sealed class RatingDto
     public short Score { get; set; }
     public string? Comment { get; set; }
     public DateTime CreatedAt { get; set; }
+    // Display info for the person who left the rating
+    public string RaterFirstName { get; set; } = string.Empty;
+    public string RaterLastName { get; set; } = string.Empty;
 }
