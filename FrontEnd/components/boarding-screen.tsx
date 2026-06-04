@@ -12,7 +12,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -523,7 +522,7 @@ function SlideToAction({ label, onSlide, disabled, color, insets }: {
 }) {
   const { colors }     = useAppTheme();
   const x              = useRef(new Animated.Value(0)).current;
-  const [trackW, setTrackW] = useState(0);
+  const [, setTrackW] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   // Refs so PanResponder closures always read the latest values
   // (PanResponder.create is called once and captures the initial closure)

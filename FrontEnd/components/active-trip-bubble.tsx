@@ -231,13 +231,6 @@ export default function ActiveTripBubble() {
     : tripState === 'boarding' && isBoarded  ? 'Abordado · esperando salida'
     : `${passengerTrip?.origin ?? ''} → ${passengerTrip?.destination ?? ''}`;
 
-  const stateLabel: Record<string, string> = {
-    boarding:    'Abordaje en curso',
-    in_progress: 'Viaje en curso',
-    completed:   'Viaje completado',
-    cancelled:   'Viaje cancelado',
-  };
-
   const stateColor =
     tripState === 'in_progress' ? Brand.colors.green.normal
     : tripState === 'boarding'  ? (isBoarded ? Brand.colors.green.normal : '#f4a522')

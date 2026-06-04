@@ -8,7 +8,6 @@ import RideCard, { Ride } from "@/components/RideCard";
 import { Brand } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth";
 import { useAppTheme } from "@/hooks/use-app-theme";
-import type { Trip as TripModel } from "@/hooks/use-trips-data";
 
 import { bookingsApi, tripsApi, MyBookingDTO } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";

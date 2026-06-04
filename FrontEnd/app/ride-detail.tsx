@@ -899,7 +899,7 @@ export default function RideDetailScreen() {
                 alreadyRated || ratingSuccess ? (
                   <View style={{
                     flexDirection: 'row', alignItems: 'center', gap: 10,
-                    padding: 14, borderRadius: Brand.radius?.[14] ?? 14,
+                    padding: 14, borderRadius: 14,
                     backgroundColor: Brand.colors.green.normal + '18',
                   }}>
                     <Ionicons name="star" size={18} color={Brand.colors.green.normal} />
