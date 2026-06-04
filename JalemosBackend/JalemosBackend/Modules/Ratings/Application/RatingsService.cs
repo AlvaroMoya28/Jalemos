@@ -26,8 +26,23 @@ public sealed class RatingsService : IRatingsService
 
     public async Task<IEnumerable<RatingDto>> GetByRatedUserAsync(Guid ratedId, CancellationToken ct = default)
     {
-        var ratings = await _repo.GetByRatedUserAsync(ratedId, ct);
-        return ratings.Select(ToDto).ToList();
+        var ratings = (await _repo.GetByRatedUserAsync(ratedId, ct)).ToList();
+
+        // Load rater names in one query to avoid N+1
+        var raterIds = ratings.Select(r => r.RaterId).Distinct().ToList();
+        var raters   = await _db.Users.AsNoTracking()
+            .Where(u => raterIds.Contains(u.UserId))
+            .ToListAsync(ct);
+        var raterMap = raters.ToDictionary(u => u.UserId);
+
+        return ratings.Select(r =>
+        {
+            raterMap.TryGetValue(r.RaterId, out var rater);
+            var dto = ToDto(r);
+            dto.RaterFirstName = rater?.FirstName ?? string.Empty;
+            dto.RaterLastName  = rater?.LastName  ?? string.Empty;
+            return dto;
+        }).ToList();
     }
 
     public async Task<RatingDto> SubmitAsync(SubmitRatingDto dto, Guid raterId, CancellationToken ct = default)

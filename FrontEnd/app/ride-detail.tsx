@@ -7,7 +7,7 @@ import { useLoading } from "@/contexts/loading";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from '@/contexts/auth';
-import { bookingsApi } from '@/services/api';
+import { bookingsApi, ratingsApi, tripLifecycleApi, get, RatingDTO } from '@/services/api';
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -25,6 +25,9 @@ import InteractiveMapModal from "../components/map-modal";
 
 import AnimatedPressable from "@/components/animated-pressable";
 import GlassCard from "@/components/glass-card";
+import GlassAlert from "@/components/glass-alert";
+import RatingModal from "@/components/rating-modal";
+import CancellationModal from "@/components/cancellation-modal";
 import { Brand, Fonts } from "@/constants/theme";
 import { useTripsData } from "@/hooks/use-trips-data";
 import { useAppTheme } from "@/hooks/use-app-theme";
@@ -190,7 +193,26 @@ type RideDetail = {
   };
 };
 export default function RideDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    historyMode?: string;
+    bookingId?: string;
+    bookingState?: string;
+    driverId?: string;
+    tripState?: string;
+    driverName?: string;
+    isDriverView?: string;
+    driverRating?: string;
+    driverTrips?: string;
+    driverMemberSince?: string;
+  }>();
+  const { id, historyMode, bookingId, bookingState, driverId: paramDriverId,
+          tripState: paramTripState, driverName: paramDriverName, isDriverView,
+          driverRating: paramDriverRating, driverTrips: paramDriverTrips,
+          driverMemberSince: paramDriverMemberSince } = params;
+  const isHistory   = historyMode === '1';
+  const isDriverOwn = isDriverView === '1';
+
   const router = useRouter();
   const { isDark, colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -199,15 +221,127 @@ export default function RideDetailScreen() {
   const { showLoader, hideLoader } = useLoading();
   const { trips, isLoading: tripsLoading, error: tripsError, refreshTrips, updateTripAvailableSeats } = useTripsData();
 
-  useEffect(() => { refreshTrips(); }, [refreshTrips]);
+  useEffect(() => { if (!isHistory) refreshTrips(); }, [refreshTrips, isHistory]);
   const tripId = Array.isArray(id) ? id[0] : id;
 
-  const trip = useMemo(
-    () => trips?.find((item) => item.id === tripId) ?? null,
-    [trips, tripId],
+  // ── History mode: fetch trip directly (any state) ──────────────────────────
+  const [historyTrip, setHistoryTrip] = useState<any | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const { token, user } = useAuth();
+
+  useEffect(() => {
+    if (!isHistory || !tripId) return;
+    setHistoryLoading(true);
+    get<any>(`/api/trips/${tripId}`, token ?? undefined)
+      .then(data => setHistoryTrip(data))
+      .catch(() => setHistoryTrip(null))
+      .finally(() => setHistoryLoading(false));
+  }, [isHistory, tripId, token]);
+
+  // ── Rating state ───────────────────────────────────────────────────────────
+  const [alreadyRated, setAlreadyRated] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingSuccess, setRatingSuccess] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  // Driver cancellation (scheduled trips in history)
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  // Reviews received by the driver
+  const [driverReviews, setDriverReviews] = useState<RatingDTO[]>([]);
+
+  const canRate = isHistory &&
+    !isDriverOwn &&
+    !!bookingId &&
+    (bookingState === 'completed' || bookingState === 'boarded') &&
+    (paramTripState === 'completed' || paramTripState === 'cancelled') &&
+    !!paramDriverId;
+
+  useEffect(() => {
+    if (!canRate || !paramDriverId || !user) return;
+    ratingsApi.getByUser(paramDriverId)
+      .then(ratings => {
+        setAlreadyRated(ratings.some(r => r.tripId === tripId && r.raterId === user.id));
+      })
+      .catch(() => {});
+  }, [canRate, paramDriverId, tripId, user]);
+
+  const handleCancelTrip = async (reason: string, details: string | null) => {
+    if (!token || !tripId) return;
+    setCancelSubmitting(true);
+    try {
+      await tripLifecycleApi.cancelTrip(tripId, reason, details, token);
+      setShowCancelModal(false);
+      setCancelSuccess(true);
+    } catch (e: any) {
+      setShowCancelModal(false);
+      setCancelError(e.message ?? 'No se pudo cancelar el viaje.');
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
+  const handleSubmitRating = async (score: number, comment: string | null) => {
+    if (!token || !tripId || !paramDriverId) return;
+    try {
+      await ratingsApi.submit({ tripId, ratedId: paramDriverId, score, comment: comment ?? undefined }, token);
+      setAlreadyRated(true);
+      setShowRatingModal(false);
+      setRatingSuccess(true);
+    } catch (e: any) {
+      setRatingError(e.message ?? 'No se pudo enviar la reseña.');
+    }
+  };
+
+  // ── Build ride from scheduled list (search mode) ───────────────────────────
+  const scheduledTrip = useMemo(
+    () => (!isHistory ? trips?.find((item) => item.id === tripId) ?? null : null),
+    [trips, tripId, isHistory],
   );
 
   const ride = useMemo<RideDetail | null>(() => {
+    // History mode: build from raw Trip entity + params
+    if (isHistory) {
+      if (!historyTrip && !historyLoading) return null;
+      if (!historyTrip) return null;
+
+      const t = historyTrip;
+      const departure = new Date(t.departureAt ?? t.departureAt ?? Date.now());
+      const dName = paramDriverName || 'Conductor';
+      const dParts = dName.split(' ');
+      const dAvatar = `${dParts[0]?.[0] ?? ''}${dParts[1]?.[0] ?? ''}`.toUpperCase();
+
+      return {
+        id: t.id ?? tripId,
+        from: t.origin ?? '',
+        to: t.destination ?? '',
+        fromCoords: { lat: Number(t.originLatitude ?? 0), lng: Number(t.originLongitude ?? 0) },
+        toCoords: { lat: Number(t.destinationLatitude ?? 0), lng: Number(t.destinationLongitude ?? 0) },
+        date: dateLabel(departure),
+        time: timeLabel(departure.getHours(), departure.getMinutes()),
+        price: t.rate ?? 0,
+        totalSeats: t.totalSeats ?? 0,
+        availableSeats: t.availableSeats ?? 0,
+        notes: t.notes,
+        driver: {
+          id:             paramDriverId ?? t.driverId ?? '',
+          fullName:       dName,
+          avatar:         dAvatar,
+          rating:         parseFloat(paramDriverRating     ?? '0') || 0,
+          ratingsCount:   parseInt(paramDriverTrips        ?? '0') || 0,
+          tripsCompleted: parseInt(paramDriverTrips        ?? '0') || 0,
+          memberSince:    paramDriverMemberSince           ?? '',
+          vehicle: '',
+          plate: '',
+          verified: false,
+          reviews: [] as RideReview[],
+        },
+      };
+    }
+
+    // Search mode: build from scheduled trips list
+    const trip = scheduledTrip;
     if (!trip) return null;
 
     const departure = new Date(trip.departureAt);
@@ -241,8 +375,8 @@ export default function RideDetailScreen() {
         reviews: [] as RideReview[],
       },
     };
-  }, [trip]);
-  
+  }, [isHistory, historyTrip, historyLoading, scheduledTrip, tripId, paramDriverId, paramDriverName]);
+
   const [seats, setSeats] = useState(1);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [booked, setBooked] = useState(false);
@@ -277,8 +411,16 @@ export default function RideDetailScreen() {
     setMapUrl(buildMapUrl(f.lat, f.lng, t.lat, t.lng, polyline, dark));
   }, [ride, polyline, isDark]);
 
+  // Load the reviews received by the driver (shown in "Reseñas recientes")
+  useEffect(() => {
+    const dId = ride?.driver.id;
+    if (!dId) return;
+    ratingsApi.getByUser(dId)
+      .then(setDriverReviews)
+      .catch(() => setDriverReviews([]));
+  }, [ride?.driver.id]);
+
   const totalPrice = seats * (ride?.price ?? 0);
-  const { token, user } = useAuth();
   const [, setExistingBookingId] = useState<string | null>(null);
 
   // Check whether the authenticated user already has a booking for this trip
@@ -334,19 +476,17 @@ export default function RideDetailScreen() {
   }
 
   if (!ride) {
+    const loading = isHistory ? historyLoading : tripsLoading;
+    const errMsg  = isHistory
+      ? (historyLoading ? 'Cargando viaje...' : 'Viaje no encontrado')
+      : (tripsError ?? (tripsLoading ? 'Cargando viaje...' : 'Viaje no encontrado'));
     return (
-      <View
-        style={[
-          styles.container,
-          styles.errorContainer,
-          { paddingTop: insets.top },
-        ]}
-      >
-        <Ionicons name="time-outline" size={48} color={colors.textMuted} />
-        <Text style={styles.errorText}>
-          {tripsError ??
-            (tripsLoading ? "Cargando viaje..." : "Viaje no encontrado")}
-        </Text>
+      <View style={[styles.container, styles.errorContainer, { paddingTop: insets.top }]}>
+        <Ionicons name={loading ? 'time-outline' : 'alert-circle-outline'} size={48} color={colors.textMuted} />
+        <Text style={styles.errorText}>{errMsg}</Text>
+        <Pressable style={styles.errorBackBtn} onPress={() => router.back()}>
+          <Text style={styles.errorBackBtnText}>Volver</Text>
+        </Pressable>
       </View>
     );
   }
@@ -360,7 +500,7 @@ export default function RideDetailScreen() {
     }
 
     // Prevent drivers from reserving seats on their own trips
-    if (user?.id === trip?.driverId) {
+    if (user?.id === scheduledTrip?.driverId) {
       Alert.alert('No permitido', 'No puedes reservar un espacio en tu propio viaje.');
       return;
     }
@@ -410,7 +550,9 @@ export default function RideDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingBottom: BOOKING_PANEL_HEIGHT + insets.bottom + 8,
+          paddingBottom: isHistory
+            ? insets.bottom + 32
+            : BOOKING_PANEL_HEIGHT + insets.bottom + 8,
         }}
       >
         {/* Map — tap to open full-screen zoomable view */}
@@ -643,90 +785,187 @@ export default function RideDetailScreen() {
             style={styles.reviewsSection}
           >
             <Text style={styles.sectionTitle}>Reseñas recientes</Text>
-            {ride.driver.reviews.map((review) => (
-              <GlassCard
-                key={review.id}
-                style={styles.reviewCard}
-                intensity={28}
-              >
-                <View style={styles.reviewHeader}>
-                  <View style={styles.reviewAvatar}>
-                    <Text style={styles.reviewAvatarText}>{review.avatar}</Text>
-                  </View>
-                  <View style={styles.reviewMeta}>
-                    <Text style={styles.reviewerName}>{review.reviewer}</Text>
-                    <View style={styles.reviewRatingRow}>
-                      <StarRating rating={review.rating} size={11} />
-                      <Text style={styles.reviewDate}>{review.date}</Text>
+            {driverReviews.length === 0 ? (
+              <Text style={[styles.reviewComment, { color: colors.textMuted }]}>
+                Este conductor aún no tiene reseñas.
+              </Text>
+            ) : (
+              driverReviews.map((review) => {
+                const reviewerName = `${review.raterFirstName} ${review.raterLastName}`.trim() || 'Usuario';
+                const avatar = `${review.raterFirstName?.[0] ?? ''}${review.raterLastName?.[0] ?? ''}`.toUpperCase() || '?';
+                const date = new Date(review.createdAt).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' });
+                return (
+                  <GlassCard key={review.id} style={styles.reviewCard} intensity={28}>
+                    <View style={styles.reviewHeader}>
+                      <View style={styles.reviewAvatar}>
+                        <Text style={styles.reviewAvatarText}>{avatar}</Text>
+                      </View>
+                      <View style={styles.reviewMeta}>
+                        <Text style={styles.reviewerName}>{reviewerName}</Text>
+                        <View style={styles.reviewRatingRow}>
+                          <StarRating rating={review.score} size={11} />
+                          <Text style={styles.reviewDate}>{date}</Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </View>
-                <Text style={styles.reviewComment}>{review.comment}</Text>
-              </GlassCard>
-            ))}
+                    {review.comment ? (
+                      <Text style={styles.reviewComment}>{review.comment}</Text>
+                    ) : null}
+                  </GlassCard>
+                );
+              })
+            )}
           </Animated.View>
+
+          {/* ── History: state badge + rating — live inside the scroll so nothing overlaps ── */}
+          {isHistory && (
+            <Animated.View
+              entering={FadeInDown.duration(240).delay(230)}
+              style={{ marginHorizontal: 16, marginTop: 8, gap: 10 }}
+            >
+              {/* State badge */}
+              <View style={{
+                flexDirection: 'row', alignItems: 'center',
+                alignSelf: 'flex-start',
+                gap: 6,
+                paddingHorizontal: 14, paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor:
+                  paramTripState === 'completed'   ? Brand.colors.green.normal + '22'
+                  : paramTripState === 'cancelled' ? '#e53e3e22'
+                  : paramTripState === 'scheduled' ? '#f4a52222'
+                  : colors.border,
+              }}>
+                <Ionicons
+                  name={
+                    paramTripState === 'completed'   ? 'checkmark-circle'
+                    : paramTripState === 'cancelled' ? 'close-circle'
+                    : paramTripState === 'scheduled' ? 'time-outline'
+                    : 'ellipse'
+                  }
+                  size={16}
+                  color={
+                    paramTripState === 'completed'   ? Brand.colors.green.normal
+                    : paramTripState === 'cancelled' ? '#e53e3e'
+                    : paramTripState === 'scheduled' ? '#f4a522'
+                    : Brand.colors.green.normal
+                  }
+                />
+                <Text style={{
+                  fontFamily: Fonts.headingBold, fontSize: 13,
+                  color: paramTripState === 'completed'
+                    ? Brand.colors.green.normal
+                    : paramTripState === 'cancelled' ? '#e53e3e'
+                    : colors.textMuted,
+                }}>
+                  {paramTripState === 'completed'   ? 'Viaje completado'
+                    : paramTripState === 'cancelled' ? 'Viaje cancelado'
+                    : paramTripState === 'scheduled' ? 'Próximo'
+                    : paramTripState === 'in_progress' ? 'En curso'
+                    : paramTripState === 'boarding'  ? 'Abordaje'
+                    : paramTripState}
+                </Text>
+              </View>
+
+              {/* Cancel trip — only for scheduled driver trips */}
+              {isDriverOwn && paramTripState === 'scheduled' && !cancelSuccess && (
+                <AnimatedPressable
+                  pressedScale={0.97}
+                  style={[
+                    styles.reserveBtn,
+                    { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e53e3e' },
+                  ]}
+                  onPress={() => setShowCancelModal(true)}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color="#fff" />
+                  <Text style={[styles.reserveBtnText, { color: '#fff' }]}>Cancelar viaje</Text>
+                </AnimatedPressable>
+              )}
+              {cancelSuccess && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 10,
+                  padding: 14, borderRadius: 14,
+                  backgroundColor: '#e53e3e22',
+                }}>
+                  <Ionicons name="checkmark-circle" size={18} color="#e53e3e" />
+                  <Text style={{ fontFamily: Fonts.heading, fontSize: 13, color: '#e53e3e', flex: 1 }}>
+                    Viaje cancelado. Los pasajeros han sido notificados.
+                  </Text>
+                </View>
+              )}
+
+              {/* Rating section */}
+              {canRate && (
+                alreadyRated || ratingSuccess ? (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    padding: 14, borderRadius: Brand.radius?.[14] ?? 14,
+                    backgroundColor: Brand.colors.green.normal + '18',
+                  }}>
+                    <Ionicons name="star" size={18} color={Brand.colors.green.normal} />
+                    <Text style={{ fontFamily: Fonts.heading, fontSize: 14, color: Brand.colors.green.normal }}>
+                      Ya calificaste al conductor
+                    </Text>
+                  </View>
+                ) : (
+                  <AnimatedPressable
+                    pressedScale={0.97}
+                    style={[styles.reserveBtn, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                    onPress={() => setShowRatingModal(true)}
+                  >
+                    <Ionicons name="star-outline" size={16} color={Brand.colors.black.b1} />
+                    <Text style={styles.reserveBtnText}>Calificar al conductor</Text>
+                  </AnimatedPressable>
+                )
+              )}
+            </Animated.View>
+          )}
         </View>
       </ScrollView>
 
-      {/* Fixed booking panel - hidden when the current user is the trip driver */}
-      {user?.id !== trip?.driverId && (
-        <View style={[styles.bookingPanel, { paddingBottom: insets.bottom + 14 }]}> 
-          <View style={styles.bookingRow}>
-            <View style={styles.bookingGroup}>
-              <Text style={styles.bookingLabel}>Espacios</Text>
-              <View style={styles.seatCounter}>
-                <Pressable
-                  style={[styles.seatBtn, (seats <= 1 || booked) && styles.seatBtnDisabled]}
-                  onPress={() => setSeats((s) => Math.max(1, s - 1))}
-                  disabled={seats <= 1 || booked}
-                >
-                  <Ionicons
-                    name="remove"
-                    size={16}
-                    color={seats <= 1 || booked ? colors.textMuted : Brand.colors.black.b1}
-                  />
-                </Pressable>
-                <Text style={[styles.seatNumber, booked && { color: colors.textMuted }]}>{seats}</Text>
-                <Pressable
-                  style={[
-                    styles.seatBtn,
-                    (seats >= ride.availableSeats || booked) && styles.seatBtnDisabled,
-                  ]}
-                  onPress={() =>
-                    setSeats((s) => Math.min(ride.availableSeats, s + 1))
-                  }
-                  disabled={seats >= ride.availableSeats || booked}
-                >
-                  <Ionicons
-                    name="add"
-                    size={16}
-                    color={
-                      seats >= ride.availableSeats || booked
-                        ? colors.textMuted
-                        : Brand.colors.black.b1
-                    }
-                  />
-                </Pressable>
+      {/* ── Booking panel (search/scheduled trips only) ───────────────────── */}
+      {!isHistory && (
+        /* ── Booking panel (scheduled trips) ────────────────────────────── */
+        user?.id !== scheduledTrip?.driverId && (
+          <View style={[styles.bookingPanel, { paddingBottom: insets.bottom + 14 }]}>
+            <View style={styles.bookingRow}>
+              <View style={styles.bookingGroup}>
+                <Text style={styles.bookingLabel}>Espacios</Text>
+                <View style={styles.seatCounter}>
+                  <Pressable
+                    style={[styles.seatBtn, (seats <= 1 || booked) && styles.seatBtnDisabled]}
+                    onPress={() => setSeats((s) => Math.max(1, s - 1))}
+                    disabled={seats <= 1 || booked}
+                  >
+                    <Ionicons name="remove" size={16} color={seats <= 1 || booked ? colors.textMuted : Brand.colors.black.b1} />
+                  </Pressable>
+                  <Text style={[styles.seatNumber, booked && { color: colors.textMuted }]}>{seats}</Text>
+                  <Pressable
+                    style={[styles.seatBtn, (seats >= ride.availableSeats || booked) && styles.seatBtnDisabled]}
+                    onPress={() => setSeats((s) => Math.min(ride.availableSeats, s + 1))}
+                    disabled={seats >= ride.availableSeats || booked}
+                  >
+                    <Ionicons name="add" size={16} color={seats >= ride.availableSeats || booked ? colors.textMuted : Brand.colors.black.b1} />
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.bookingGroup}>
+                <Text style={styles.bookingLabel}>Total</Text>
+                <Text style={styles.totalPrice}>₡{totalPrice.toLocaleString()}</Text>
               </View>
             </View>
-
-            <View style={styles.bookingGroup}>
-              <Text style={styles.bookingLabel}>Total</Text>
-              <Text style={styles.totalPrice}>
-                ₡{totalPrice.toLocaleString()}
+            <AnimatedPressable
+              pressedScale={0.98}
+              style={[styles.reserveBtn, (bookingLoading || booked) && { opacity: 0.7 }]}
+              onPress={handleReserve}
+              disabled={bookingLoading || booked}
+            >
+              <Text style={[styles.reserveBtnText, (bookingLoading || booked) && { color: colors.textMuted }]}>
+                {booked ? 'Espacio reservado' : (bookingLoading ? 'Reservando...' : 'Reservar espacio')}
               </Text>
-            </View>
+            </AnimatedPressable>
           </View>
-
-          <AnimatedPressable
-            pressedScale={0.98}
-            style={[styles.reserveBtn, (bookingLoading || booked) && { opacity: 0.7 }]}
-            onPress={handleReserve}
-            disabled={bookingLoading || booked}
-          >
-            <Text style={[styles.reserveBtnText, (bookingLoading || booked) && { color: colors.textMuted }]}>{booked ? 'Espacio reservado' : (bookingLoading ? 'Reservando...' : 'Reservar espacio')}</Text>
-          </AnimatedPressable>
-        </View>
+        )
       )}
 
       <InteractiveMapModal
@@ -734,6 +973,47 @@ export default function RideDetailScreen() {
         onClose={() => setMapModalVisible(false)}
         ride={ride}
         polyline={polyline}
+      />
+
+      {/* Rating modal for history trips */}
+      <RatingModal
+        visible={showRatingModal}
+        ratedUser={paramDriverId && paramDriverName ? {
+          id:   paramDriverId,
+          name: paramDriverName,
+          role: 'driver',
+        } : null}
+        onSubmit={handleSubmitRating}
+        onSkip={() => setShowRatingModal(false)}
+      />
+
+      <GlassAlert
+        visible={!!ratingError}
+        icon="alert-circle"
+        iconColor="#e53e3e"
+        title="Error al calificar"
+        body={ratingError ?? ''}
+        primaryLabel="Entendido"
+        onDismiss={() => setRatingError(null)}
+      />
+
+      <CancellationModal
+        visible={showCancelModal}
+        type="driver"
+        title="¿Por qué cancelas el viaje?"
+        onConfirm={handleCancelTrip}
+        onCancel={() => setShowCancelModal(false)}
+        loading={cancelSubmitting}
+      />
+
+      <GlassAlert
+        visible={!!cancelError}
+        icon="alert-circle"
+        iconColor="#e53e3e"
+        title="Error al cancelar"
+        body={cancelError ?? ''}
+        primaryLabel="Entendido"
+        onDismiss={() => setCancelError(null)}
       />
     </View>
   );
