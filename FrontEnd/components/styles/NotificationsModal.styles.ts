@@ -24,6 +24,11 @@ export function makeStyles(c: AppColors) {
       alignItems: 'center',
       gap: 8,
     },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
     headerTitle: {
       fontSize: 18,
       fontFamily: Fonts.headingBold,
@@ -80,6 +85,33 @@ export function makeStyles(c: AppColors) {
       borderRadius: 4,
       marginTop: 4,
       backgroundColor: Brand.colors.green.normal,
+    },
+    headerCount: {
+      fontSize: 13,
+      fontFamily: Fonts.sans,
+      color: Brand.colors.green.normal,
+    },
+    emptyWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: 80,
+      gap: 8,
+    },
+    emptyTitle: {
+      color: c.textPrimary,
+      fontSize: 15,
+      fontFamily: Fonts.heading,
+    },
+    emptySubtitle: {
+      color: c.textMuted,
+      fontSize: 13,
+      fontFamily: Fonts.sans,
+      textAlign: 'center',
+      paddingHorizontal: 24,
+    },
+    loadingWrap: {
+      alignItems: 'center',
+      paddingTop: 60,
     },
     footer: {
       position: 'absolute',

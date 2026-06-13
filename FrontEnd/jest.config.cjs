@@ -28,6 +28,9 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
     // Native module stubs (order matters — more specific first)
     '^expo-secure-store$':                    '<rootDir>/__stubs__/expo-secure-store.js',
+    '^expo-notifications$':                   '<rootDir>/__stubs__/expo-notifications.js',
+    '^expo-device$':                          '<rootDir>/__stubs__/expo-device.js',
+    '^expo-constants$':                       '<rootDir>/__stubs__/expo-constants.js',
     '^expo-haptics$':                         '<rootDir>/__stubs__/expo-haptics.js',
     '^expo-router$':                          '<rootDir>/__stubs__/expo-router.js',
     '^expo-web-browser$':                     '<rootDir>/__stubs__/expo-web-browser.js',

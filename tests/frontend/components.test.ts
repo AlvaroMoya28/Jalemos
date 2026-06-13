@@ -11,6 +11,13 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' },
 }));
 
+// NotificationsModal reads from the global notifications context; inject controlled
+// state so we can assert how real data is rendered (E1-4).
+let mockNotifState: any;
+jest.mock('@/contexts/notifications', () => ({
+  useNotifications: () => mockNotifState,
+}));
+
 // ── Module imports (after stubs are wired via moduleNameMapper) ────────────────
 const { parseExpiry }  = require('../../FrontEnd/components/expiry-input');
 const GlassCard        = require('../../FrontEnd/components/glass-card').default;
@@ -313,50 +320,82 @@ describe('FrontEnd components/RideCard — RideCard', () => {
 describe('FrontEnd components/NotificationsModal — NotificationsModal', () => {
   const NotificationsModal = require('../../FrontEnd/components/NotificationsModal').default;
 
-  it('renders without error when visible', () => {
-    expect(() =>
-      render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() })),
-    ).not.toThrow();
+  // Builds a notifications-context value with sensible defaults for each test.
+  const makeState = (over: Partial<any> = {}) => ({
+    items: [],
+    unreadCount: 0,
+    isLoading: false,
+    refresh: jest.fn(),
+    markRead: jest.fn(),
+    markAllRead: jest.fn(),
+    clearAll: jest.fn(),
+    ...over,
   });
 
-  it('renders without error when hidden', () => {
-    expect(() =>
-      render(createElement(NotificationsModal, { visible: false, onClose: jest.fn() })),
-    ).not.toThrow();
+  const sampleItems = [
+    { id: 'a', type: 'booking_received', title: 'Reservaron un espacio', body: 'San José → Cartago', tripId: 't1', bookingId: 'b1', read: false, createdAt: new Date().toISOString() },
+    { id: 'b', type: 'admin_broadcast', title: 'Promo Pura Vida', body: '20% OFF', tripId: null, bookingId: null, read: true, createdAt: new Date().toISOString() },
+  ];
+
+  beforeEach(() => {
+    mockNotifState = makeState();
+  });
+
+  it('renders without error when visible / hidden', () => {
+    expect(() => render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }))).not.toThrow();
+    expect(() => render(createElement(NotificationsModal, { visible: false, onClose: jest.fn() }))).not.toThrow();
   });
 
   it('shows the section heading', () => {
-    const { getByText } = render(
-      createElement(NotificationsModal, { visible: true, onClose: jest.fn() }),
-    );
+    const { getByText } = render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }));
     expect(getByText('Notificaciones')).toBeTruthy();
   });
 
-  it('renders all five mock notification titles', () => {
-    const { getByText } = render(
-      createElement(NotificationsModal, { visible: true, onClose: jest.fn() }),
-    );
-    expect(getByText('Tu viaje a Heredia fue confirmado')).toBeTruthy();
-    expect(getByText('Promo Pura Vida: 20% OFF')).toBeTruthy();
-    expect(getByText('Nuevo mensaje de Maria R.')).toBeTruthy();
-    expect(getByText('Jose L. te calificó 5 estrellas')).toBeTruthy();
-    expect(getByText('Recordatorio: viaje mañana')).toBeTruthy();
+  it('shows the empty state when there are no notifications', () => {
+    const { getByText } = render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }));
+    expect(getByText('Sin notificaciones')).toBeTruthy();
+  });
+
+  it('renders titles and bodies from the provider data', () => {
+    mockNotifState = makeState({ items: sampleItems, unreadCount: 1 });
+    const { getByText } = render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }));
+    expect(getByText('Reservaron un espacio')).toBeTruthy();
+    expect(getByText('San José → Cartago')).toBeTruthy();
+    expect(getByText('Promo Pura Vida')).toBeTruthy();
+  });
+
+  it('shows the unread count and the mark-all CTA only when there are unread', () => {
+    mockNotifState = makeState({ items: sampleItems, unreadCount: 2 });
+    const withUnread = render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }));
+    expect(withUnread.getByText('(2)')).toBeTruthy();
+    expect(withUnread.getByText('Marcar todas como leídas')).toBeTruthy();
+    withUnread.unmount();
+
+    mockNotifState = makeState({ items: sampleItems, unreadCount: 0 });
+    const noUnread = render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }));
+    expect(noUnread.queryByText('Marcar todas como leídas')).toBeNull();
+  });
+
+  it('invokes markAllRead when the CTA is pressed', () => {
+    const markAllRead = jest.fn();
+    mockNotifState = makeState({ items: sampleItems, unreadCount: 2, markAllRead });
+    const { getByText } = render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }));
+    fireEvent.click(getByText('Marcar todas como leídas'));
+    expect(markAllRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes the feed when opened', () => {
+    const refresh = jest.fn();
+    mockNotifState = makeState({ refresh });
+    render(createElement(NotificationsModal, { visible: true, onClose: jest.fn() }));
+    expect(refresh).toHaveBeenCalled();
   });
 
   it('calls onClose when the close button is pressed', () => {
     const onClose = jest.fn();
-    const { getAllByRole } = render(
-      createElement(NotificationsModal, { visible: true, onClose }),
-    );
+    const { getAllByRole } = render(createElement(NotificationsModal, { visible: true, onClose }));
     fireEvent.click(getAllByRole('button')[0]);
     expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders the footer CTA button', () => {
-    const { getByText } = render(
-      createElement(NotificationsModal, { visible: true, onClose: jest.fn() }),
-    );
-    expect(getByText('Ver todas las notificaciones')).toBeTruthy();
   });
 });
 
