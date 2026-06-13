@@ -792,7 +792,8 @@ export default function RideDetailScreen() {
                 Este conductor aún no tiene reseñas.
               </Text>
             ) : (
-              driverReviews.map((review) => {
+              // Show at most the 5 most recent reviews (already sorted newest-first).
+              driverReviews.slice(0, 5).map((review) => {
                 const reviewerName = `${review.raterFirstName} ${review.raterLastName}`.trim() || 'Usuario';
                 const avatar = `${review.raterFirstName?.[0] ?? ''}${review.raterLastName?.[0] ?? ''}`.toUpperCase() || '?';
                 const date = new Date(review.createdAt).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' });

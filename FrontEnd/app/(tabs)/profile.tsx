@@ -9,6 +9,8 @@
 
 import GlassCard from '@/components/glass-card';
 import NotificationsModal from '@/components/NotificationsModal';
+import UnreadBadge from '@/components/shared/unread-badge';
+import { useNotifications } from '@/contexts/notifications';
 import QrDisplay from '@/components/qr-display';
 import { Brand, Fonts } from '@/constants/theme';
 import { makeStyles, staticStyles as profileStaticStyles } from '../../styles/tabs/profile.styles';
@@ -29,6 +31,7 @@ const preferencesSections = [
   {
     title: 'Preferencias',
     items: [
+      { icon: 'notifications-outline' as const, label: 'Notificaciones', desc: 'Elige qué avisos recibir', route: '/notification-preferences' as const },
       { icon: 'settings-outline' as const, label: 'Configuración', desc: 'Idioma y notificaciones', route: null },
       { icon: 'shield-checkmark-outline' as const, label: 'Privacidad y seguridad', desc: 'Datos y permisos', route: null },
     ],
@@ -77,6 +80,7 @@ export default function ProfileScreen() {
   }, [navigation]);
 
   const [notifOpen, setNotifOpen] = useState(false);
+  const { unreadCount } = useNotifications();
   const [amount, setAmount] = useState(0);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
@@ -254,7 +258,7 @@ export default function ProfileScreen() {
             </View>
             <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
               <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
-              <View style={styles.bellDot} />
+              <UnreadBadge count={unreadCount} />
             </Pressable>
           </View>
         </View>
@@ -478,7 +482,7 @@ export default function ProfileScreen() {
                   <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </Pressable>
 
-                {/* Solicitudes de vehículo activas */}
+                {/* Active vehicle applications */}
                 {myVehicleApplications
                   .filter(a => a.status !== 'approved' && a.status !== 'rejected')
                   .map(a => {
