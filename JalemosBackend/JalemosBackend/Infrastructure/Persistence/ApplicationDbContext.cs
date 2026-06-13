@@ -21,7 +21,9 @@ namespace JalemosBackend.Infrastructure.Persistence
         // v5 lifecycle
         TripBoarding, QrScanned, TripStarted,
         DriverCancelled, PassengerCancelled,
-        NoShowMarked, PaymentReminder, RatingReminder
+        NoShowMarked, PaymentReminder, RatingReminder,
+        // v6 — admin broadcast (promos, policy updates, announcements)
+        AdminBroadcast
     }
     public enum ApplicationStatus { pending, under_review, needs_correction, approved, rejected }
     public enum ReportReason { bad_behavior, dangerous_driving, no_show, late_cancellation, harassment, vehicle_condition, other }
@@ -82,6 +84,8 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.SuspendedUntil).HasColumnName("suspended_until");
                 e.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
                 e.Property(x => x.QrToken).HasColumnName("qr_token").HasDefaultValueSql("gen_random_uuid()");
+                e.Property(x => x.ExpoPushToken).HasColumnName("expo_push_token");
+                e.Property(x => x.NotificationPrefs).HasColumnName("notification_prefs").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.Email).IsUnique();
@@ -231,6 +235,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
                 e.Property(x => x.Body).HasColumnName("body");
                 e.Property(x => x.Read).HasColumnName("read").HasDefaultValue(false);
+                e.Property(x => x.Audience).HasColumnName("audience").HasMaxLength(20).HasDefaultValue("all");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => new { x.UserId }).HasDatabaseName("idx_notif_user_unread");
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);

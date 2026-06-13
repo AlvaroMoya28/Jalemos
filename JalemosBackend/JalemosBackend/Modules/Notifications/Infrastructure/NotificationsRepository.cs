@@ -1,55 +1,91 @@
-// Data access layer for the Notifications module.
-// Provides CRUD operations against the notifications table in the shared database.
+// Data access for the Notifications module. Reads/writes the shared `notifications` table
+// scoped to a single user, and exposes unread-count and mark-read operations.
 
+using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
-using JalemosBackend.Modules.Notifications.Domain;
+using JalemosBackend.Modules.Notifications.Application.DTOs;
 
 namespace JalemosBackend.Modules.Notifications.Infrastructure;
 
-/// <summary>
-/// Executes database queries for <see cref="Notification"/> entities.
-/// All methods are stubs until <see cref="ApplicationDbContext"/> exposes a real DbSet&lt;Notification&gt;.
-/// </summary>
 public sealed class NotificationsRepository
 {
-    private readonly ApplicationDbContext _dbContext;
+    private readonly ApplicationDbContext _db;
 
-    /// <summary>Receives the shared database context via constructor injection.</summary>
-    public NotificationsRepository(ApplicationDbContext dbContext)
+    public NotificationsRepository(ApplicationDbContext db) => _db = db;
+
+    // Restricts a query to notifications visible in the given role-mode: always the
+    // "all" audience, plus the audience matching the current mode. A null/blank mode
+    // disables the filter (returns everything).
+    private static IQueryable<NotificationEntity> ApplyAudience(
+        IQueryable<NotificationEntity> query, string? mode) =>
+        string.IsNullOrWhiteSpace(mode)
+            ? query
+            : query.Where(n => n.Audience == "all" || n.Audience == mode);
+
+    /// <summary>Most recent notifications for a user, newest first. Optionally only unread / by mode.</summary>
+    public async Task<IReadOnlyList<NotificationDto>> GetForUserAsync(
+        Guid userId, bool unreadOnly, int take, string? mode = null, CancellationToken ct = default)
     {
-        _dbContext = dbContext;
+        var query = _db.Notifications.AsNoTracking().Where(n => n.UserId == userId);
+        if (unreadOnly) query = query.Where(n => !n.Read);
+        query = ApplyAudience(query, mode);
+
+        var rows = await query
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(take)
+            .ToListAsync(ct);
+
+        return rows.Select(NotificationMapper.ToDto).ToList();
     }
 
-    /// <summary>Returns all notification records. Replace with a filtered EF Core query.</summary>
-    public Task<IEnumerable<Notification>> GetAllAsync(CancellationToken cancellationToken = default)
+    /// <summary>Number of unread notifications for the badge counter, optionally scoped to a mode.</summary>
+    public Task<int> CountUnreadAsync(Guid userId, string? mode = null, CancellationToken ct = default)
     {
-        return Task.FromResult<IEnumerable<Notification>>(Array.Empty<Notification>());
+        var query = _db.Notifications.Where(n => n.UserId == userId && !n.Read);
+        query = ApplyAudience(query, mode);
+        return query.CountAsync(ct);
     }
 
-    /// <summary>Finds a notification by primary key. Returns null if not found.</summary>
-    public Task<Notification?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <summary>Marks one notification read. Returns false if it doesn't exist or isn't the user's.</summary>
+    public async Task<bool> MarkReadAsync(Guid id, Guid userId, CancellationToken ct = default)
     {
-        return Task.FromResult<Notification?>(null);
+        var n = await _db.Notifications.FirstOrDefaultAsync(x => x.NotificationId == id && x.UserId == userId, ct);
+        if (n is null) return false;
+        if (!n.Read)
+        {
+            n.Read = true;
+            await _db.SaveChangesAsync(ct);
+        }
+        return true;
     }
 
-    /// <summary>Persists a new notification record.</summary>
-    public Task CreateAsync(Notification notification, CancellationToken cancellationToken = default)
+    /// <summary>Marks every unread notification of a user as read. Returns how many were updated.</summary>
+    public async Task<int> MarkAllReadAsync(Guid userId, CancellationToken ct = default)
     {
-        // TODO: _dbContext.Notifications.Add(notification); await _dbContext.SaveChangesAsync(cancellationToken);
-        return Task.CompletedTask;
+        var rows = await _db.Notifications.Where(n => n.UserId == userId && !n.Read).ToListAsync(ct);
+        foreach (var n in rows) n.Read = true;
+        if (rows.Count > 0) await _db.SaveChangesAsync(ct);
+        return rows.Count;
     }
 
-    /// <summary>Updates an existing notification (e.g., marks IsRead = true).</summary>
-    public Task UpdateAsync(Notification notification, CancellationToken cancellationToken = default)
-    {
-        // TODO: _dbContext.Notifications.Update(notification); await _dbContext.SaveChangesAsync(cancellationToken);
-        return Task.CompletedTask;
-    }
+    /// <summary>Deletes all of a user's notifications (the "clear" action). Returns how many were removed.</summary>
+    public Task<int> ClearAllAsync(Guid userId, CancellationToken ct = default) =>
+        _db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync(ct);
 
-    /// <summary>Removes the notification with the given id.</summary>
-    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Retention: keeps only the newest <paramref name="keep"/> notifications for a user and
+    /// deletes the rest, so a user's history never grows unbounded.
+    /// </summary>
+    public async Task TrimToLatestAsync(Guid userId, int keep, CancellationToken ct = default)
     {
-        // TODO: find entity by id, call Remove(), then SaveChangesAsync
-        return Task.CompletedTask;
+        var idsToDelete = await _db.Notifications
+            .Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt)
+            .Select(n => n.NotificationId)
+            .Skip(keep)
+            .ToListAsync(ct);
+
+        if (idsToDelete.Count > 0)
+            await _db.Notifications.Where(n => idsToDelete.Contains(n.NotificationId)).ExecuteDeleteAsync(ct);
     }
 }
