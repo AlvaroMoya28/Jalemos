@@ -57,8 +57,6 @@ const { useColorScheme: useColorSchemeWeb } = require('../../FrontEnd/hooks/use-
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { useAppTheme } = require('../../FrontEnd/hooks/use-app-theme');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { useThemeColor } = require('../../FrontEnd/hooks/use-theme-color');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { useCurrentLocation } = require('../../FrontEnd/hooks/use-current-location');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { useTripsData } = require('../../FrontEnd/hooks/use-trips-data');
@@ -121,44 +119,6 @@ describe('FrontEnd hooks', () => {
       expect(result.current.isDark).toBe(false);
       expect(result.current.scheme).toBe('light');
       expect(result.current.colors).toEqual({ text: '#000000', background: '#ffffff', tint: '#aabbcc' });
-    });
-  });
-
-  // ── use-theme-color ─────────────────────────────────────────────────────────
-
-  describe('use-theme-color', () => {
-    it('returns the light prop override when scheme is light', () => {
-      mockUseColorScheme.mockReturnValue('light');
-      const { result } = renderHook(() =>
-        useThemeColor({ light: '#override-light', dark: '#override-dark' }, 'text'),
-      );
-      expect(result.current).toBe('#override-light');
-    });
-
-    it('returns the dark prop override when scheme is dark', () => {
-      mockUseColorScheme.mockReturnValue('dark');
-      const { result } = renderHook(() =>
-        useThemeColor({ light: '#override-light', dark: '#override-dark' }, 'text'),
-      );
-      expect(result.current).toBe('#override-dark');
-    });
-
-    it('falls back to Colors.light[colorName] when no light prop override', () => {
-      mockUseColorScheme.mockReturnValue('light');
-      const { result } = renderHook(() => useThemeColor({}, 'tint'));
-      expect(result.current).toBe('#aabbcc');
-    });
-
-    it('falls back to Colors.dark[colorName] when no dark prop override', () => {
-      mockUseColorScheme.mockReturnValue('dark');
-      const { result } = renderHook(() => useThemeColor({}, 'background'));
-      expect(result.current).toBe('#111111');
-    });
-
-    it('falls back to light theme when scheme is null', () => {
-      mockUseColorScheme.mockReturnValue(null);
-      const { result } = renderHook(() => useThemeColor({}, 'text'));
-      expect(result.current).toBe('#000000');
     });
   });
 

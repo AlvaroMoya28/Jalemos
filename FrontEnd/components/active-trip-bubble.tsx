@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Image,
@@ -24,7 +25,7 @@ import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useActiveTrip } from '@/contexts/active-trip';
 import { useAuth } from '@/contexts/auth';
-import { bookingsApi, meApi, ratingsApi } from '@/services/api';
+import { bookingsApi, meApi, ratingsApi, paymentsApi, PaymentMethodDto, PaymentDto } from '@/services/api';
 import { fetchRoutePolyline, buildStaticMapUrl } from '@/utils/static-map';
 import { openInMaps } from '@/utils/open-in-maps';
 import GlassAlert from './glass-alert';
@@ -61,6 +62,14 @@ export default function ActiveTripBubble() {
   const [mapUrl, setMapUrl]                             = useState<string | null>(null);
   const [mapError, setMapError]                         = useState(false);
   const [polyline, setPolyline]                         = useState<string | null>(null);
+
+  // Payment state
+  const [paymentMethods, setPaymentMethods]     = useState<PaymentMethodDto[]>([]);
+  const [selectedMethod, setSelectedMethod]     = useState<PaymentMethodDto | null>(null);
+  const [showMethodPicker, setShowMethodPicker] = useState(false);
+  const [payment, setPayment]                   = useState<PaymentDto | null>(null);
+  const [paymentCreating, setPaymentCreating]   = useState(false);
+  const paymentCreatedFor                       = useRef<string | null>(null);
 
   const pulse              = useRef(new Animated.Value(1)).current;
   const seatbeltShown      = useRef(false);
@@ -105,6 +114,59 @@ export default function ActiveTripBubble() {
     }
   }, [token, passengerTrip, passengerTrip?.tripId, passengerTrip?.tripState]);
 
+  // Load payment methods + pre-select favorite for any active or completed trip.
+  // Runs on boarding/in_progress/completed so a fresh app open during any of those
+  // states still has a selectedMethod ready when the payment needs to be created.
+  useEffect(() => {
+    if (!token || !passengerTrip) return;
+    const s = passengerTrip.tripState;
+    if (s !== 'boarding' && s !== 'in_progress' && s !== 'completed') return;
+    if (paymentMethods.length > 0 && selectedMethod) return; // already loaded
+    paymentsApi.getMethods(token).then(methods => {
+      setPaymentMethods(methods);
+      if (!selectedMethod && methods.length > 0) {
+        const fav = methods.find(m => m.isFavorite) ?? methods[0];
+        setSelectedMethod(fav);
+      }
+    }).catch(() => {});
+  }, [token, passengerTrip?.tripId, passengerTrip?.tripState]);
+
+  // Auto-create payment when trip completes.
+  // Depends on selectedMethod so it re-runs once the method finishes loading
+  // (handles the case where the app was opened fresh during a completed trip).
+  useEffect(() => {
+    if (!token || !passengerTrip || passengerTrip.tripState !== 'completed') return;
+    if (paymentCreatedFor.current === passengerTrip.bookingId) return;
+    if (!selectedMethod) return; // wait for the methods-load effect above to set this
+
+    paymentCreatedFor.current = passengerTrip.bookingId;
+    setPaymentCreating(true);
+    paymentsApi.createPayment({
+      bookingId: passengerTrip.bookingId,
+      amount: passengerTrip.rate,
+      method: selectedMethod.type,
+      paymentMethodId: selectedMethod.type === 'card' ? selectedMethod.id : undefined,
+    }, token)
+      .then(setPayment)
+      .catch(() => { paymentCreatedFor.current = null; })
+      .finally(() => setPaymentCreating(false));
+  }, [passengerTrip?.tripState, passengerTrip?.bookingId, token, selectedMethod]);
+
+  // Poll payment status while pending so the passenger sees 'confirmed' when the driver confirms.
+  useEffect(() => {
+    if (!token || !payment || payment.status !== 'pending') return;
+    const id = setInterval(async () => {
+      try {
+        const updated = await paymentsApi.getByBooking(payment.bookingId, token);
+        if (updated.status !== 'pending') {
+          setPayment(updated);
+          clearInterval(id);
+        }
+      } catch {}
+    }, 5_000);
+    return () => clearInterval(id);
+  }, [token, payment?.id, payment?.status]);
+
   // Seatbelt alert when journey starts
   useEffect(() => {
     if (passengerTrip?.tripState === 'in_progress' && !seatbeltShown.current) {
@@ -140,7 +202,7 @@ export default function ActiveTripBubble() {
       Number(passengerTrip.originLatitude), Number(passengerTrip.originLongitude),
       Number(passengerTrip.destinationLatitude), Number(passengerTrip.destinationLongitude),
     ).then(setPolyline);
-  }, [passengerTrip?.tripState, passengerTrip?.tripId]);
+  }, [passengerTrip?.tripState, passengerTrip?.tripId, passengerTrip?.originLatitude, passengerTrip?.originLongitude, passengerTrip?.destinationLatitude, passengerTrip?.destinationLongitude]);
 
   // Build the static map URL whenever the polyline or theme changes
   useEffect(() => {
@@ -151,7 +213,7 @@ export default function ActiveTripBubble() {
       Number(passengerTrip.destinationLatitude), Number(passengerTrip.destinationLongitude),
       polyline, isDark,
     ));
-  }, [passengerTrip?.tripState, passengerTrip?.tripId, polyline, isDark]);
+  }, [passengerTrip?.tripState, passengerTrip?.tripId, polyline, isDark, passengerTrip?.originLatitude, passengerTrip?.originLongitude, passengerTrip?.destinationLatitude, passengerTrip?.destinationLongitude]);
 
   // Cancelled alert — show once per trip, persisted across sessions via SecureStore.
   // Also caches driver info if it's a late cancellation so the rating can be shown
@@ -187,7 +249,7 @@ export default function ActiveTripBubble() {
 
       setShowCancelledAlert(true);
     }
-  }, [passengerTrip?.tripState, passengerTrip?.tripId, passengerTrip?.cancelledAt, cancelAckLoaded]);
+  }, [passengerTrip?.tripState, passengerTrip?.tripId, passengerTrip?.cancelledAt, cancelAckLoaded, passengerTrip]);
 
   // Rating prompt after trip completed (once per trip, persisted across sessions)
   useEffect(() => {
@@ -274,7 +336,8 @@ export default function ActiveTripBubble() {
       setShowRating(false);
       setShowLateCancelRating(false);
       setLateCancelDriver(null);
-      refresh();
+      // Don't refresh on completed trips — the payment screen needs to stay visible.
+      if (passengerTrip?.tripState !== 'completed') refresh();
     }
   };
 
@@ -423,6 +486,86 @@ export default function ActiveTripBubble() {
                     <Text style={[{ color: colors.textMuted, textAlign: 'center', fontFamily: Fonts.sans, fontSize: 13 }]}>
                       Cargando QR…
                     </Text>
+                  )}
+
+                  {/* Payment method selector — visible during boarding before boarding */}
+                  {passengerTrip.tripState === 'boarding' && passengerTrip.bookingState !== 'boarded' && (
+                    <View style={[styles.card, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons name="card-outline" size={14} color={Brand.colors.green.normal} />
+                          <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textSecondary }}>Método de pago</Text>
+                        </View>
+                        <Pressable onPress={() => setShowMethodPicker(v => !v)} hitSlop={8}>
+                          <Text style={{ fontFamily: Fonts.headingBold, fontSize: 12, color: Brand.colors.green.normal }}>Cambiar</Text>
+                        </Pressable>
+                      </View>
+                      {selectedMethod ? (
+                        <Text style={{ fontFamily: Fonts.headingBold, fontSize: 14, color: colors.textPrimary, marginTop: 4 }}>
+                          {selectedMethod.alias}
+                          {selectedMethod.isFavorite ? ' ★' : ''}
+                        </Text>
+                      ) : (
+                        <Text style={{ fontFamily: Fonts.sans, fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
+                          Sin método seleccionado
+                        </Text>
+                      )}
+                      {showMethodPicker && (
+                        <View style={{ marginTop: 10, gap: 6 }}>
+                          {paymentMethods.map(m => (
+                            <Pressable
+                              key={m.id}
+                              onPress={() => { setSelectedMethod(m); setShowMethodPicker(false); }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: selectedMethod?.id === m.id ? Brand.colors.green.normal + '22' : colors.screenBg }}
+                            >
+                              <Ionicons
+                                name={m.type === 'card' ? 'card-outline' : m.type === 'sinpe' ? 'phone-portrait-outline' : 'cash-outline'}
+                                size={14}
+                                color={Brand.colors.green.normal}
+                              />
+                              <Text style={{ fontFamily: Fonts.sans, fontSize: 13, color: colors.textPrimary, flex: 1 }}>{m.alias}</Text>
+                              {m.isFavorite && <Ionicons name="star" size={12} color="#f7a900" />}
+                            </Pressable>
+                          ))}
+                          {paymentMethods.length === 0 && (
+                            <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textMuted, textAlign: 'center', padding: 8 }}>
+                              Sin métodos guardados. Agrega uno en tu perfil.
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Payment status — shown after trip completes */}
+                  {passengerTrip.tripState === 'completed' && (
+                    <View style={[styles.card, { backgroundColor: colors.inputBg, borderColor: colors.border, alignItems: 'center', paddingVertical: 16 }]}>
+                      {paymentCreating ? (
+                        <>
+                          <ActivityIndicator color={Brand.colors.green.normal} />
+                          <Text style={{ fontFamily: Fonts.sans, fontSize: 13, color: colors.textSecondary, marginTop: 8 }}>Procesando pago…</Text>
+                        </>
+                      ) : payment ? (
+                        <>
+                          <Ionicons
+                            name={payment.status === 'confirmed' ? 'checkmark-circle' : payment.status === 'failed' ? 'close-circle' : 'time-outline'}
+                            size={28}
+                            color={payment.status === 'confirmed' ? Brand.colors.green.normal : payment.status === 'failed' ? '#e53e3e' : '#f4a522'}
+                          />
+                          <Text style={{ fontFamily: Fonts.headingBold, fontSize: 14, color: colors.textPrimary, marginTop: 6 }}>
+                            {payment.status === 'confirmed' ? 'Pago confirmado' : payment.status === 'failed' ? 'Pago fallido' : 'Pago pendiente'}
+                          </Text>
+                          <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                            ₡{payment.amount.toLocaleString()} · {payment.method === 'card' ? 'Tarjeta' : payment.method === 'sinpe' ? 'SINPE' : 'Efectivo'}
+                          </Text>
+                          {payment.status === 'pending' && (
+                            <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: '#f4a522', marginTop: 4, textAlign: 'center' }}>
+                              El conductor confirmará tu pago
+                            </Text>
+                          )}
+                        </>
+                      ) : null}
+                    </View>
                   )}
 
                   {/* Cancellation reason (when cancelled) */}

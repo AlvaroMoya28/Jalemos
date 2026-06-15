@@ -28,6 +28,7 @@ import { ApplicationsProvider } from "@/contexts/applications";
 import { AuthProvider } from "@/contexts/auth";
 import { LoadingProvider } from "@/contexts/loading";
 import { ActiveTripProvider } from "@/contexts/active-trip";
+import { NotificationsProvider } from "@/contexts/notifications";
 import { UserModeProvider } from "@/contexts/user-mode";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { styles } from "../styles/app/_layout.styles";
@@ -83,6 +84,7 @@ export default function RootLayout() {
                 value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
               >
                   <ActiveTripProvider>
+                  <NotificationsProvider>
                   <LoadingProvider>
                     <Stack
                       screenOptions={{
@@ -135,9 +137,17 @@ export default function RootLayout() {
                           animation: "none",
                         }}
                       />
-                      {/* Políticas de uso */}
+                      {/* Usage policies */}
                       <Stack.Screen
                         name="policies"
+                        options={{
+                          headerShown: false,
+                          animation: "none",
+                        }}
+                      />
+                      {/* Notification preferences */}
+                      <Stack.Screen
+                        name="notification-preferences"
                         options={{
                           headerShown: false,
                           animation: "none",
@@ -155,6 +165,7 @@ export default function RootLayout() {
                     </Stack>
                     <StatusBar style="auto" />
                   </LoadingProvider>
+                  </NotificationsProvider>
                   </ActiveTripProvider>
               </ThemeProvider>
             </UserModeProvider>

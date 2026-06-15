@@ -5,6 +5,8 @@
 
 import GlassCard from "@/components/glass-card";
 import NotificationsModal from "@/components/NotificationsModal";
+import UnreadBadge from "@/components/shared/unread-badge";
+import { useNotifications } from "@/contexts/notifications";
 import RideCard, { Ride } from "@/components/RideCard";
 import { Brand } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth";
@@ -50,6 +52,7 @@ export default function MyRidesScreen() {
   }, [navigation]);
 
   const [notifOpen, setNotifOpen] = useState(false);
+  const { unreadCount } = useNotifications();
   const [tab, setTab] = useState<"passenger" | "driver">("passenger");
   const [onlyCompleted, setOnlyCompleted] = useState(false);
 
@@ -146,7 +149,7 @@ export default function MyRidesScreen() {
                 size={20}
                 color="#ecfff9"
               />
-              <View style={styles.bellDot} />
+              <UnreadBadge count={unreadCount} />
             </Pressable>
           </View>
         </View>

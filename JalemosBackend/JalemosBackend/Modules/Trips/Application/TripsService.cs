@@ -40,10 +40,32 @@ public sealed class TripsService : ITripsService
         return _repository.GetByIdAsync(id, cancellationToken);
     }
 
+    // Minimum lead time before departure. The boarding window opens 5 min before
+    // departure, so a trip set for "now" (or the past) can never be started — it
+    // must be at least this far ahead. A 1-minute slack absorbs clock skew/latency
+    // between the phone and the server.
+    public static readonly TimeSpan MinLeadTime = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan LeadTimeSlack = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// True if <paramref name="departureAt"/> is far enough ahead of <paramref name="nowUtc"/>
+    /// to allow boarding (min lead time minus a small slack). Normalises the departure to UTC.
+    /// </summary>
+    public static bool DepartureMeetsMinimumLeadTime(DateTime departureAt, DateTime nowUtc)
+    {
+        var departureUtc = departureAt.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(departureAt, DateTimeKind.Utc)
+            : departureAt.ToUniversalTime();
+        return departureUtc >= nowUtc.Add(MinLeadTime - LeadTimeSlack);
+    }
+
     /// <inheritdoc/>
     public Task CreateAsync(Trip trip, CancellationToken cancellationToken = default)
     {
-        // TODO: validate that the driver has a registered vehicle and that departure is in the future
+        if (!DepartureMeetsMinimumLeadTime(trip.DepartureAt, DateTime.UtcNow))
+            throw new InvalidOperationException("La hora de salida debe ser al menos 5 minutos en el futuro.");
+
+        // TODO: validate that the driver has a registered vehicle
         return _repository.CreateAsync(trip, cancellationToken);
     }
         

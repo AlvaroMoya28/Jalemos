@@ -1,52 +1,80 @@
-// Slide-up modal that displays the user's in-app notifications.
-// Currently uses a static mock list; replace with a real API call when the
-// Notifications backend module is wired up.
-// All surface and text colors adapt to the device light/dark mode setting.
+// Slide-up notification center backed by the real API (E1-4).
+// Reads from the global NotificationsProvider: lists the user's notifications,
+// highlights unread ones, marks a notification read on tap, and supports
+// "mark all as read". Adapts to light/dark mode.
 
 import AnimatedPressable from '@/components/animated-pressable';
 import GlassCard from '@/components/glass-card';
 import { Brand } from '@/constants/theme';
+import { useNotifications } from '@/contexts/notifications';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { NotificationKind } from '@/types/notifications';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
-import { Modal, ScrollView, Text, View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { ActivityIndicator, Alert, Modal, ScrollView, Text, View } from 'react-native';
 import { makeStyles } from './styles/NotificationsModal.styles';
-
-type NotificationType = 'ride' | 'offer' | 'message' | 'rating';
-
-interface NotificationItem {
-  id: number;
-  type: NotificationType;
-  title: string;
-  desc: string;
-  time: string;
-  unread: boolean;
-}
 
 interface NotificationsModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-// Static mock data — replace with a useFetch / SWR call to GET /api/notifications
-const notifications: NotificationItem[] = [
-  { id: 1, type: 'ride', title: 'Tu viaje a Heredia fue confirmado', desc: 'Carlos M. aceptó tu reserva.', time: 'Hace 5 min', unread: true },
-  { id: 2, type: 'offer', title: 'Promo Pura Vida: 20% OFF', desc: 'Usa el código JALEMOS en tu próximo viaje.', time: 'Hace 1 h', unread: true },
-  { id: 3, type: 'message', title: 'Nuevo mensaje de Maria R.', desc: 'Nos vemos en el punto de encuentro.', time: 'Hace 3 h', unread: true },
-  { id: 4, type: 'rating', title: 'Jose L. te calificó 5 estrellas', desc: 'Excelente pasajero, muy puntual.', time: 'Ayer', unread: false },
-  { id: 5, type: 'ride', title: 'Recordatorio: viaje mañana', desc: 'Cartago a San Jose, 7:00 AM.', time: 'Ayer', unread: false },
-];
-
-const iconMap: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
-  ride: 'car-outline',
-  offer: 'pricetag-outline',
-  message: 'chatbubble-ellipses-outline',
-  rating: 'star-outline',
+// Map each backend notification type to an icon.
+const iconMap: Record<NotificationKind, keyof typeof Ionicons.glyphMap> = {
+  booking_received: 'person-add-outline',
+  booking_confirmed: 'checkmark-circle-outline',
+  booking_cancelled: 'close-circle-outline',
+  trip_starting: 'time-outline',
+  trip_completed: 'flag-outline',
+  rating_received: 'star-outline',
+  general: 'notifications-outline',
+  trip_boarding: 'people-outline',
+  qr_scanned: 'qr-code-outline',
+  trip_started: 'car-outline',
+  driver_cancelled: 'alert-circle-outline',
+  passenger_cancelled: 'person-remove-outline',
+  no_show_marked: 'remove-circle-outline',
+  payment_reminder: 'card-outline',
+  rating_reminder: 'star-half-outline',
+  admin_broadcast: 'megaphone-outline',
 };
+
+// Lightweight relative-time formatter that returns the Spanish labels shown in the UI.
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diffMs = Date.now() - then;
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 1) return 'Ahora';
+  if (min < 60) return `Hace ${min} min`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `Hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Ayer';
+  if (days < 7) return `Hace ${days} días`;
+  return new Date(iso).toLocaleDateString();
+}
 
 export default function NotificationsModal({ visible, onClose }: NotificationsModalProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { items, unreadCount, isLoading, refresh, markRead, markAllRead, clearAll } = useNotifications();
+
+  // Refresh the feed each time the sheet opens.
+  useEffect(() => {
+    if (visible) refresh();
+  }, [visible, refresh]);
+
+  const confirmClear = () => {
+    Alert.alert(
+      'Limpiar notificaciones',
+      '¿Eliminar todas tus notificaciones? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Limpiar', style: 'destructive', onPress: () => { clearAll(); } },
+      ],
+    );
+  };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -55,33 +83,63 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
           <View style={styles.headerTitleWrap}>
             <Ionicons name="notifications-outline" size={18} color={Brand.colors.green.normal} />
             <Text style={styles.headerTitle}>Notificaciones</Text>
+            {unreadCount > 0 && <Text style={styles.headerCount}>({unreadCount})</Text>}
           </View>
-          <AnimatedPressable onPress={onClose} pressedScale={0.95}>
-            <Ionicons name="close" size={22} color={colors.textPrimary} />
-          </AnimatedPressable>
+          <View style={styles.headerActions}>
+            {items.length > 0 && (
+              <AnimatedPressable onPress={confirmClear} pressedScale={0.95} hitSlop={8}>
+                <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
+              </AnimatedPressable>
+            )}
+            <AnimatedPressable onPress={onClose} pressedScale={0.95}>
+              <Ionicons name="close" size={22} color={colors.textPrimary} />
+            </AnimatedPressable>
+          </View>
         </GlassCard>
 
         <ScrollView contentContainerStyle={styles.listContent}>
-          {notifications.map((item) => (
-            <GlassCard key={item.id} style={[styles.card, item.unread && styles.cardUnread]} intensity={34}>
-              <View style={styles.iconWrap}>
-                <Ionicons name={iconMap[item.type]} size={16} color="#f2fffb" />
-              </View>
-              <View style={styles.textWrap}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardDesc}>{item.desc}</Text>
-                <Text style={styles.cardTime}>{item.time}</Text>
-              </View>
-              {item.unread && <View style={styles.dot} />}
-            </GlassCard>
-          ))}
+          {isLoading && items.length === 0 ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color={Brand.colors.green.normal} />
+            </View>
+          ) : items.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="notifications-off-outline" size={40} color={colors.textMuted} />
+              <Text style={styles.emptyTitle}>Sin notificaciones</Text>
+              <Text style={styles.emptySubtitle}>
+                Aquí verás avisos de tus viajes, reservas y novedades.
+              </Text>
+            </View>
+          ) : (
+            items.map((item) => (
+              <AnimatedPressable
+                key={item.id}
+                pressedScale={0.99}
+                onPress={() => { if (!item.read) markRead(item.id); }}
+              >
+                <GlassCard style={[styles.card, !item.read && styles.cardUnread]} intensity={34}>
+                  <View style={styles.iconWrap}>
+                    <Ionicons name={iconMap[item.type] ?? 'notifications-outline'} size={16} color="#f2fffb" />
+                  </View>
+                  <View style={styles.textWrap}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    {!!item.body && <Text style={styles.cardDesc}>{item.body}</Text>}
+                    <Text style={styles.cardTime}>{relativeTime(item.createdAt)}</Text>
+                  </View>
+                  {!item.read && <View style={styles.dot} />}
+                </GlassCard>
+              </AnimatedPressable>
+            ))
+          )}
         </ScrollView>
 
-        <GlassCard style={styles.footer} intensity={26}>
-          <AnimatedPressable style={styles.footerButton} pressedScale={0.985}>
-            <Text style={styles.footerButtonText}>Ver todas las notificaciones</Text>
-          </AnimatedPressable>
-        </GlassCard>
+        {unreadCount > 0 && (
+          <GlassCard style={styles.footer} intensity={26}>
+            <AnimatedPressable style={styles.footerButton} pressedScale={0.985} onPress={markAllRead}>
+              <Text style={styles.footerButtonText}>Marcar todas como leídas</Text>
+            </AnimatedPressable>
+          </GlassCard>
+        )}
       </View>
     </Modal>
   );

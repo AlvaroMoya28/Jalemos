@@ -1,27 +1,38 @@
 // Application contract for the Notifications module.
-// Use cases here cover sending, reading, and managing in-app notifications.
+// Covers reading/marking in-app notifications, admin broadcasts, push-token
+// registration, and per-user notification preferences.
 
-using JalemosBackend.Modules.Notifications.Domain;
+using JalemosBackend.Modules.Notifications.Application.DTOs;
 
 namespace JalemosBackend.Modules.Notifications.Application;
 
-/// <summary>
-/// Defines notification management use cases consumed by the presentation layer.
-/// </summary>
 public interface INotificationsService
 {
-    /// <summary>Retrieves all notifications (typically scoped to the authenticated user).</summary>
-    Task<IEnumerable<Notification>> GetAllAsync(CancellationToken cancellationToken = default);
+    /// <summary>Recent notifications for a user (newest first), optionally unread-only and scoped to a role-mode.</summary>
+    Task<IReadOnlyList<NotificationDto>> GetForUserAsync(
+        Guid userId, bool unreadOnly = false, int take = 50, string? mode = null, CancellationToken ct = default);
 
-    /// <summary>Returns a single notification by id, or null if not found.</summary>
-    Task<Notification?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Unread notification count for the badge, optionally scoped to a role-mode.</summary>
+    Task<int> GetUnreadCountAsync(Guid userId, string? mode = null, CancellationToken ct = default);
 
-    /// <summary>Creates and delivers a new notification to the target user.</summary>
-    Task CreateAsync(Notification notification, CancellationToken cancellationToken = default);
+    /// <summary>Marks a single notification as read. Returns false if not found for this user.</summary>
+    Task<bool> MarkReadAsync(Guid id, Guid userId, CancellationToken ct = default);
 
-    /// <summary>Updates a notification (e.g., marks it as read).</summary>
-    Task UpdateAsync(Notification notification, CancellationToken cancellationToken = default);
+    /// <summary>Marks all of the user's notifications as read. Returns the count updated.</summary>
+    Task<int> MarkAllReadAsync(Guid userId, CancellationToken ct = default);
 
-    /// <summary>Deletes a notification by id.</summary>
-    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Deletes all of the user's notifications. Returns the count removed.</summary>
+    Task<int> ClearAllAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>Admin: sends an announcement to a segment of users (in-app + push).</summary>
+    Task<BroadcastResultDto> BroadcastAsync(BroadcastDto dto, CancellationToken ct = default);
+
+    /// <summary>Stores (or clears) this user's Expo push token.</summary>
+    Task RegisterPushTokenAsync(Guid userId, string? token, CancellationToken ct = default);
+
+    /// <summary>Returns the user's notification opt-in/out preferences.</summary>
+    Task<NotificationPrefsDto> GetPreferencesAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>Replaces the user's notification preferences.</summary>
+    Task UpdatePreferencesAsync(Guid userId, NotificationPrefsDto prefs, CancellationToken ct = default);
 }
