@@ -18,7 +18,10 @@ using JalemosBackend.Modules.Trips.Application;
 using JalemosBackend.Modules.Trips.Infrastructure;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Infrastructure;
+using JalemosBackend.Modules.Payments.Application;
+using JalemosBackend.Modules.Payments.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Stripe;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -66,6 +69,7 @@ dataSourceBuilder.MapEnum<ApplicationStatus>("application_status", new NpgsqlSna
 dataSourceBuilder.MapEnum<ReportReason>("report_reason", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<ReportStatus>("report_status", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<AdminActionType>("admin_action_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<PaymentStatus>("payment_status", new NpgsqlSnakeCaseNameTranslator());
 var dataSource = dataSourceBuilder.Build();
 Console.WriteLine($"DataSource type: {dataSource.GetType().FullName}");
 
@@ -87,6 +91,7 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
         o.MapEnum<ReportReason>("report_reason");
         o.MapEnum<ReportStatus>("report_status");
         o.MapEnum<AdminActionType>("admin_action_type");
+        o.MapEnum<PaymentStatus>("payment_status");
     })
     .AddInterceptors(sp.GetRequiredService<PushNotificationInterceptor>()));
 
@@ -124,6 +129,11 @@ builder.Services.AddScoped<VehiclesRepository>();
 // DriverApplications module
 builder.Services.AddScoped<IDriverApplicationsService, DriverApplicationsService>();
 builder.Services.AddScoped<DriverApplicationsRepository>();
+
+// Payments module
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+builder.Services.AddScoped<IPaymentsService, PaymentsService>();
+builder.Services.AddScoped<PaymentsRepository>();
 
 var app = builder.Build();
 

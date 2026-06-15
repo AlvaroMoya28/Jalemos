@@ -25,11 +25,10 @@ namespace JalemosBackend.Modules.Users.Infrastructure
         public DateTime? SuspendedUntil { get; set; }
         public bool IsActive { get; set; }
         public Guid QrToken { get; set; }
-        // Expo push token for this user's device (null until the app registers one).
         public string? ExpoPushToken { get; set; }
-        // Per-type notification opt-in/out preferences as a JSON object, e.g. {"booking_received": false}.
-        // Missing keys default to enabled. Critical safety notifications ignore this setting.
         public string? NotificationPrefs { get; set; }
+        public string? StripeCustomerId { get; set; }
+        public Guid? LastUsedPaymentMethodId { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
