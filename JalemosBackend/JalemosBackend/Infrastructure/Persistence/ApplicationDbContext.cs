@@ -339,6 +339,8 @@ namespace JalemosBackend.Infrastructure.Persistence
         }
     }
 
+    // TODO Move the to their respective modules once we have the basic structure in place
+
     public class FavoritePlaceEntity
     {
         public Guid FavoritePlaceId { get; set; }
