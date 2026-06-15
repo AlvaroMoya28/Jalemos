@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import GlassCard from '@/components/glass-card';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { makeStyles, stepStyles } from '../styles/app/driver-status.styles';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';

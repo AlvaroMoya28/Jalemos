@@ -516,7 +516,7 @@ describe('FrontEnd contexts/applications — ApplicationsProvider', () => {
 // LoadingProvider
 // ═══════════════════════════════════════════════════════════════════════════════
 
-jest.mock('@/components/page-loader', () => {
+jest.mock('@/components/shared/page-loader', () => {
   const React = require('react');
   return {
     __esModule: true,

@@ -19,9 +19,9 @@ jest.mock('@/contexts/notifications', () => ({
 }));
 
 // ── Module imports (after stubs are wired via moduleNameMapper) ────────────────
-const { parseExpiry }  = require('../../FrontEnd/components/expiry-input');
-const GlassCard        = require('../../FrontEnd/components/glass-card').default;
-const { HapticTab }    = require('../../FrontEnd/components/haptic-tab');
+const { parseExpiry }  = require('../../FrontEnd/components/shared/expiry-input');
+const GlassCard        = require('../../FrontEnd/components/shared/glass-card').default;
+const { HapticTab }    = require('../../FrontEnd/components/tabs/haptic-tab');
 
 // ── Mock references ────────────────────────────────────────────────────────────
 const hapticsMock = jest.requireMock('expo-haptics') as { impactAsync: jest.Mock };
@@ -133,7 +133,7 @@ describe('FrontEnd components/haptic-tab — HapticTab', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('FrontEnd components/expiry-input — format function via component', () => {
-  const ExpiryInput = require('../../FrontEnd/components/expiry-input').default;
+  const ExpiryInput = require('../../FrontEnd/components/shared/expiry-input').default;
 
   it('renders without error', () => {
     const cb = jest.fn();
@@ -194,7 +194,7 @@ describe('FrontEnd components/expiry-input — format function via component', (
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('FrontEnd components/animated-pressable — press handlers', () => {
-  const AnimatedPressable = require('../../FrontEnd/components/animated-pressable').default;
+  const AnimatedPressable = require('../../FrontEnd/components/shared/animated-pressable').default;
   const { withTiming } = require('react-native-reanimated');
 
   beforeEach(() => { (withTiming as jest.Mock).mockClear(); });
@@ -239,7 +239,7 @@ describe('FrontEnd components/animated-pressable — press handlers', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('FrontEnd components/RideCard — RideCard', () => {
-  const RideCard = require('../../FrontEnd/components/RideCard').default;
+  const RideCard = require('../../FrontEnd/components/shared/RideCard').default;
 
   const makeRide = (overrides = {}) => ({
     id: 'r1',
@@ -318,7 +318,7 @@ describe('FrontEnd components/RideCard — RideCard', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('FrontEnd components/NotificationsModal — NotificationsModal', () => {
-  const NotificationsModal = require('../../FrontEnd/components/NotificationsModal').default;
+  const NotificationsModal = require('../../FrontEnd/components/shared/NotificationsModal').default;
 
   // Builds a notifications-context value with sensible defaults for each test.
   const makeState = (over: Partial<any> = {}) => ({
@@ -405,19 +405,19 @@ describe('FrontEnd components/NotificationsModal — NotificationsModal', () => 
 
 describe('FrontEnd components — smoke tests', () => {
   it('animated-pressable renders without error', () => {
-    const AnimatedPressable = require('../../FrontEnd/components/animated-pressable').default;
+    const AnimatedPressable = require('../../FrontEnd/components/shared/animated-pressable').default;
     expect(() =>
       render(createElement(AnimatedPressable, { onPress: jest.fn() }, createElement('span', null, 'Press me'))),
     ).not.toThrow();
   });
 
   it('page-loader renders without error when visible', () => {
-    const PageLoader = require('../../FrontEnd/components/page-loader').default;
+    const PageLoader = require('../../FrontEnd/components/shared/page-loader').default;
     expect(() => render(createElement(PageLoader, { visible: true, label: 'Cargando...' }))).not.toThrow();
   });
 
   it('page-loader renders without error when hidden', () => {
-    const PageLoader = require('../../FrontEnd/components/page-loader').default;
+    const PageLoader = require('../../FrontEnd/components/shared/page-loader').default;
     expect(() => render(createElement(PageLoader, { visible: false }))).not.toThrow();
   });
 
@@ -443,14 +443,14 @@ describe('FrontEnd components/map-modal.web — web map modal', () => {
   };
 
   it('renders without error when visible with valid coords', () => {
-    const MapModal = require('../../FrontEnd/components/map-modal.web').default;
+    const MapModal = require('../../FrontEnd/components/ride-detail/map-modal.web').default;
     expect(() =>
       render(createElement(MapModal, { visible: true, onClose: jest.fn(), ride: mockRide, polyline: null })),
     ).not.toThrow();
   });
 
   it('renders without error when visible with no coords', () => {
-    const MapModal = require('../../FrontEnd/components/map-modal.web').default;
+    const MapModal = require('../../FrontEnd/components/ride-detail/map-modal.web').default;
     const rideNoCoords = { ...mockRide, fromCoords: undefined, toCoords: undefined };
     expect(() =>
       render(createElement(MapModal, { visible: true, onClose: jest.fn(), ride: rideNoCoords, polyline: null })),
@@ -463,7 +463,7 @@ describe('FrontEnd components/map-modal.web — web map modal', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('FrontEnd components/place-search-input — PlaceSearchInput', () => {
-  const PlaceSearchInput = require('../../FrontEnd/components/place-search-input').default;
+  const PlaceSearchInput = require('../../FrontEnd/components/shared/place-search-input').default;
 
   const defaultProps = {
     value: '',

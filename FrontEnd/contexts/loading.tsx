@@ -4,7 +4,7 @@
 
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import PageLoader from '@/components/page-loader';
+import PageLoader from '@/components/shared/page-loader';
 
 interface LoadingContextValue {
   showLoader: (label?: string) => void;

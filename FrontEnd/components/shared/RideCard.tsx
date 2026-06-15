@@ -3,8 +3,8 @@
 // Text and border colors adapt automatically to the device light/dark mode setting.
 // Updated by Claude Sonnet 4.6: trip status row (Completado / Cancelado) for the My Rides history.
 
-import AnimatedPressable from "@/components/animated-pressable";
-import GlassCard from "@/components/glass-card";
+import AnimatedPressable from "./animated-pressable";
+import GlassCard from "./glass-card";
 import { Brand } from "@/constants/theme";
 import { useAppTheme } from "@/hooks/use-app-theme";
 import { Ionicons } from "@expo/vector-icons";

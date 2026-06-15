@@ -21,12 +21,12 @@ import {
   View,
 } from "react-native";
 
-import GlassCard from "@/components/glass-card";
-import NotificationsModal from "@/components/NotificationsModal";
+import GlassCard from "@/components/shared/glass-card";
+import NotificationsModal from "@/components/shared/NotificationsModal";
 import UnreadBadge from "@/components/shared/unread-badge";
 import { useNotifications } from "@/contexts/notifications";
-import PlaceSearchInput from "@/components/place-search-input";
-import RideCard, { Ride } from "@/components/RideCard";
+import PlaceSearchInput from "@/components/shared/place-search-input";
+import RideCard, { Ride } from "@/components/shared/RideCard";
 import { Brand } from "@/constants/theme";
 import { makeStyles, staticStyles as searchStaticStyles } from "../../styles/tabs/search.styles";
 import { useAuth } from "@/contexts/auth";

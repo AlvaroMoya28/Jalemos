@@ -6,11 +6,11 @@
 // Photo capture uses DocumentCameraModal with a card-shaped guide overlay for the licence
 // and a full-frame capture for the Dekra document.
 
-import DocumentCameraModal from '@/components/document-camera-modal';
-import ExpiryInput, { parseExpiry } from '@/components/expiry-input';
-import GlassCard from '@/components/glass-card';
-import PlaceSearchInput from '@/components/place-search-input';
-import SelectModal from '@/components/select-modal';
+import DocumentCameraModal from '@/components/shared/document-camera-modal';
+import ExpiryInput, { parseExpiry } from '@/components/shared/expiry-input';
+import GlassCard from '@/components/shared/glass-card';
+import PlaceSearchInput from '@/components/shared/place-search-input';
+import SelectModal from '@/components/shared/select-modal';
 import { VEHICLE_MAKES, VEHICLE_MODELS, VEHICLE_YEARS } from '@/constants/vehicle-data';
 import { Brand } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';

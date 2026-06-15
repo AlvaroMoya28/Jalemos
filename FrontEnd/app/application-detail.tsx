@@ -18,8 +18,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import AnimatedPressable from '@/components/animated-pressable';
-import GlassCard from '@/components/glass-card';
+import AnimatedPressable from '@/components/shared/animated-pressable';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { ApplicationStatus, useApplications } from '@/contexts/applications';

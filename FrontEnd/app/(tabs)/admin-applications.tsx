@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import AnimatedPressable from '@/components/animated-pressable';
-import GlassCard from '@/components/glass-card';
+import AnimatedPressable from '@/components/shared/animated-pressable';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { ApplicationStatus, DriverApplication, useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';

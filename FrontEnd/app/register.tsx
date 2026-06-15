@@ -3,7 +3,7 @@
 // main tab group on success. Social sign-up (Google / Apple) mirrors the login flow.
 // Card entrance animation and floating logo match the login screen for visual consistency.
 
-import GlassCard from '@/components/glass-card';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
