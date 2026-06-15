@@ -1,15 +1,18 @@
+// Updated by Claude Sonnet 4.6
 // Global notifications state (E1-4): the user's feed, the unread badge count, and
 // mark-read actions. Polls the unread count every 30s and registers this device's
 // Expo push token once per session so the backend can deliver push (E1-3).
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { useAuth } from '@/contexts/auth';
 import { useUserMode } from '@/contexts/user-mode';
 import { notificationsApi } from '@/services/api';
 import { NotificationDTO } from '@/types/notifications';
 import { registerForPushNotificationsAsync } from '@/utils/push-notifications';
+
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 interface NotificationsContextType {
   items: NotificationDTO[];
@@ -150,12 +153,16 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       appStateRef.current = state;
     });
 
-    const received = Notifications.addNotificationReceivedListener(() => fetchUnread());
+    let received: { remove: () => void } | null = null;
+    if (!IS_EXPO_GO) {
+      const Notifications = require('expo-notifications');
+      received = Notifications.addNotificationReceivedListener(() => fetchUnread());
+    }
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       appSub.remove();
-      received.remove();
+      received?.remove();
     };
   }, [token, user, fetchUnread]);
 
