@@ -3,11 +3,11 @@
 // as the Search and Offer screens for consistency.
 // Updated by Claude Sonnet 4.6: real completed/cancelled history via /mine endpoints with status badges.
 
-import GlassCard from "@/components/glass-card";
-import NotificationsModal from "@/components/NotificationsModal";
+import GlassCard from "@/components/shared/glass-card";
+import NotificationsModal from "@/components/shared/NotificationsModal";
 import UnreadBadge from "@/components/shared/unread-badge";
 import { useNotifications } from "@/contexts/notifications";
-import RideCard, { Ride } from "@/components/RideCard";
+import RideCard, { Ride } from "@/components/shared/RideCard";
 import { Brand } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth";
 import { useAppTheme } from "@/hooks/use-app-theme";

@@ -15,8 +15,8 @@ import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { Platform, View } from 'react-native';
 
-import { HapticTab } from '@/components/haptic-tab';
-import ActiveTripBubble from '@/components/active-trip-bubble';
+import { HapticTab } from '@/components/tabs/haptic-tab';
+import ActiveTripBubble from '@/components/tabs/active-trip-bubble';
 import { Brand, Fonts, withElevation } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { styles } from '../../styles/tabs/_layout.styles';

@@ -23,13 +23,13 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import InteractiveMapModal from "../components/map-modal";
+import InteractiveMapModal from "../components/ride-detail/map-modal";
 
-import AnimatedPressable from "@/components/animated-pressable";
-import GlassCard from "@/components/glass-card";
-import GlassAlert from "@/components/glass-alert";
-import RatingModal from "@/components/rating-modal";
-import CancellationModal from "@/components/cancellation-modal";
+import AnimatedPressable from "@/components/shared/animated-pressable";
+import GlassCard from "@/components/shared/glass-card";
+import GlassAlert from "@/components/shared/glass-alert";
+import RatingModal from "@/components/shared/rating-modal";
+import CancellationModal from "@/components/shared/cancellation-modal";
 import { Brand, Fonts } from "@/constants/theme";
 import { useTripsData } from "@/hooks/use-trips-data";
 import { useAppTheme } from "@/hooks/use-app-theme";

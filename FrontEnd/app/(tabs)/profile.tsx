@@ -7,11 +7,11 @@
 // Preferencias and Soporte sections are always visible regardless of mode.
 // Stats row adapts labels and values to reflect the active role (saved vs earned).
 
-import GlassCard from '@/components/glass-card';
-import NotificationsModal from '@/components/NotificationsModal';
+import GlassCard from '@/components/shared/glass-card';
+import NotificationsModal from '@/components/shared/NotificationsModal';
 import UnreadBadge from '@/components/shared/unread-badge';
 import { useNotifications } from '@/contexts/notifications';
-import QrDisplay from '@/components/qr-display';
+import QrDisplay from '@/components/shared/qr-display';
 import { Brand, Fonts } from '@/constants/theme';
 import { makeStyles, staticStyles as profileStaticStyles } from '../../styles/tabs/profile.styles';
 import { meApi, VehicleDTO, vehiclesApi, paymentsApi, PaymentMethodDto } from '@/services/api';

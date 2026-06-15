@@ -3,8 +3,8 @@
 // highlights unread ones, marks a notification read on tap, and supports
 // "mark all as read". Adapts to light/dark mode.
 
-import AnimatedPressable from '@/components/animated-pressable';
-import GlassCard from '@/components/glass-card';
+import AnimatedPressable from './animated-pressable';
+import GlassCard from './glass-card';
 import { Brand } from '@/constants/theme';
 import { useNotifications } from '@/contexts/notifications';
 import { useAppTheme } from '@/hooks/use-app-theme';
