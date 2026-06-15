@@ -18,7 +18,10 @@ using JalemosBackend.Modules.Trips.Application;
 using JalemosBackend.Modules.Trips.Infrastructure;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Infrastructure;
+using JalemosBackend.Modules.Payments.Application;
+using JalemosBackend.Modules.Payments.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Stripe;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -66,10 +69,17 @@ dataSourceBuilder.MapEnum<ApplicationStatus>("application_status", new NpgsqlSna
 dataSourceBuilder.MapEnum<ReportReason>("report_reason", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<ReportStatus>("report_status", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<AdminActionType>("admin_action_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<PaymentStatus>("payment_status", new NpgsqlSnakeCaseNameTranslator());
 var dataSource = dataSourceBuilder.Build();
 Console.WriteLine($"DataSource type: {dataSource.GetType().FullName}");
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// Push notifications — HttpClient for Expo, the sender, and the EF interceptor that
+// dispatches a push whenever new notification rows are saved (covers every trigger).
+builder.Services.AddHttpClient(ExpoPushSender.HttpClientName);
+builder.Services.AddSingleton<IExpoPushSender, ExpoPushSender>();
+builder.Services.AddSingleton<PushNotificationInterceptor>();
+
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
     options.UseNpgsql(dataSource, o =>
     {
         o.MapEnum<TripState>("trip_state");
@@ -81,7 +91,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         o.MapEnum<ReportReason>("report_reason");
         o.MapEnum<ReportStatus>("report_status");
         o.MapEnum<AdminActionType>("admin_action_type");
-    }));
+        o.MapEnum<PaymentStatus>("payment_status");
+    })
+    .AddInterceptors(sp.GetRequiredService<PushNotificationInterceptor>()));
 
 // Storage — singleton because IAmazonS3 is thread-safe and expensive to create
 builder.Services.AddSingleton<IStorageService, S3StorageService>();
@@ -117,6 +129,11 @@ builder.Services.AddScoped<VehiclesRepository>();
 // DriverApplications module
 builder.Services.AddScoped<IDriverApplicationsService, DriverApplicationsService>();
 builder.Services.AddScoped<DriverApplicationsRepository>();
+
+// Payments module
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+builder.Services.AddScoped<IPaymentsService, PaymentsService>();
+builder.Services.AddScoped<PaymentsRepository>();
 
 var app = builder.Build();
 

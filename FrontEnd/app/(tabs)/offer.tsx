@@ -31,6 +31,8 @@ import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-re
 import GlassCard from '@/components/glass-card';
 import GlassAlert from '@/components/glass-alert';
 import NotificationsModal from '@/components/NotificationsModal';
+import UnreadBadge from '@/components/shared/unread-badge';
+import { useNotifications } from '@/contexts/notifications';
 import PlaceSearchInput, { PlacePrediction } from '@/components/place-search-input';
 import BoardingScreen from '@/components/boarding-screen';
 import { Brand } from '@/constants/theme';
@@ -204,6 +206,7 @@ export default function OfferScreen() {
   }, [user?.id, token]);
 
   const [notifOpen, setNotifOpen] = useState(false);
+  const { unreadCount } = useNotifications();
   const [from, setFrom] = useState('');
   const [fromCoords, setFromCoords] = useState<PlaceCoords | null>(null);
   const [to, setTo] = useState('');
@@ -311,6 +314,12 @@ export default function OfferScreen() {
       showError('Campos incompletos', 'Completa origen, destino, fecha y hora.');
       return;
     }
+    // Departure must be at least 5 minutes ahead: the boarding window opens 5 min
+    // before departure, so a trip set for "now" can never be started.
+    if (selectedDate.getTime() < Date.now() + 5 * 60_000) {
+      showError('Hora muy próxima', 'La salida debe ser al menos 5 minutos en el futuro para poder iniciar el viaje.');
+      return;
+    }
     if (!vehicleId) {
       showError('Sin vehículo', 'Selecciona un vehículo para ofrecer el viaje.');
       return;
@@ -381,7 +390,7 @@ export default function OfferScreen() {
             </View>
             <Pressable onPress={() => setNotifOpen(true)} style={styles.bellBtn}>
               <Ionicons name="notifications-outline" size={20} color="#ecfff9" />
-              <View style={styles.bellDot} />
+              <UnreadBadge count={unreadCount} />
             </Pressable>
           </View>
 

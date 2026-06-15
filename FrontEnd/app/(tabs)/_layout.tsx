@@ -56,6 +56,7 @@ export default function TabLayout() {
           <NativeTabs.Trigger name="admin-applications" hidden={!isAdmin} />
           <NativeTabs.Trigger name="admin-reports" hidden={!isAdmin} />
           <NativeTabs.Trigger name="admin-users" hidden={!isAdmin} />
+          <NativeTabs.Trigger name="admin-broadcast" hidden={!isAdmin} />
           {/* Regular user triggers */}
           <NativeTabs.Trigger name="search" hidden={isAdmin || isDriver} />
           <NativeTabs.Trigger name="offer" hidden={isAdmin || !isDriver} />
@@ -114,6 +115,14 @@ export default function TabLayout() {
           title: 'Usuarios',
           href: isAdmin ? undefined : null,
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="admin-broadcast"
+        options={{
+          title: 'Avisos',
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color, size }) => <Ionicons name="megaphone-outline" size={size} color={color} />,
         }}
       />
       {/* Passenger / driver tabs */}

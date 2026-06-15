@@ -25,6 +25,10 @@ namespace JalemosBackend.Modules.Users.Infrastructure
         public DateTime? SuspendedUntil { get; set; }
         public bool IsActive { get; set; }
         public Guid QrToken { get; set; }
+        public string? ExpoPushToken { get; set; }
+        public string? NotificationPrefs { get; set; }
+        public string? StripeCustomerId { get; set; }
+        public Guid? LastUsedPaymentMethodId { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

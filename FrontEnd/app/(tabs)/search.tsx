@@ -23,6 +23,8 @@ import {
 
 import GlassCard from "@/components/glass-card";
 import NotificationsModal from "@/components/NotificationsModal";
+import UnreadBadge from "@/components/shared/unread-badge";
+import { useNotifications } from "@/contexts/notifications";
 import PlaceSearchInput from "@/components/place-search-input";
 import RideCard, { Ride } from "@/components/RideCard";
 import { Brand } from "@/constants/theme";
@@ -119,6 +121,7 @@ export default function SearchScreen() {
   const [to, setTo] = useState("");
   const [seats, setSeats] = useState(1);
   const [notifOpen, setNotifOpen] = useState(false);
+  const { unreadCount } = useNotifications();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -375,7 +378,7 @@ export default function SearchScreen() {
                 size={20}
                 color="#ecfff9"
               />
-              <View style={styles.bellDot} />
+              <UnreadBadge count={unreadCount} />
             </Pressable>
           </View>
 

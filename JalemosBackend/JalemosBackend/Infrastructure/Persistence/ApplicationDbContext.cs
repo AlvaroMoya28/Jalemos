@@ -7,6 +7,7 @@ using JalemosBackend.Modules.Bookings.Infrastructure;
 using JalemosBackend.Modules.Ratings.Infrastructure;
 using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.DriverApplications.Infrastructure;
+using JalemosBackend.Modules.Payments.Infrastructure;
 
 namespace JalemosBackend.Infrastructure.Persistence
 {
@@ -21,12 +22,15 @@ namespace JalemosBackend.Infrastructure.Persistence
         // v5 lifecycle
         TripBoarding, QrScanned, TripStarted,
         DriverCancelled, PassengerCancelled,
-        NoShowMarked, PaymentReminder, RatingReminder
+        NoShowMarked, PaymentReminder, RatingReminder,
+        // v6 — admin broadcast (promos, policy updates, announcements)
+        AdminBroadcast
     }
     public enum ApplicationStatus { pending, under_review, needs_correction, approved, rejected }
     public enum ReportReason { bad_behavior, dangerous_driving, no_show, late_cancellation, harassment, vehicle_condition, other }
     public enum ReportStatus { pending, resolved, dismissed }
     public enum AdminActionType { suspended, deactivated, dismissed }
+    public enum PaymentStatus { pending, confirmed, failed }
 
     public sealed class ApplicationDbContext : DbContext
     {
@@ -42,6 +46,7 @@ namespace JalemosBackend.Infrastructure.Persistence
         public DbSet<NotificationEntity> Notifications { get; set; } = null!;
         public DbSet<DriverApplicationEntity> DriverApplications { get; set; } = null!;
         public DbSet<UserReportEntity> UserReports { get; set; } = null!;
+        public DbSet<PaymentEntity> Payments { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -55,6 +60,7 @@ namespace JalemosBackend.Infrastructure.Persistence
             modelBuilder.HasPostgresEnum<ReportReason>("report_reason");
             modelBuilder.HasPostgresEnum<ReportStatus>("report_status");
             modelBuilder.HasPostgresEnum<AdminActionType>("admin_action_type");
+            modelBuilder.HasPostgresEnum<PaymentStatus>("payment_status");
             modelBuilder.HasPostgresExtension("pgcrypto");
 
             // Users
@@ -82,6 +88,10 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.SuspendedUntil).HasColumnName("suspended_until");
                 e.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
                 e.Property(x => x.QrToken).HasColumnName("qr_token").HasDefaultValueSql("gen_random_uuid()");
+                e.Property(x => x.ExpoPushToken).HasColumnName("expo_push_token");
+                e.Property(x => x.NotificationPrefs).HasColumnName("notification_prefs").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
+                e.Property(x => x.StripeCustomerId).HasColumnName("stripe_customer_id");
+                e.Property(x => x.LastUsedPaymentMethodId).HasColumnName("last_used_payment_method_id");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.Email).IsUnique();
@@ -212,10 +222,38 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
                 e.Property(x => x.Type).HasColumnName("type").HasColumnType("payment_type").IsRequired();
                 e.Property(x => x.Alias).HasColumnName("alias").HasMaxLength(100).IsRequired();
+                e.Property(x => x.LastFourDigits).HasColumnName("last_four_digits").HasMaxLength(4);
+                e.Property(x => x.Brand).HasColumnName("brand").HasMaxLength(20);
+                e.Property(x => x.ExpiryMonth).HasColumnName("expiry_month");
+                e.Property(x => x.ExpiryYear).HasColumnName("expiry_year");
+                e.Property(x => x.IsFavorite).HasColumnName("is_favorite").HasDefaultValue(false);
+                e.Property(x => x.StripePaymentMethodId).HasColumnName("stripe_payment_method_id");
                 e.Property(x => x.Active).HasColumnName("active").HasDefaultValue(true);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.UserId).HasDatabaseName("idx_payment_user");
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Payments (per-booking payment records)
+            modelBuilder.Entity<PaymentEntity>(e =>
+            {
+                e.ToTable("payments");
+                e.HasKey(x => x.PaymentId);
+                e.Property(x => x.PaymentId).HasColumnName("payment_id").HasDefaultValueSql("gen_random_uuid()");
+                e.Property(x => x.BookingId).HasColumnName("booking_id").IsRequired();
+                e.Property(x => x.PayerId).HasColumnName("payer_id").IsRequired();
+                e.Property(x => x.Amount).HasColumnName("amount").HasColumnType("numeric(10,2)").IsRequired();
+                e.Property(x => x.Method).HasColumnName("method").HasColumnType("payment_type").IsRequired();
+                e.Property(x => x.Status).HasColumnName("status").HasColumnType("payment_status").HasDefaultValue(PaymentStatus.pending);
+                e.Property(x => x.StripePaymentIntentId).HasColumnName("stripe_payment_intent_id");
+                e.Property(x => x.PaymentMethodId).HasColumnName("payment_method_id");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
+                e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.BookingId).HasDatabaseName("idx_payments_booking");
+                e.HasIndex(x => x.PayerId).HasDatabaseName("idx_payments_payer");
+                e.HasOne<BookingEntity>().WithMany().HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.PayerId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<PaymentMethodEntity>().WithMany().HasForeignKey(x => x.PaymentMethodId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // Notifications
@@ -231,6 +269,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
                 e.Property(x => x.Body).HasColumnName("body");
                 e.Property(x => x.Read).HasColumnName("read").HasDefaultValue(false);
+                e.Property(x => x.Audience).HasColumnName("audience").HasMaxLength(20).HasDefaultValue("all");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => new { x.UserId }).HasDatabaseName("idx_notif_user_unread");
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
@@ -300,6 +339,8 @@ namespace JalemosBackend.Infrastructure.Persistence
         }
     }
 
+    // TODO Move the to their respective modules once we have the basic structure in place
+
     public class FavoritePlaceEntity
     {
         public Guid FavoritePlaceId { get; set; }
@@ -316,6 +357,12 @@ namespace JalemosBackend.Infrastructure.Persistence
         public Guid UserId { get; set; }
         public PaymentType Type { get; set; }
         public string Alias { get; set; } = null!;
+        public string? LastFourDigits { get; set; }
+        public string? Brand { get; set; }
+        public short? ExpiryMonth { get; set; }
+        public short? ExpiryYear { get; set; }
+        public bool IsFavorite { get; set; }
+        public string? StripePaymentMethodId { get; set; }
         public bool Active { get; set; }
         public DateTime CreatedAt { get; set; }
     }

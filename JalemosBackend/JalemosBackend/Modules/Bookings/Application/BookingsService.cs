@@ -62,6 +62,25 @@ public sealed class BookingsService : IBookingsService
 
         await _repository.CreateAsync(booking, cancellationToken);
 
+        // Notify the driver that a passenger reserved a seat on their trip (E1-2).
+        var trip = await _db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == booking.TripId, cancellationToken);
+        if (trip is not null)
+        {
+            var passenger = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == callerId, cancellationToken);
+            var passengerName = passenger is null ? "Un pasajero" : $"{passenger.FirstName} {passenger.LastName}";
+            var seatLabel = booking.SeatsReserved == 1 ? "un espacio" : $"{booking.SeatsReserved} espacios";
+            _db.Notifications.Add(new NotificationEntity
+            {
+                UserId    = trip.DriverUserId,
+                TripId    = trip.TripId,
+                BookingId = booking.Id,
+                Type      = NotificationType.BookingReceived,
+                Title     = $"{passengerName} reservó {seatLabel}",
+                Body      = $"Viaje {trip.FromLocation} → {trip.ToLocation}.",
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
         // Map Domain -> DTO
         var result = new BookingDto
         {
