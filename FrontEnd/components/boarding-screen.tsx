@@ -14,6 +14,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -23,7 +24,7 @@ import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useActiveTrip } from '@/contexts/active-trip';
 import { useAuth } from '@/contexts/auth';
-import { PassengerSummary, TripStatusResponse, tripLifecycleApi, ratingsApi } from '@/services/api';
+import { PassengerSummary, TripStatusResponse, tripLifecycleApi, ratingsApi, paymentsApi, PaymentDto } from '@/services/api';
 import { openInMaps } from '@/utils/open-in-maps';
 import QrScanner from './qr-scanner';
 import GlassAlert from './glass-alert';
@@ -100,6 +101,12 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
   const [mapError, setMapError]               = useState(false);
   const [polyline, setPolyline]               = useState<string | null>(null);
 
+  // Payment confirmation step (after rating flow)
+  const [showPayments, setShowPayments]           = useState(false);
+  const [pendingPayments, setPendingPayments]     = useState<(PaymentDto & { passengerName: string })[]>([]);
+  const [loadingPayments, setLoadingPayments]     = useState(false);
+  const [confirmingId, setConfirmingId]           = useState<string | null>(null);
+
   const boardedPassengers  = trip.passengers.filter(p => p.bookingState === 'boarded');
   const pendingPassengers  = trip.passengers.filter(p => p.bookingState === 'confirmed' || p.bookingState === 'pending');
   const totalActive        = trip.passengers.filter(p => !['cancelled', 'no_show'].includes(p.bookingState));
@@ -131,7 +138,7 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
     const tLat = Number(trip.destinationLatitude);
     const tLng = Number(trip.destinationLongitude);
     fetchRoutePolyline(fLat, fLng, tLat, tLng).then(setPolyline);
-  }, [isInProgress, trip.tripId]);
+  }, [isInProgress, trip.destinationLatitude, trip.destinationLongitude, trip.originLatitude, trip.originLongitude, trip.tripId]);
 
   // Build static map URL whenever polyline or theme changes
   useEffect(() => {
@@ -142,7 +149,7 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
     const tLng = Number(trip.destinationLongitude);
     setMapError(false);
     setMapUrl(buildMapUrl(fLat, fLng, tLat, tLng, polyline, isDark));
-  }, [isInProgress, polyline, isDark, trip.tripId]);
+  }, [isInProgress, polyline, isDark, trip.tripId, trip.originLatitude, trip.originLongitude, trip.destinationLatitude, trip.destinationLongitude]);
 
   // QR scan handler
   const handleScan = useCallback(async (qrToken: string) => {
@@ -235,7 +242,57 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
       setCurrentRatingIdx(next);
     } else {
       setShowRating(false);
+      loadPendingPayments();
+    }
+  };
+
+  const loadPendingPayments = async () => {
+    if (!token) { onTripEnded(); return; }
+    setLoadingPayments(true);
+    setShowPayments(true);
+    try {
+      // The passenger's app creates the payment when it polls and detects the trip
+      // as completed. That poll may take a few seconds after the driver ends the trip,
+      // so we retry up to ~12 s before giving up.
+      const DEADLINE = Date.now() + 12_000;
+      let results: (PaymentDto & { passengerName: string })[] = [];
+
+      do {
+        results = [];
+        for (const p of boardedPassengers) {
+          try {
+            const pay = await paymentsApi.getByBooking(p.bookingId, token);
+            if (pay.status === 'pending')
+              results.push({ ...pay, passengerName: `${p.firstName} ${p.lastName}` });
+          } catch { }
+        }
+        if (results.length > 0 || Date.now() >= DEADLINE) break;
+        await new Promise(r => setTimeout(r, 3_000));
+      } while (true);
+
+      setPendingPayments(results);
+      if (results.length === 0) {
+        setShowPayments(false);
+        onTripEnded();
+      }
+    } catch {
+      setShowPayments(false);
       onTripEnded();
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  const handleConfirmPayment = async (paymentId: string) => {
+    if (!token) return;
+    setConfirmingId(paymentId);
+    try {
+      await paymentsApi.confirmPayment(paymentId, token);
+      setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
+    } catch (e: any) {
+      setErrorMsg({ title: 'Error', body: e.message ?? 'No se pudo confirmar el pago.' });
+    } finally {
+      setConfirmingId(null);
     }
   };
 
@@ -461,9 +518,67 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
         onSkip={() => {
           const next = currentRatingIdx + 1;
           if (next < boardedPassengers.length) setCurrentRatingIdx(next);
-          else { setShowRating(false); onTripEnded(); }
+          else { setShowRating(false); loadPendingPayments(); }
         }}
       />
+
+      {/* Payment confirmation step after ratings */}
+      {showPayments && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.screenBg, paddingTop: insets.top, paddingHorizontal: 20 }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: 18, marginTop: 24, marginBottom: 4 }]}>
+            Confirmar pagos
+          </Text>
+          <Text style={{ fontFamily: Fonts.sans, fontSize: 13, color: colors.textSecondary, marginBottom: 20 }}>
+            Los pagos con SINPE o efectivo requieren tu confirmación.
+          </Text>
+
+          {loadingPayments ? (
+            <View style={{ alignItems: 'center', marginTop: 40, gap: 12 }}>
+              <ActivityIndicator color={Brand.colors.green.normal} />
+              <Text style={{ fontFamily: Fonts.sans, fontSize: 13, color: colors.textSecondary, textAlign: 'center' }}>
+                Esperando que los pasajeros confirmen su método de pago…
+              </Text>
+            </View>
+          ) : (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 10 }} showsVerticalScrollIndicator={false}>
+              {pendingPayments.map(p => (
+                <View key={p.id} style={[passengerRowStyles.row, { backgroundColor: colors.inputBg, borderColor: colors.border, flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="person-outline" size={18} color={Brand.colors.green.normal} />
+                    <View>
+                      <Text style={[passengerRowStyles.name, { color: colors.textPrimary }]}>{p.passengerName}</Text>
+                      <Text style={[passengerRowStyles.seats, { color: colors.textSecondary }]}>
+                        ₡{p.amount.toLocaleString()} · {p.method === 'sinpe' ? 'SINPE Móvil' : 'Efectivo'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Pressable
+                    onPress={() => handleConfirmPayment(p.id)}
+                    disabled={confirmingId === p.id}
+                    style={{ alignSelf: 'flex-end', backgroundColor: Brand.colors.green.normal, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, opacity: confirmingId === p.id ? 0.6 : 1 }}
+                  >
+                    {confirmingId === p.id
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={{ fontFamily: Fonts.headingBold, fontSize: 13, color: '#fff' }}>Confirmar pago</Text>
+                    }
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          {!loadingPayments && (
+            <Pressable
+              onPress={onTripEnded}
+              style={{ marginBottom: insets.bottom + 16, marginTop: 12, padding: 16, alignItems: 'center', borderRadius: 12, backgroundColor: colors.inputBg }}
+            >
+              <Text style={{ fontFamily: Fonts.headingBold, color: colors.textSecondary }}>
+                {pendingPayments.length === 0 ? 'Finalizar' : 'Omitir y finalizar'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      )}
     </View>
   );
 }
