@@ -72,7 +72,7 @@ export default function RegisterScreen() {
         return;
       }
       setError('');
-      router.replace('/(tabs)/search');
+      router.replace({ pathname: '/verify-email', params: { userId: result.userId, email: result.email } });
     } finally {
       hideLoader();
     }

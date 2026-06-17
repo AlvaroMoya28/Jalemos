@@ -92,6 +92,9 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.NotificationPrefs).HasColumnName("notification_prefs").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
                 e.Property(x => x.StripeCustomerId).HasColumnName("stripe_customer_id");
                 e.Property(x => x.LastUsedPaymentMethodId).HasColumnName("last_used_payment_method_id");
+                e.Property(x => x.EmailVerificationCode).HasColumnName("email_verification_code");
+                e.Property(x => x.EmailVerificationExpiresAt).HasColumnName("email_verification_expires_at");
+                e.Property(x => x.IsEmailVerified).HasColumnName("is_email_verified").HasDefaultValue(false);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.Email).IsUnique();

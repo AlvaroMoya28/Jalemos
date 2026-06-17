@@ -29,6 +29,9 @@ namespace JalemosBackend.Modules.Users.Infrastructure
         public string? NotificationPrefs { get; set; }
         public string? StripeCustomerId { get; set; }
         public Guid? LastUsedPaymentMethodId { get; set; }
+        public string? EmailVerificationCode { get; set; }
+        public DateTime? EmailVerificationExpiresAt { get; set; }
+        public bool IsEmailVerified { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

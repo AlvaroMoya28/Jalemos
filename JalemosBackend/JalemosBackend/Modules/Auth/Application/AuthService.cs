@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Auth.Application.DTOs;
+using JalemosBackend.Modules.Email;
 using JalemosBackend.Modules.Users.Domain;
 using JalemosBackend.Modules.Users.Infrastructure;
 
@@ -16,11 +17,15 @@ namespace JalemosBackend.Modules.Auth.Application
     {
         private readonly ApplicationDbContext _db;
         private readonly IConfiguration _config;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(ApplicationDbContext db, IConfiguration config)
+        public AuthService(ApplicationDbContext db, IConfiguration config, IEmailService emailService, ILogger<AuthService> logger)
         {
             _db = db;
             _config = config;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task<AuthResponseDto?> LoginAsync(string identifier, string password, CancellationToken ct = default)
@@ -39,10 +44,13 @@ namespace JalemosBackend.Modules.Auth.Application
             if (user.SuspendedUntil.HasValue && user.SuspendedUntil.Value > DateTime.UtcNow)
                 throw new AccountBlockedException(isDeactivated: false, suspendedUntil: user.SuspendedUntil.Value);
 
+            if (!user.IsEmailVerified)
+                throw new InvalidOperationException("Debés verificar tu correo antes de iniciar sesión.");
+
             return BuildResponse(user);
         }
 
-        public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto dto, CancellationToken ct = default)
+        public async Task<RegisterPendingDto> RegisterAsync(RegisterRequestDto dto, CancellationToken ct = default)
         {
             var emailLower    = dto.Email.Trim().ToLower();
             var usernameLower = dto.Username.Trim().ToLower();
@@ -53,21 +61,63 @@ namespace JalemosBackend.Modules.Auth.Application
             if (await _db.Users.AnyAsync(u => u.Username.ToLower() == usernameLower, ct))
                 throw new InvalidOperationException("Ese nombre de usuario ya está en uso.");
 
+            var code      = Random.Shared.Next(100_000, 999_999).ToString();
+            var expiresAt = DateTime.UtcNow.AddMinutes(15);
+
             var entity = new UserEntity
             {
-                UserId       = Guid.NewGuid(),
-                Username     = dto.Username.Trim(),
-                Email        = emailLower,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                FirstName    = dto.FirstName.Trim(),
-                LastName     = dto.LastName.Trim(),
-                Role         = UserRole.passenger,
-                IsActive     = true,
-                CreatedAt    = DateTime.UtcNow,
-                UpdatedAt    = DateTime.UtcNow,
+                UserId                      = Guid.NewGuid(),
+                Username                    = dto.Username.Trim(),
+                Email                       = emailLower,
+                PasswordHash                = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                FirstName                   = dto.FirstName.Trim(),
+                LastName                    = dto.LastName.Trim(),
+                Role                        = UserRole.passenger,
+                IsActive                    = true,
+                IsEmailVerified             = false,
+                EmailVerificationCode       = code,
+                EmailVerificationExpiresAt  = expiresAt,
+                CreatedAt                   = DateTime.UtcNow,
+                UpdatedAt                   = DateTime.UtcNow,
             };
 
             _db.Users.Add(entity);
+            await _db.SaveChangesAsync(ct);
+
+            try
+            {
+                await _emailService.SendVerificationCodeAsync(emailLower, dto.FirstName.Trim(), code, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send verification email to {Email}", emailLower);
+            }
+
+            return new RegisterPendingDto(entity.UserId, emailLower, expiresAt);
+        }
+
+        public async Task<AuthResponseDto> VerifyEmailAsync(VerifyEmailRequestDto dto, CancellationToken ct = default)
+        {
+            var entity = await _db.Users
+                .FirstOrDefaultAsync(u => u.UserId == dto.UserId, ct)
+                ?? throw new KeyNotFoundException("Usuario no encontrado.");
+
+            if (entity.IsEmailVerified)
+                return BuildResponse(entity);
+
+            if (entity.EmailVerificationCode is null || entity.EmailVerificationExpiresAt is null)
+                throw new InvalidOperationException("No hay un código de verificación pendiente.");
+
+            if (entity.EmailVerificationExpiresAt < DateTime.UtcNow)
+                throw new InvalidOperationException("El código ha expirado. Registrate de nuevo.");
+
+            if (entity.EmailVerificationCode != dto.Code.Trim())
+                throw new UnauthorizedAccessException("Código incorrecto.");
+
+            entity.IsEmailVerified            = true;
+            entity.EmailVerificationCode      = null;
+            entity.EmailVerificationExpiresAt = null;
+            entity.UpdatedAt                  = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
 
             return BuildResponse(entity);

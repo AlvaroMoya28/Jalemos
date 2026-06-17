@@ -76,6 +76,10 @@ interface AuthContextType {
   logout: () => Promise<void>;
   register: (
     data: RegisterData,
+  ) => Promise<{ success: boolean; needsVerification?: boolean; userId?: string; email?: string; error?: string }>;
+  verifyEmail: (
+    userId: string,
+    code: string,
   ) => Promise<{ success: boolean; error?: string }>;
   upgradeToDriver: () => Promise<string>;
   setDriverActivated: (v: boolean) => Promise<void>;
@@ -91,6 +95,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => ({ success: false }),
   logout: async () => {},
   register: async () => ({ success: false }),
+  verifyEmail: async () => ({ success: false }),
   upgradeToDriver: async () => "passenger",
   setDriverActivated: async () => {},
   setProfilePhotoUrl: () => {},
@@ -202,13 +207,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterData) => {
     try {
-      const res = await post<AuthResponse>("/api/auth/register", {
+      const res = await post<{ userId: string; email: string; expiresAt: string }>("/api/auth/register", {
         username: data.username,
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
         password: data.password,
       });
+      return { success: true, needsVerification: true, userId: res.userId, email: res.email };
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Error de conexión con el servidor";
+      return { success: false, error: msg };
+    }
+  };
+
+  const verifyEmail = async (userId: string, code: string) => {
+    try {
+      const res = await post<AuthResponse>("/api/auth/verify-email", { userId, code });
       await SecureStore.setItemAsync(TOKEN_KEY, res.token);
       const u = mapResponse(res);
       setToken(res.token);
@@ -254,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         register,
+        verifyEmail,
         upgradeToDriver,
         setDriverActivated,
         setProfilePhotoUrl,
