@@ -37,7 +37,7 @@ export const staticStyles = StyleSheet.create({
   },
   card: {
     borderRadius: Brand.radius[24],
-    padding: Brand.spacing[20],
+    padding: Brand.spacing[16],
     gap: 14,
   },
   cardHeader: {
@@ -121,6 +121,29 @@ export const staticStyles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: Fonts.sans,
     textDecorationLine: 'underline',
+  },
+  resendRow: {
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
+  },
+  resendPrompt: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontFamily: Fonts.sans,
+  },
+  resendLink: {
+    fontSize: 14,
+    color: Brand.colors.green.light,
+    fontFamily: Fonts.heading,
+    textDecorationLine: 'underline',
+    paddingVertical: 4,
+  },
+  resendDisabled: {
+    fontSize: 13,
+    color: '#ffffffaa',
+    fontFamily: Fonts.sans,
+    paddingVertical: 4,
   },
 });
 

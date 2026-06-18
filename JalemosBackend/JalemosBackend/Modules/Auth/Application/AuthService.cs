@@ -15,6 +15,10 @@ namespace JalemosBackend.Modules.Auth.Application
     // New users always get role=passenger; role upgrades happen via the admin panel.
     public sealed class AuthService : IAuthService
     {
+        // How long a verification code stays valid, and the minimum wait between resends.
+        private static readonly TimeSpan VerificationValidity = TimeSpan.FromMinutes(15);
+        private static readonly TimeSpan ResendCooldown       = TimeSpan.FromSeconds(60);
+
         private readonly ApplicationDbContext _db;
         private readonly IConfiguration _config;
         private readonly IEmailService _emailService;
@@ -45,7 +49,7 @@ namespace JalemosBackend.Modules.Auth.Application
                 throw new AccountBlockedException(isDeactivated: false, suspendedUntil: user.SuspendedUntil.Value);
 
             if (!user.IsEmailVerified)
-                throw new InvalidOperationException("Debés verificar tu correo antes de iniciar sesión.");
+                throw new EmailNotVerifiedException(user.UserId, user.Email);
 
             return BuildResponse(user);
         }
@@ -62,7 +66,7 @@ namespace JalemosBackend.Modules.Auth.Application
                 throw new InvalidOperationException("Ese nombre de usuario ya está en uso.");
 
             var code      = Random.Shared.Next(100_000, 999_999).ToString();
-            var expiresAt = DateTime.UtcNow.AddMinutes(15);
+            var expiresAt = DateTime.UtcNow.Add(VerificationValidity);
 
             var entity = new UserEntity
             {
@@ -121,6 +125,38 @@ namespace JalemosBackend.Modules.Auth.Application
             await _db.SaveChangesAsync(ct);
 
             return BuildResponse(entity);
+        }
+
+        public async Task<DateTime> ResendVerificationAsync(ResendVerificationRequestDto dto, CancellationToken ct = default)
+        {
+            var entity = await _db.Users
+                .FirstOrDefaultAsync(u => u.UserId == dto.UserId, ct)
+                ?? throw new KeyNotFoundException("Usuario no encontrado.");
+
+            if (entity.IsEmailVerified)
+                throw new InvalidOperationException("Esta cuenta ya está verificada.");
+
+            // Enforce the resend cooldown. The last-sent moment is derived from the
+            // current code's expiry (sentAt = expiresAt - validity), so no extra column.
+            if (entity.EmailVerificationExpiresAt is DateTime exp)
+            {
+                var sentAt  = exp - VerificationValidity;
+                var elapsed = DateTime.UtcNow - sentAt;
+                if (elapsed < ResendCooldown)
+                    throw new ResendCooldownException((int)Math.Ceiling((ResendCooldown - elapsed).TotalSeconds));
+            }
+
+            var code      = Random.Shared.Next(100_000, 999_999).ToString();
+            var expiresAt = DateTime.UtcNow.Add(VerificationValidity);
+
+            entity.EmailVerificationCode      = code;
+            entity.EmailVerificationExpiresAt = expiresAt;
+            entity.UpdatedAt                  = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            await _emailService.SendVerificationCodeAsync(entity.Email, entity.FirstName, code, ct);
+
+            return expiresAt;
         }
 
         public async Task<AuthResponseDto?> RefreshAsync(Guid userId, CancellationToken ct = default)

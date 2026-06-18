@@ -10,6 +10,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public body?: any,
   ) {
     super(message);
     this.name = "ApiError";
@@ -35,6 +36,7 @@ export async function request<T>(
       throw new ApiError(
         res.status,
         body.error ?? body.detail ?? `Error ${res.status}`,
+        body,
       );
     }
 

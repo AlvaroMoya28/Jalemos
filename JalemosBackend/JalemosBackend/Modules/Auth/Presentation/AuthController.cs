@@ -25,6 +25,10 @@ namespace JalemosBackend.Modules.Auth.Presentation
                     return Unauthorized(new { error = "Usuario o contraseña incorrectos" });
                 return Ok(result);
             }
+            catch (EmailNotVerifiedException ex)
+            {
+                return StatusCode(403, new { error = ex.Message, needsVerification = true, userId = ex.UserId, email = ex.Email });
+            }
             catch (AccountBlockedException ex)
             {
                 var message = ex.IsDeactivated
@@ -69,6 +73,29 @@ namespace JalemosBackend.Modules.Auth.Presentation
             catch (UnauthorizedAccessException ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        // POST /api/auth/resend-verification — sends a fresh code, enforcing the resend cooldown.
+        [HttpPost("resend-verification")]
+        public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationRequestDto dto, CancellationToken ct)
+        {
+            try
+            {
+                var expiresAt = await _authService.ResendVerificationAsync(dto, ct);
+                return Ok(new { expiresAt });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ResendCooldownException ex)
+            {
+                return StatusCode(429, new { error = ex.Message, retryAfterSeconds = ex.RetryAfterSeconds });
             }
             catch (InvalidOperationException ex)
             {

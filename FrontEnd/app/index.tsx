@@ -48,6 +48,12 @@ export default function LoginScreen() {
     try {
       const result = await login(user.trim(), password);
       if (!result.success) {
+        // Account exists but email isn't verified → send the user to the code screen.
+        if (result.needsVerification && result.userId) {
+          setError('');
+          router.push({ pathname: '/verify-email', params: { userId: result.userId, email: result.email } });
+          return;
+        }
         setError(result.error ?? 'Error al iniciar sesión');
         return;
       }

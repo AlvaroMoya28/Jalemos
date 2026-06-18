@@ -72,7 +72,14 @@ interface AuthContextType {
   login: (
     identifier: string,
     password: string,
-  ) => Promise<{ success: boolean; error?: string; user?: User }>;
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    user?: User;
+    needsVerification?: boolean;
+    userId?: string;
+    email?: string;
+  }>;
   logout: () => Promise<void>;
   register: (
     data: RegisterData,
@@ -81,6 +88,9 @@ interface AuthContextType {
     userId: string,
     code: string,
   ) => Promise<{ success: boolean; error?: string }>;
+  resendVerification: (
+    userId: string,
+  ) => Promise<{ success: boolean; error?: string; retryAfterSeconds?: number }>;
   upgradeToDriver: () => Promise<string>;
   setDriverActivated: (v: boolean) => Promise<void>;
   /** Updates the in-memory user's profile photo URL after a successful upload. */
@@ -96,6 +106,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   register: async () => ({ success: false }),
   verifyEmail: async () => ({ success: false }),
+  resendVerification: async () => ({ success: false }),
   upgradeToDriver: async () => "passenger",
   setDriverActivated: async () => {},
   setProfilePhotoUrl: () => {},
@@ -178,6 +189,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { success: true, user: u };
     } catch (err) {
+      // Credentials are valid but the email isn't verified — surface the ids so the
+      // screen can route the user to the verification flow and offer a resend.
+      if (err instanceof ApiError && err.body?.needsVerification) {
+        return {
+          success: false,
+          needsVerification: true,
+          userId: err.body.userId,
+          email: err.body.email,
+          error: err.message,
+        };
+      }
       const msg =
         err instanceof ApiError
           ? err.message
@@ -241,6 +263,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendVerification = async (userId: string) => {
+    try {
+      await post<{ expiresAt: string }>("/api/auth/resend-verification", { userId });
+      return { success: true };
+    } catch (err) {
+      if (err instanceof ApiError) {
+        return {
+          success: false,
+          error: err.message,
+          retryAfterSeconds: err.body?.retryAfterSeconds,
+        };
+      }
+      return { success: false, error: "Error de conexión con el servidor" };
+    }
+  };
+
   // Fetches a fresh JWT from the server (role may have changed to 'driver' after admin approval)
   // then updates local state. Navigates to offer tab on success.
   const upgradeToDriver = async (): Promise<string> => {
@@ -273,6 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         register,
         verifyEmail,
+        resendVerification,
         upgradeToDriver,
         setDriverActivated,
         setProfilePhotoUrl,

@@ -31,13 +31,17 @@ const CODE_LENGTH = 6;
 export default function VerifyEmailScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { verifyEmail } = useAuth();
+  const { verifyEmail, resendVerification } = useAuth();
   const { showLoader, hideLoader } = useLoading();
 
   const { userId, email } = useLocalSearchParams<{ userId: string; email: string }>();
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [error, setError] = useState('');
+  // Seconds left before the user may request another code. Starts at 60 because a
+  // code was just sent (on register, or on the previous resend).
+  const [cooldown, setCooldown] = useState(60);
+  const [resending, setResending] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>(Array(CODE_LENGTH).fill(null));
 
   const code = digits.join('');
@@ -63,6 +67,33 @@ export default function VerifyEmailScreen() {
     // Focus first input on mount
     setTimeout(() => inputRefs.current[0]?.focus(), 300);
   }, [cardOpacity, cardTranslate, logoY]);
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => setCooldown(c => (c <= 1 ? 0 : c - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const handleResend = async () => {
+    if (cooldown > 0 || resending || !userId) return;
+    setResending(true);
+    setError('');
+    try {
+      const result = await resendVerification(userId);
+      if (!result.success) {
+        // Server-side cooldown is the source of truth — honour its retry hint.
+        setCooldown(result.retryAfterSeconds ?? 60);
+        setError(result.error ?? 'No se pudo reenviar el código');
+        return;
+      }
+      setDigits(Array(CODE_LENGTH).fill(''));
+      inputRefs.current[0]?.focus();
+      setCooldown(60);
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleDigitChange = (value: string, index: number) => {
     const digit = value.replace(/[^0-9]/g, '').slice(-1);
@@ -173,8 +204,24 @@ export default function VerifyEmailScreen() {
                 <Text style={styles.ctaText}>Confirmar código</Text>
               </Pressable>
 
-              <Pressable onPress={() => router.replace('/register')}>
-                <Text style={styles.backLink}>Volver al registro</Text>
+              {/* Resend with cooldown */}
+              <View style={styles.resendRow}>
+                <Text style={styles.resendPrompt}>¿No recibiste el código?</Text>
+                {cooldown > 0 ? (
+                  <Text style={styles.resendDisabled}>
+                    Reenviar en {cooldown}s
+                  </Text>
+                ) : (
+                  <Pressable onPress={handleResend} disabled={resending}>
+                    <Text style={styles.resendLink}>
+                      {resending ? 'Reenviando...' : 'Reenviar código'}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+
+              <Pressable onPress={() => router.replace('/')}>
+                <Text style={styles.backLink}>Volver al inicio</Text>
               </Pressable>
 
             </GlassCard>
