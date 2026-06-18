@@ -199,8 +199,10 @@ describe('FrontEnd contexts/auth — AuthProvider', () => {
       secureMock.getItemAsync.mockResolvedValue(null);
     });
 
-    it('sets user and token on success and returns {success:true}', async () => {
-      apiMock.post.mockResolvedValue(makeAuthResponse({ token: 'reg-jwt' }));
+    it('returns {success, needsVerification, userId, email} and does NOT log in yet', async () => {
+      // Registration now only creates a pending account; the backend returns the
+      // ids needed to verify, not a JWT. The user is logged in on verifyEmail.
+      apiMock.post.mockResolvedValue({ userId: 'u-42', email: 'e@e.com', expiresAt: '2030-01-01T00:00:00Z' });
 
       const { result } = await waitForLoad(authHook());
 
@@ -211,12 +213,14 @@ describe('FrontEnd contexts/auth — AuthProvider', () => {
         });
       });
 
-      expect(res.success).toBe(true);
-      expect(result.current.token).toBe('reg-jwt');
+      expect(res).toEqual({ success: true, needsVerification: true, userId: 'u-42', email: 'e@e.com' });
+      // No session is established until the email is verified.
+      expect(result.current.token).toBeNull();
+      expect(result.current.user).toBeNull();
     });
 
     it('returns {success:false, error} on ApiError', async () => {
-      apiMock.post.mockRejectedValue(new apiMock.ApiError(400, 'Email ya registrado'));
+      apiMock.post.mockRejectedValue(new apiMock.ApiError(409, 'Email ya registrado'));
 
       const { result } = await waitForLoad(authHook());
 
@@ -229,6 +233,75 @@ describe('FrontEnd contexts/auth — AuthProvider', () => {
 
       expect(res.success).toBe(false);
       expect(res.error).toBe('Email ya registrado');
+      expect(result.current.token).toBeNull();
+    });
+  });
+
+  describe('verifyEmail', () => {
+    beforeEach(() => { secureMock.getItemAsync.mockResolvedValue(null); });
+
+    it('sets user + token and persists the JWT on success', async () => {
+      apiMock.post.mockResolvedValue(makeAuthResponse({ token: 'verified-jwt' }));
+
+      const { result } = await waitForLoad(authHook());
+
+      let res: any;
+      await act(async () => {
+        res = await result.current.verifyEmail('u-42', '123456');
+      });
+
+      expect(res).toEqual({ success: true });
+      expect(result.current.token).toBe('verified-jwt');
+      expect(result.current.user?.email).toBe('j@test.com');
+      expect(secureMock.setItemAsync).toHaveBeenCalledWith('jalemos_token', 'verified-jwt');
+    });
+
+    it('returns {success:false, error} and stays logged out on a bad code', async () => {
+      apiMock.post.mockRejectedValue(new apiMock.ApiError(400, 'Código incorrecto'));
+
+      const { result } = await waitForLoad(authHook());
+
+      let res: any;
+      await act(async () => {
+        res = await result.current.verifyEmail('u-42', '000000');
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('Código incorrecto');
+      expect(result.current.token).toBeNull();
+    });
+  });
+
+  describe('resendVerification', () => {
+    beforeEach(() => { secureMock.getItemAsync.mockResolvedValue(null); });
+
+    it('returns {success:true} when the server accepts the resend', async () => {
+      apiMock.post.mockResolvedValue({ expiresAt: '2030-01-01T00:00:00Z' });
+
+      const { result } = await waitForLoad(authHook());
+
+      let res: any;
+      await act(async () => {
+        res = await result.current.resendVerification('u-42');
+      });
+
+      expect(res).toEqual({ success: true });
+    });
+
+    it('surfaces the cooldown (retryAfterSeconds) from a 429 ApiError', async () => {
+      const err: any = new apiMock.ApiError(429, 'Esperá 42 segundos antes de pedir otro código.');
+      err.body = { retryAfterSeconds: 42 };
+      apiMock.post.mockRejectedValue(err);
+
+      const { result } = await waitForLoad(authHook());
+
+      let res: any;
+      await act(async () => {
+        res = await result.current.resendVerification('u-42');
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.retryAfterSeconds).toBe(42);
     });
   });
 
