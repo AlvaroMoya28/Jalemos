@@ -124,6 +124,16 @@ namespace JalemosBackend.Modules.Auth.Application
             entity.UpdatedAt                  = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
 
+            // Welcome email with the boarding QR — best-effort, never blocks verification.
+            try
+            {
+                await _emailService.SendWelcomeWithQrAsync(entity.Email, entity.FirstName, entity.QrToken.ToString(), ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send welcome email to {Email}", entity.Email);
+            }
+
             return BuildResponse(entity);
         }
 
