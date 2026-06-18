@@ -95,6 +95,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.EmailVerificationCode).HasColumnName("email_verification_code");
                 e.Property(x => x.EmailVerificationExpiresAt).HasColumnName("email_verification_expires_at");
                 e.Property(x => x.IsEmailVerified).HasColumnName("is_email_verified").HasDefaultValue(false);
+                e.Property(x => x.QrEmailLastSentAt).HasColumnName("qr_email_last_sent_at");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.Email).IsUnique();

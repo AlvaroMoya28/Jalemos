@@ -40,6 +40,34 @@ namespace JalemosBackend.Modules.Email
 
         public async Task SendWelcomeWithQrAsync(string toEmail, string firstName, string qrData, CancellationToken ct = default)
         {
+            var intro = $"""
+                  <h2 style="color:#0d6e55;margin-bottom:4px;">¡Bienvenido a Jalemos, {firstName}! 🎉</h2>
+                  <p style="color:#333;">Tu cuenta quedó verificada. Ya podés compartir viajes y ahorrar en cada ruta.</p>
+                  <p style="color:#333;margin-top:20px;">Este es tu <strong>QR de abordaje</strong>. Mostralo al conductor para registrarte en el vehículo. Es único e intransferible:</p>
+                """;
+
+            var body = BuildQrBody(qrData, intro);
+            await SendAsync(toEmail, firstName, "¡Bienvenido a Jalemos! Tu QR de abordaje", body, ct);
+            _logger.LogInformation("Welcome email sent to {Email}", toEmail);
+        }
+
+        public async Task SendBoardingQrAsync(string toEmail, string firstName, string qrData, CancellationToken ct = default)
+        {
+            var intro = $"""
+                  <h2 style="color:#0d6e55;margin-bottom:4px;">Tu QR de abordaje</h2>
+                  <p style="color:#333;">Hola <strong>{firstName}</strong>, acá está tu código QR para registrarte en los viajes.</p>
+                  <p style="color:#333;margin-top:20px;">Mostralo al conductor para abordar. Es único e intransferible:</p>
+                """;
+
+            var body = BuildQrBody(qrData, intro);
+            await SendAsync(toEmail, firstName, "Tu QR de abordaje — Jalemos", body, ct);
+            _logger.LogInformation("Boarding QR email sent to {Email}", toEmail);
+        }
+
+        // Builds an HTML email body with the QR embedded inline (cid:). `introHtml` is the
+        // heading + lead paragraphs placed above the QR image.
+        private static BodyBuilder BuildQrBody(string qrData, string introHtml)
+        {
             var pngBytes = GenerateQrPng(qrData);
 
             var body = new BodyBuilder();
@@ -50,9 +78,7 @@ namespace JalemosBackend.Modules.Email
 
             body.HtmlBody = $"""
                 <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px 24px;background:#f9f9f9;border-radius:12px;">
-                  <h2 style="color:#0d6e55;margin-bottom:4px;">¡Bienvenido a Jalemos, {firstName}! 🎉</h2>
-                  <p style="color:#333;">Tu cuenta quedó verificada. Ya podés compartir viajes y ahorrar en cada ruta.</p>
-                  <p style="color:#333;margin-top:20px;">Este es tu <strong>QR de abordaje</strong>. Mostralo al conductor para registrarte en el vehículo. Es único e intransferible:</p>
+                  {introHtml}
                   <div style="text-align:center;padding:20px 0;">
                     <img src="cid:{qrImage.ContentId}" alt="Tu QR de abordaje" width="220" height="220" style="border:6px solid #e8f7f3;border-radius:12px;background:#ffffff;"/>
                   </div>
@@ -62,8 +88,7 @@ namespace JalemosBackend.Modules.Email
                 </div>
                 """;
 
-            await SendAsync(toEmail, firstName, "¡Bienvenido a Jalemos! Tu QR de abordaje", body, ct);
-            _logger.LogInformation("Welcome email sent to {Email}", toEmail);
+            return body;
         }
 
         // Renders the QR as a PNG: dark green (#0a3f39) modules on white, matching the in-app QR.

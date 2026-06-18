@@ -47,4 +47,8 @@ public interface IUsersService
     /// <summary>Uploads a new profile photo (base64) to storage and saves its URL. Returns the new URL.
     /// Throws if the user's photo is locked (set from driver verification).</summary>
     Task<string> UpdateProfilePhotoAsync(Guid id, string base64, CancellationToken cancellationToken = default);
+
+    /// <summary>Emails the user their boarding QR. Enforces a 5-minute cooldown.
+    /// Throws QrEmailCooldownException if called again too soon.</summary>
+    Task SendBoardingQrEmailAsync(Guid id, CancellationToken cancellationToken = default);
 }

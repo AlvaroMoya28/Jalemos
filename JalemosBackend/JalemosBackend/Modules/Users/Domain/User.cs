@@ -16,6 +16,7 @@ namespace JalemosBackend.Modules.Users.Domain
         public DateTime? SuspendedUntil { get; set; }
         public bool IsActive { get; set; } = true;
         public Guid QrToken { get; set; }
+        public DateTime? QrEmailLastSentAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
