@@ -27,6 +27,7 @@ namespace JalemosBackend.Modules.Users.Infrastructure
             SuspendedUntil  = e.SuspendedUntil,
             IsActive        = e.IsActive,
             QrToken         = e.QrToken,
+            QrEmailLastSentAt = e.QrEmailLastSentAt,
             CreatedAt       = e.CreatedAt,
             UpdatedAt       = e.UpdatedAt,
         };
@@ -163,6 +164,16 @@ namespace JalemosBackend.Modules.Users.Infrastructure
                 ?? throw new KeyNotFoundException("User not found");
             entity.ProfilePhotoUrl = url;
             entity.UpdatedAt       = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        /// <summary>Records when the user last emailed themselves their boarding QR (cooldown tracking).</summary>
+        public async Task UpdateQrEmailSentAtAsync(Guid id, DateTime sentAt, CancellationToken ct = default)
+        {
+            var entity = await _dbContext.Users.FirstOrDefaultAsync(x => x.UserId == id, ct)
+                ?? throw new KeyNotFoundException("User not found");
+            entity.QrEmailLastSentAt = sentAt;
+            entity.UpdatedAt         = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(ct);
         }
 

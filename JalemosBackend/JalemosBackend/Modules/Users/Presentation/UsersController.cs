@@ -72,6 +72,24 @@ public sealed class UsersController : ControllerBase
         public string Image { get; set; } = string.Empty;
     }
 
+    /// <summary>POST /api/users/me/send-qr — emails the authenticated user their boarding QR (5-min cooldown).</summary>
+    [HttpPost("me/send-qr")]
+    [Authorize]
+    public async Task<IActionResult> SendMyQr(CancellationToken ct)
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (!Guid.TryParse(sub, out var userId)) return Unauthorized();
+
+        try
+        {
+            await _usersService.SendBoardingQrEmailAsync(userId, ct);
+            return Ok(new { message = "Te enviamos tu QR al correo." });
+        }
+        catch (KeyNotFoundException)            { return NotFound(); }
+        catch (QrEmailCooldownException ex)     { return StatusCode(429, new { error = ex.Message, retryAfterSeconds = ex.RetryAfterSeconds }); }
+        catch (Exception ex)                    { return Problem(detail: ex.Message, statusCode: 500); }
+    }
+
     // GET /api/users?search=&role=&status=&sortBy=name_asc&page=1&pageSize=30
     [HttpGet]
     [Authorize(Roles = "admin")]

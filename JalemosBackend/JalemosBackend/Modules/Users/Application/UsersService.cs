@@ -6,18 +6,24 @@ using JalemosBackend.Modules.Users.Application.DTOs;
 using JalemosBackend.Modules.Users.Domain;
 using JalemosBackend.Modules.Users.Infrastructure;
 using JalemosBackend.Modules.Storage;
+using JalemosBackend.Modules.Email;
 
 namespace JalemosBackend.Modules.Users.Application;
 
 public sealed class UsersService : IUsersService
 {
+    // Minimum wait between "email me my boarding QR" requests.
+    private static readonly TimeSpan QrEmailCooldown = TimeSpan.FromMinutes(5);
+
     private readonly UsersRepository _repository;
     private readonly IStorageService _storage;
+    private readonly IEmailService _email;
 
-    public UsersService(UsersRepository repository, IStorageService storage)
+    public UsersService(UsersRepository repository, IStorageService storage, IEmailService email)
     {
         _repository = repository;
         _storage    = storage;
+        _email      = email;
     }
 
     public Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default) =>
@@ -108,5 +114,22 @@ public sealed class UsersService : IUsersService
 
         await _repository.UpdateProfilePhotoUrlAsync(id, url, cancellationToken);
         return url;
+    }
+
+    public async Task SendBoardingQrEmailAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var user = await _repository.GetByIdAsync(id, cancellationToken)
+            ?? throw new KeyNotFoundException("Usuario no encontrado.");
+
+        // Enforce the 5-minute cooldown server-side (source of truth).
+        if (user.QrEmailLastSentAt is DateTime last)
+        {
+            var elapsed = DateTime.UtcNow - last;
+            if (elapsed < QrEmailCooldown)
+                throw new QrEmailCooldownException((int)Math.Ceiling((QrEmailCooldown - elapsed).TotalSeconds));
+        }
+
+        await _email.SendBoardingQrAsync(user.Email, user.FirstName, user.QrToken.ToString(), cancellationToken);
+        await _repository.UpdateQrEmailSentAtAsync(id, DateTime.UtcNow, cancellationToken);
     }
 }

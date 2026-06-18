@@ -72,11 +72,25 @@ interface AuthContextType {
   login: (
     identifier: string,
     password: string,
-  ) => Promise<{ success: boolean; error?: string; user?: User }>;
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    user?: User;
+    needsVerification?: boolean;
+    userId?: string;
+    email?: string;
+  }>;
   logout: () => Promise<void>;
   register: (
     data: RegisterData,
+  ) => Promise<{ success: boolean; needsVerification?: boolean; userId?: string; email?: string; error?: string }>;
+  verifyEmail: (
+    userId: string,
+    code: string,
   ) => Promise<{ success: boolean; error?: string }>;
+  resendVerification: (
+    userId: string,
+  ) => Promise<{ success: boolean; error?: string; retryAfterSeconds?: number }>;
   upgradeToDriver: () => Promise<string>;
   setDriverActivated: (v: boolean) => Promise<void>;
   /** Updates the in-memory user's profile photo URL after a successful upload. */
@@ -91,6 +105,8 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => ({ success: false }),
   logout: async () => {},
   register: async () => ({ success: false }),
+  verifyEmail: async () => ({ success: false }),
+  resendVerification: async () => ({ success: false }),
   upgradeToDriver: async () => "passenger",
   setDriverActivated: async () => {},
   setProfilePhotoUrl: () => {},
@@ -173,6 +189,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { success: true, user: u };
     } catch (err) {
+      // Credentials are valid but the email isn't verified — surface the ids so the
+      // screen can route the user to the verification flow and offer a resend.
+      if (err instanceof ApiError && err.body?.needsVerification) {
+        return {
+          success: false,
+          needsVerification: true,
+          userId: err.body.userId,
+          email: err.body.email,
+          error: err.message,
+        };
+      }
       const msg =
         err instanceof ApiError
           ? err.message
@@ -202,13 +229,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterData) => {
     try {
-      const res = await post<AuthResponse>("/api/auth/register", {
+      const res = await post<{ userId: string; email: string; expiresAt: string }>("/api/auth/register", {
         username: data.username,
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
         password: data.password,
       });
+      return { success: true, needsVerification: true, userId: res.userId, email: res.email };
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Error de conexión con el servidor";
+      return { success: false, error: msg };
+    }
+  };
+
+  const verifyEmail = async (userId: string, code: string) => {
+    try {
+      const res = await post<AuthResponse>("/api/auth/verify-email", { userId, code });
       await SecureStore.setItemAsync(TOKEN_KEY, res.token);
       const u = mapResponse(res);
       setToken(res.token);
@@ -220,6 +260,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ? err.message
           : "Error de conexión con el servidor";
       return { success: false, error: msg };
+    }
+  };
+
+  const resendVerification = async (userId: string) => {
+    try {
+      await post<{ expiresAt: string }>("/api/auth/resend-verification", { userId });
+      return { success: true };
+    } catch (err) {
+      if (err instanceof ApiError) {
+        return {
+          success: false,
+          error: err.message,
+          retryAfterSeconds: err.body?.retryAfterSeconds,
+        };
+      }
+      return { success: false, error: "Error de conexión con el servidor" };
     }
   };
 
@@ -254,6 +310,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         register,
+        verifyEmail,
+        resendVerification,
         upgradeToDriver,
         setDriverActivated,
         setProfilePhotoUrl,

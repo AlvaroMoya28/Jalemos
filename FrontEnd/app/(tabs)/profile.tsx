@@ -14,7 +14,7 @@ import { useNotifications } from '@/contexts/notifications';
 import QrDisplay from '@/components/shared/qr-display';
 import { Brand, Fonts } from '@/constants/theme';
 import { makeStyles, staticStyles as profileStaticStyles } from '../../styles/tabs/profile.styles';
-import { meApi, VehicleDTO, vehiclesApi, paymentsApi, PaymentMethodDto } from '@/services/api';
+import { meApi, VehicleDTO, vehiclesApi, paymentsApi, PaymentMethodDto, ApiError } from '@/services/api';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
@@ -84,6 +84,8 @@ export default function ProfileScreen() {
   const { unreadCount } = useNotifications();
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [sendingQr, setSendingQr] = useState(false);
+  const [qrCooldown, setQrCooldown] = useState(0); // seconds left before QR can be emailed again
   const [vehicles, setVehicles] = useState<VehicleDTO[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -261,6 +263,33 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  // Tick the QR-email cooldown down to zero.
+  useEffect(() => {
+    if (qrCooldown <= 0) return;
+    const timer = setInterval(() => setQrCooldown(c => (c <= 1 ? 0 : c - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [qrCooldown]);
+
+  const handleSendQrEmail = async () => {
+    if (!token || sendingQr || qrCooldown > 0) return;
+    setSendingQr(true);
+    try {
+      await meApi.sendQr(token);
+      setQrCooldown(300); // 5-minute cooldown
+      Alert.alert('QR enviado', 'Te enviamos tu QR de abordaje al correo.');
+    } catch (e: any) {
+      // Server-enforced cooldown — sync the countdown to its retry hint.
+      if (e instanceof ApiError && e.status === 429) {
+        setQrCooldown(e.body?.retryAfterSeconds ?? 300);
+        Alert.alert('Esperá un momento', e.message);
+      } else {
+        Alert.alert('Error', e?.message ?? 'No se pudo enviar el QR.');
+      }
+    } finally {
+      setSendingQr(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -772,6 +801,27 @@ export default function ProfileScreen() {
                   <Ionicons name={showQr ? 'eye-off-outline' : 'qr-code-outline'} size={16} color="#fff" />
                   <Text style={profileStaticStyles.qrToggleBtnText}>
                     {showQr ? 'Ocultar QR' : 'Mostrar mi QR'}
+                  </Text>
+                </Pressable>
+
+                {/* Email me my QR — 5-minute cooldown enforced by the backend */}
+                <Pressable
+                  style={[
+                    styles.sendQrBtn,
+                    (sendingQr || qrCooldown > 0) && profileStaticStyles.sendQrBtnDisabled,
+                  ]}
+                  onPress={handleSendQrEmail}
+                  disabled={sendingQr || qrCooldown > 0}
+                >
+                  {sendingQr ? (
+                    <ActivityIndicator size="small" color={Brand.colors.green.normal} />
+                  ) : (
+                    <Ionicons name="mail-outline" size={16} color={Brand.colors.green.normal} />
+                  )}
+                  <Text style={styles.sendQrBtnText}>
+                    {qrCooldown > 0
+                      ? `Reenviar en ${Math.floor(qrCooldown / 60)}:${String(qrCooldown % 60).padStart(2, '0')}`
+                      : 'Enviar QR a mi correo'}
                   </Text>
                 </Pressable>
               </GlassCard>

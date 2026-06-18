@@ -3,7 +3,13 @@
  */
 
 import { createElement } from 'react';
-import { render } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
+
+// Unmount each rendered tree before the next render. Without this, the smoke
+// render tests accumulate mounted React trees in the same jsdom document, which
+// makes react-dom throw nondeterministically during commit (completeWork) — the
+// last render test (index.tsx) was failing only when run as part of the suite.
+afterEach(cleanup);
 
 // ── Context mocks ──────────────────────────────────────────────────────────────
 // These are resolved by moduleNameMapper (@/ → FrontEnd/) and provide the

@@ -1,5 +1,5 @@
 // Current-user (/me) API.
-import { get, request, UPLOAD_TIMEOUT_MS } from "./client";
+import { get, post, request, UPLOAD_TIMEOUT_MS } from "./client";
 
 export interface MeResponse {
   id: string;
@@ -30,4 +30,8 @@ export const meApi = {
       },
       UPLOAD_TIMEOUT_MS,
     ),
+
+  // Emails the user their boarding QR. Backend enforces a 5-minute cooldown (429 if too soon).
+  sendQr: (token: string) =>
+    post<{ message: string }>('/api/users/me/send-qr', {}, token),
 };

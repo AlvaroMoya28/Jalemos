@@ -3,6 +3,7 @@
 
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Auth.Application;
+using JalemosBackend.Modules.Email;
 using JalemosBackend.Modules.Storage;
 using JalemosBackend.Modules.Bookings.Application;
 using JalemosBackend.Modules.Bookings.Infrastructure;
@@ -97,6 +98,9 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 
 // Storage — singleton because IAmazonS3 is thread-safe and expensive to create
 builder.Services.AddSingleton<IStorageService, S3StorageService>();
+
+// Email module
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Auth module
 builder.Services.AddScoped<IAuthService, AuthService>();
