@@ -46,7 +46,10 @@ module.exports = {
     React.createElement('button', { onClick: onPress, style }, children),
   TouchableHighlight: ({ children, onPress, style }) =>
     React.createElement('button', { onClick: onPress, style }, children),
+  TouchableWithoutFeedback: ({ children, onPress }) =>
+    React.createElement('div', { onClick: onPress }, children),
   // Utilities
+  Keyboard: { dismiss: jest.fn(), addListener: jest.fn(), removeListener: jest.fn() },
   Linking: { openURL: jest.fn().mockResolvedValue(undefined) },
   Alert: { alert: jest.fn() },
   Share: { share: jest.fn().mockResolvedValue({ action: 'sharedAction' }) },
