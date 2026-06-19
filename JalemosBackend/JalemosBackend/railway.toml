@@ -1,0 +1,3 @@
+[Build]
+builder = "dockerfile"
+dockerfilePath = "./JalemosBackend/Dockerfile"
