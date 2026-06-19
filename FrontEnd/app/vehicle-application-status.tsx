@@ -1,7 +1,7 @@
 // Pantalla de estado para el conductor — muestra el pipeline de su solicitud
 // de vehículo adicional (pending → under_review → approved / rejected / needs_correction).
 
-import GlassCard from '@/components/glass-card';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { DriverApplication, useApplications } from '@/contexts/applications';

@@ -15,6 +15,7 @@ export type NotificationKind =
   | 'trip_started'
   | 'driver_cancelled'
   | 'passenger_cancelled'
+  | 'passenger_cancelled_late'
   | 'no_show_marked'
   | 'payment_reminder'
   | 'rating_reminder'
@@ -29,6 +30,7 @@ export interface NotificationDTO {
   body: string | null;
   tripId: string | null;
   bookingId: string | null;
+  passengerId: string | null;
   read: boolean;
   audience: NotificationAudience;
   createdAt: string;

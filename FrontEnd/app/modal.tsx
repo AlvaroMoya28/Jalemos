@@ -1,7 +1,7 @@
 import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import GlassCard from '@/components/glass-card';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand, Fonts } from '@/constants/theme';
 
 export default function ModalScreen() {

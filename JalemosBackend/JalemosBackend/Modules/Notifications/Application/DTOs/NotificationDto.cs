@@ -12,6 +12,7 @@ public sealed class NotificationDto
     public string? Body { get; set; }
     public Guid? TripId { get; set; }
     public Guid? BookingId { get; set; }
+    public Guid? PassengerId { get; set; }
     public bool Read { get; set; }
     public string Audience { get; set; } = "all";
     public DateTime CreatedAt { get; set; }

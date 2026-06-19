@@ -146,7 +146,7 @@ export default function PageLoader({ visible = true, label = 'Cargando...' }: Pa
 
       <Animated.View style={[styles.car, carStyle]}>
         <Image
-          source={require('../assets/images/jalemos-loader-car.png')}
+          source={require('../../assets/images/jalemos-loader-car.png')}
           style={styles.carImage}
           resizeMode="contain"
         />

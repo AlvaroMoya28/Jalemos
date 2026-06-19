@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Image,
@@ -18,19 +19,22 @@ import {
   Text,
   View,
 } from 'react-native';
-import { styles, infoRowStyles } from './styles/active-trip-bubble.styles';
+import { styles } from './styles/active-trip-bubble.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useActiveTrip } from '@/contexts/active-trip';
 import { useAuth } from '@/contexts/auth';
-import { bookingsApi, meApi, ratingsApi } from '@/services/api';
+import { bookingsApi, meApi, ratingsApi, paymentsApi, PaymentMethodDto, PaymentDto } from '@/services/api';
 import { fetchRoutePolyline, buildStaticMapUrl } from '@/utils/static-map';
 import { openInMaps } from '@/utils/open-in-maps';
-import GlassAlert from './glass-alert';
-import QrDisplay from './qr-display';
-import RatingModal from './rating-modal';
-import CancellationModal from './cancellation-modal';
+import GlassAlert from '../shared/glass-alert';
+import QrDisplay from '../shared/qr-display';
+import RatingModal from '../shared/rating-modal';
+import CancellationModal from '../shared/cancellation-modal';
+import EmergencyReportModal from '../shared/emergency-report-modal';
+import { TripInfoCard } from './trip-info-card';
+import { PaymentMethodCard } from './payment-method-card';
 
 export default function ActiveTripBubble() {
   // ── ALL hooks at the top — no early returns before this section ──────────
@@ -61,6 +65,16 @@ export default function ActiveTripBubble() {
   const [mapUrl, setMapUrl]                             = useState<string | null>(null);
   const [mapError, setMapError]                         = useState(false);
   const [polyline, setPolyline]                         = useState<string | null>(null);
+
+  // Payment state
+  const [paymentMethods, setPaymentMethods]     = useState<PaymentMethodDto[]>([]);
+  const [selectedMethod, setSelectedMethod]     = useState<PaymentMethodDto | null>(null);
+  const [showMethodPicker, setShowMethodPicker] = useState(false);
+  const [payment, setPayment]                   = useState<PaymentDto | null>(null);
+  const [paymentCreating, setPaymentCreating]   = useState(false);
+  const paymentCreatedFor                       = useRef<string | null>(null);
+
+  const [showEmergencyReport, setShowEmergencyReport] = useState(false);
 
   const pulse              = useRef(new Animated.Value(1)).current;
   const seatbeltShown      = useRef(false);
@@ -105,6 +119,59 @@ export default function ActiveTripBubble() {
     }
   }, [token, passengerTrip, passengerTrip?.tripId, passengerTrip?.tripState]);
 
+  // Load payment methods + pre-select favorite for any active or completed trip.
+  // Runs on boarding/in_progress/completed so a fresh app open during any of those
+  // states still has a selectedMethod ready when the payment needs to be created.
+  useEffect(() => {
+    if (!token || !passengerTrip) return;
+    const s = passengerTrip.tripState;
+    if (s !== 'boarding' && s !== 'in_progress' && s !== 'completed') return;
+    if (paymentMethods.length > 0 && selectedMethod) return; // already loaded
+    paymentsApi.getMethods(token).then(methods => {
+      setPaymentMethods(methods);
+      if (!selectedMethod && methods.length > 0) {
+        const fav = methods.find(m => m.isFavorite) ?? methods[0];
+        setSelectedMethod(fav);
+      }
+    }).catch(() => {});
+  }, [token, passengerTrip?.tripId, passengerTrip?.tripState]);
+
+  // Auto-create payment when trip completes.
+  // Depends on selectedMethod so it re-runs once the method finishes loading
+  // (handles the case where the app was opened fresh during a completed trip).
+  useEffect(() => {
+    if (!token || !passengerTrip || passengerTrip.tripState !== 'completed') return;
+    if (paymentCreatedFor.current === passengerTrip.bookingId) return;
+    if (!selectedMethod) return; // wait for the methods-load effect above to set this
+
+    paymentCreatedFor.current = passengerTrip.bookingId;
+    setPaymentCreating(true);
+    paymentsApi.createPayment({
+      bookingId: passengerTrip.bookingId,
+      amount: passengerTrip.rate,
+      method: selectedMethod.type,
+      paymentMethodId: selectedMethod.type === 'card' ? selectedMethod.id : undefined,
+    }, token)
+      .then(setPayment)
+      .catch(() => { paymentCreatedFor.current = null; })
+      .finally(() => setPaymentCreating(false));
+  }, [passengerTrip?.tripState, passengerTrip?.bookingId, token, selectedMethod]);
+
+  // Poll payment status while pending so the passenger sees 'confirmed' when the driver confirms.
+  useEffect(() => {
+    if (!token || !payment || payment.status !== 'pending') return;
+    const id = setInterval(async () => {
+      try {
+        const updated = await paymentsApi.getByBooking(payment.bookingId, token);
+        if (updated.status !== 'pending') {
+          setPayment(updated);
+          clearInterval(id);
+        }
+      } catch {}
+    }, 5_000);
+    return () => clearInterval(id);
+  }, [token, payment?.id, payment?.status]);
+
   // Seatbelt alert when journey starts
   useEffect(() => {
     if (passengerTrip?.tripState === 'in_progress' && !seatbeltShown.current) {
@@ -140,7 +207,7 @@ export default function ActiveTripBubble() {
       Number(passengerTrip.originLatitude), Number(passengerTrip.originLongitude),
       Number(passengerTrip.destinationLatitude), Number(passengerTrip.destinationLongitude),
     ).then(setPolyline);
-  }, [passengerTrip?.tripState, passengerTrip?.tripId]);
+  }, [passengerTrip?.tripState, passengerTrip?.tripId, passengerTrip?.originLatitude, passengerTrip?.originLongitude, passengerTrip?.destinationLatitude, passengerTrip?.destinationLongitude]);
 
   // Build the static map URL whenever the polyline or theme changes
   useEffect(() => {
@@ -151,7 +218,7 @@ export default function ActiveTripBubble() {
       Number(passengerTrip.destinationLatitude), Number(passengerTrip.destinationLongitude),
       polyline, isDark,
     ));
-  }, [passengerTrip?.tripState, passengerTrip?.tripId, polyline, isDark]);
+  }, [passengerTrip?.tripState, passengerTrip?.tripId, polyline, isDark, passengerTrip?.originLatitude, passengerTrip?.originLongitude, passengerTrip?.destinationLatitude, passengerTrip?.destinationLongitude]);
 
   // Cancelled alert — show once per trip, persisted across sessions via SecureStore.
   // Also caches driver info if it's a late cancellation so the rating can be shown
@@ -187,7 +254,7 @@ export default function ActiveTripBubble() {
 
       setShowCancelledAlert(true);
     }
-  }, [passengerTrip?.tripState, passengerTrip?.tripId, passengerTrip?.cancelledAt, cancelAckLoaded]);
+  }, [passengerTrip?.tripState, passengerTrip?.tripId, passengerTrip?.cancelledAt, cancelAckLoaded, passengerTrip]);
 
   // Rating prompt after trip completed (once per trip, persisted across sessions)
   useEffect(() => {
@@ -274,7 +341,8 @@ export default function ActiveTripBubble() {
       setShowRating(false);
       setShowLateCancelRating(false);
       setLateCancelDriver(null);
-      refresh();
+      // Don't refresh on completed trips — the payment screen needs to stay visible.
+      if (passengerTrip?.tripState !== 'completed') refresh();
     }
   };
 
@@ -319,27 +387,7 @@ export default function ActiveTripBubble() {
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 16 }}>
-                  {/* Route */}
-                  <View style={[styles.card, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                    <InfoRow icon="radio-button-on" label="Origen"  value={passengerTrip.origin}     colors={colors} />
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    <InfoRow icon="location"        label="Destino" value={passengerTrip.destination} colors={colors} />
-                  </View>
-
-                  {/* Driver */}
-                  <View style={[styles.card, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                    <InfoRow icon="person" label="Conductor"    value={`${passengerTrip.driverFirstName} ${passengerTrip.driverLastName}`} colors={colors} />
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    <InfoRow icon="star"   label="Calificación" value={`${passengerTrip.driverRating.toFixed(1)} ★`} colors={colors} />
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    <InfoRow icon="cash"   label="Tarifa"       value={`₡${passengerTrip.rate.toLocaleString()}`}    colors={colors} />
-                    {passengerTrip.journeyStartedAt && (
-                      <>
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <InfoRow icon="time" label="Inició" value={new Date(passengerTrip.journeyStartedAt).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })} colors={colors} />
-                      </>
-                    )}
-                  </View>
+                  <TripInfoCard trip={passengerTrip} colors={colors} />
 
                   {/* ── In-progress: "Estás en el viaje" map + navigation ── */}
                   {passengerTrip.tripState === 'in_progress' && (
@@ -425,6 +473,49 @@ export default function ActiveTripBubble() {
                     </Text>
                   )}
 
+                  {/* Payment method selector — visible during boarding before boarding */}
+                  {passengerTrip.tripState === 'boarding' && passengerTrip.bookingState !== 'boarded' && (
+                    <PaymentMethodCard
+                      colors={colors}
+                      paymentMethods={paymentMethods}
+                      selectedMethod={selectedMethod}
+                      showMethodPicker={showMethodPicker}
+                      onToggleMethodPicker={() => setShowMethodPicker(v => !v)}
+                      onSelectMethod={m => { setSelectedMethod(m); setShowMethodPicker(false); }}
+                    />
+                  )}
+
+                  {/* Payment status — shown after trip completes */}
+                  {passengerTrip.tripState === 'completed' && (
+                    <View style={[styles.card, { backgroundColor: colors.inputBg, borderColor: colors.border, alignItems: 'center', paddingVertical: 16 }]}>
+                      {paymentCreating ? (
+                        <>
+                          <ActivityIndicator color={Brand.colors.green.normal} />
+                          <Text style={{ fontFamily: Fonts.sans, fontSize: 13, color: colors.textSecondary, marginTop: 8 }}>Procesando pago…</Text>
+                        </>
+                      ) : payment ? (
+                        <>
+                          <Ionicons
+                            name={payment.status === 'confirmed' ? 'checkmark-circle' : payment.status === 'failed' ? 'close-circle' : 'time-outline'}
+                            size={28}
+                            color={payment.status === 'confirmed' ? Brand.colors.green.normal : payment.status === 'failed' ? '#e53e3e' : '#f4a522'}
+                          />
+                          <Text style={{ fontFamily: Fonts.headingBold, fontSize: 14, color: colors.textPrimary, marginTop: 6 }}>
+                            {payment.status === 'confirmed' ? 'Pago confirmado' : payment.status === 'failed' ? 'Pago fallido' : 'Pago pendiente'}
+                          </Text>
+                          <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                            ₡{payment.amount.toLocaleString()} · {payment.method === 'card' ? 'Tarjeta' : payment.method === 'sinpe' ? 'SINPE' : 'Efectivo'}
+                          </Text>
+                          {payment.status === 'pending' && (
+                            <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: '#f4a522', marginTop: 4, textAlign: 'center' }}>
+                              El conductor confirmará tu pago
+                            </Text>
+                          )}
+                        </>
+                      ) : null}
+                    </View>
+                  )}
+
                   {/* Cancellation reason (when cancelled) */}
                   {passengerTrip.tripState === 'cancelled' && passengerTrip.cancelReason && (
                     <View style={[styles.boardedBadge, { backgroundColor: '#e53e3e22' }]}>
@@ -433,6 +524,22 @@ export default function ActiveTripBubble() {
                         {buildCancelBody(passengerTrip)}
                       </Text>
                     </View>
+                  )}
+
+                  {/* Emergency / driver report button — only while in_progress.
+                      Close the expanded sheet first to avoid two Modals open at once
+                      (same pattern as late-cancel rating — see comment at line 272). */}
+                  {passengerTrip.tripState === 'in_progress' && (
+                    <Pressable
+                      style={[styles.qrBtn, { backgroundColor: '#e53e3e' }]}
+                      onPress={() => {
+                        setExpanded(false);
+                        setTimeout(() => setShowEmergencyReport(true), 350);
+                      }}
+                    >
+                      <Ionicons name="warning" size={18} color="#fff" />
+                      <Text style={styles.qrBtnText}>Emergencia / Reporte</Text>
+                    </Pressable>
                   )}
 
                   {/* Cancel booking — only if active and not yet boarded */}
@@ -523,6 +630,15 @@ export default function ActiveTripBubble() {
         onConfirm={handleCancelBooking}
         onCancel={() => setShowCancel(false)}
       />
+
+      {/* Emergency / driver report (E3-2) */}
+      {passengerTrip && (
+        <EmergencyReportModal
+          visible={showEmergencyReport}
+          tripId={passengerTrip.tripId}
+          onDismiss={() => setShowEmergencyReport(false)}
+        />
+      )}
     </>
   );
 }
@@ -549,20 +665,4 @@ function buildCancelBody(trip: {
   if (trip.cancelDetails) body += ` "${trip.cancelDetails}"`;
   if (trip.isLateCancellation) body += '\n\nComo fue cancelado con poco tiempo, puedes calificarlo a continuación.';
   return body;
-}
-
-// ── InfoRow sub-component ────────────────────────────────────────────────────
-function InfoRow({ icon, label, value, colors }: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-  colors: ReturnType<typeof useAppTheme>['colors'];
-}) {
-  return (
-    <View style={infoRowStyles.row}>
-      <Ionicons name={icon} size={14} color={Brand.colors.green.normal} />
-      <Text style={[infoRowStyles.label, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[infoRowStyles.value, { color: colors.textPrimary }]} numberOfLines={1}>{value}</Text>
-    </View>
-  );
 }

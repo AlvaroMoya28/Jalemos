@@ -7,14 +7,14 @@
 // Preferencias and Soporte sections are always visible regardless of mode.
 // Stats row adapts labels and values to reflect the active role (saved vs earned).
 
-import GlassCard from '@/components/glass-card';
-import NotificationsModal from '@/components/NotificationsModal';
+import GlassCard from '@/components/shared/glass-card';
+import NotificationsModal from '@/components/shared/NotificationsModal';
 import UnreadBadge from '@/components/shared/unread-badge';
 import { useNotifications } from '@/contexts/notifications';
-import QrDisplay from '@/components/qr-display';
+import QrDisplay from '@/components/shared/qr-display';
 import { Brand, Fonts } from '@/constants/theme';
 import { makeStyles, staticStyles as profileStaticStyles } from '../../styles/tabs/profile.styles';
-import { meApi, VehicleDTO, vehiclesApi } from '@/services/api';
+import { meApi, VehicleDTO, vehiclesApi, paymentsApi, PaymentMethodDto, ApiError } from '@/services/api';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
@@ -25,7 +25,7 @@ import { CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useNavigation, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, Modal, TextInput } from 'react-native';
 
 const preferencesSections = [
   {
@@ -79,21 +79,42 @@ export default function ProfileScreen() {
     navigation.setOptions({ title: 'Perfil', icon: { sf: 'person' } });
   }, [navigation]);
 
+
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotifications();
-  const [amount, setAmount] = useState(0);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [sendingQr, setSendingQr] = useState(false);
+  const [qrCooldown, setQrCooldown] = useState(0); // seconds left before QR can be emailed again
   const [vehicles, setVehicles] = useState<VehicleDTO[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Payment methods state
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodDto[]>([]);
+  const [methodsLoading, setMethodsLoading] = useState(false);
+  const [showAddMethod, setShowAddMethod] = useState(false);
+  const [addMethodType, setAddMethodType] = useState<'sinpe' | 'cash' | 'card' | null>(null);
+  const [newAlias, setNewAlias] = useState('');
+  const [addingMethod, setAddingMethod] = useState(false);
+  const [deletingMethodId, setDeletingMethodId] = useState<string | null>(null);
+  const [togglingFavId, setTogglingFavId] = useState<string | null>(null);
+
+  const loadPaymentMethods = useCallback(() => {
+    if (!token || isAdmin || isDriver) return;
+    setMethodsLoading(true);
+    paymentsApi.getMethods(token)
+      .then(setPaymentMethods)
+      .catch(() => {})
+      .finally(() => setMethodsLoading(false));
+  }, [token, isAdmin, isDriver]);
+
   useFocusEffect(useCallback(() => {
     if (!token) return;
-    // Fetch QR token for all non-admin users
     if (!isAdmin) {
       meApi.get(token).then(me => setQrToken(me.qrToken)).catch(() => {});
     }
+    if (!isAdmin && !isDriver) loadPaymentMethods();
     if (!isDriver) return;
     setVehiclesLoading(true);
     vehiclesApi.getMy(token)
@@ -101,7 +122,56 @@ export default function ProfileScreen() {
       .catch(() => {})
       .finally(() => setVehiclesLoading(false));
     loadMyVehicleApplications().catch(() => {});
-  }, [isAdmin, isDriver, token, loadMyVehicleApplications]));
+  }, [isAdmin, isDriver, token, loadMyVehicleApplications, loadPaymentMethods]));
+
+  const handleAddSimpleMethod = async () => {
+    if (!token || !addMethodType || addMethodType === 'card') return;
+    const alias = newAlias.trim() || (addMethodType === 'sinpe' ? 'SINPE Móvil' : 'Efectivo');
+    setAddingMethod(true);
+    try {
+      const created = await paymentsApi.addSimple(addMethodType, alias, token);
+      setPaymentMethods(prev => [...prev, created]);
+      setShowAddMethod(false);
+      setAddMethodType(null);
+      setNewAlias('');
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo agregar el método.');
+    } finally {
+      setAddingMethod(false);
+    }
+  };
+
+
+  const handleDeleteMethod = async (id: string) => {
+    if (!token) return;
+    setDeletingMethodId(id);
+    try {
+      await paymentsApi.deleteMethod(id, token);
+      setPaymentMethods(prev => {
+        const remaining = prev.filter(m => m.id !== id);
+        if (remaining.length === 1 && !remaining[0].isFavorite)
+          return [{ ...remaining[0], isFavorite: true }];
+        return remaining;
+      });
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo eliminar el método.');
+    } finally {
+      setDeletingMethodId(null);
+    }
+  };
+
+  const handleSetFavorite = async (id: string) => {
+    if (!token) return;
+    setTogglingFavId(id);
+    try {
+      await paymentsApi.setFavorite(id, token);
+      setPaymentMethods(prev => prev.map(m => ({ ...m, isFavorite: m.id === id })));
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo actualizar.');
+    } finally {
+      setTogglingFavId(null);
+    }
+  };
 
   const licenseState = expiryState(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null);
   const dekraState   = expiryState(user?.dekraExpiryMonth   ?? null, user?.dekraExpiryYear   ?? null);
@@ -193,6 +263,33 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  // Tick the QR-email cooldown down to zero.
+  useEffect(() => {
+    if (qrCooldown <= 0) return;
+    const timer = setInterval(() => setQrCooldown(c => (c <= 1 ? 0 : c - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [qrCooldown]);
+
+  const handleSendQrEmail = async () => {
+    if (!token || sendingQr || qrCooldown > 0) return;
+    setSendingQr(true);
+    try {
+      await meApi.sendQr(token);
+      setQrCooldown(300); // 5-minute cooldown
+      Alert.alert('QR enviado', 'Te enviamos tu QR de abordaje al correo.');
+    } catch (e: any) {
+      // Server-enforced cooldown — sync the countdown to its retry hint.
+      if (e instanceof ApiError && e.status === 429) {
+        setQrCooldown(e.body?.retryAfterSeconds ?? 300);
+        Alert.alert('Esperá un momento', e.message);
+      } else {
+        Alert.alert('Error', e?.message ?? 'No se pudo enviar el QR.');
+      }
+    } finally {
+      setSendingQr(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -384,39 +481,150 @@ export default function ProfileScreen() {
               </GlassCard>
 
               <View style={styles.sectionWrap}>
-                <Text style={styles.sectionTitle}>Cuenta</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={styles.sectionTitle}>Métodos de pago</Text>
+                  {paymentMethods.length < 3 && (
+                    <Pressable onPress={() => setShowAddMethod(true)} hitSlop={8}>
+                      <Ionicons name="add-circle-outline" size={22} color={Brand.colors.green.normal} />
+                    </Pressable>
+                  )}
+                </View>
                 <GlassCard style={styles.sectionCard}>
-                  <Pressable style={styles.sectionItem}>
-                    <View style={styles.itemIconWrap}>
-                      <Ionicons name="card-outline" size={16} color={Brand.colors.green.darkActive} />
-                    </View>
-                    <View style={styles.itemTextWrap}>
-                      <Text style={styles.itemLabel}>Métodos de pago</Text>
-                      <Text style={styles.itemDesc}>Tarjetas y SINPE Movil</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
-                  </Pressable>
-                  <View style={styles.sectionDivider} />
-                  <View style={styles.walletWrapInPayment}>
-                    <View style={styles.walletCard}>
-                      <Text style={styles.walletBrand}>mastercard</Text>
-                      <Text style={styles.walletNumber}>5282 3456 7890 1289</Text>
-                      <Text style={styles.walletDate}>09/25</Text>
-                    </View>
-                    <View style={styles.walletCounter}>
-                      <Text style={styles.walletAmount}>₡ {amount.toLocaleString()}</Text>
-                      <View style={styles.counterButtons}>
-                        <Pressable style={styles.counterCircle} onPress={() => setAmount(v => Math.max(0, v - 500))}>
-                          <Ionicons name="remove" size={18} color={Brand.colors.black.b1} />
-                        </Pressable>
-                        <Pressable style={styles.counterCircle} onPress={() => setAmount(v => v + 500)}>
-                          <Ionicons name="add" size={18} color={Brand.colors.black.b1} />
-                        </Pressable>
+                  {methodsLoading ? (
+                    <ActivityIndicator color={Brand.colors.green.normal} style={{ paddingVertical: 16 }} />
+                  ) : paymentMethods.length === 0 ? (
+                    <Pressable style={styles.sectionItem} onPress={() => setShowAddMethod(true)}>
+                      <View style={styles.itemIconWrap}>
+                        <Ionicons name="card-outline" size={16} color={Brand.colors.green.darkActive} />
                       </View>
-                    </View>
-                  </View>
+                      <View style={styles.itemTextWrap}>
+                        <Text style={styles.itemLabel}>Sin métodos de pago</Text>
+                        <Text style={styles.itemDesc}>Toca + para agregar uno</Text>
+                      </View>
+                    </Pressable>
+                  ) : (
+                    paymentMethods.map((m, idx) => (
+                      <View key={m.id}>
+                        {idx > 0 && <View style={styles.sectionDivider} />}
+                        <View style={[styles.sectionItem, { paddingVertical: 12 }]}>
+                          <View style={styles.itemIconWrap}>
+                            <Ionicons
+                              name={m.type === 'card' ? 'card-outline' : m.type === 'sinpe' ? 'phone-portrait-outline' : 'cash-outline'}
+                              size={16}
+                              color={Brand.colors.green.darkActive}
+                            />
+                          </View>
+                          <View style={styles.itemTextWrap}>
+                            <Text style={styles.itemLabel}>{m.alias}</Text>
+                            <Text style={styles.itemDesc}>
+                              {m.type === 'card' && m.expiryMonth && m.expiryYear
+                                ? `Vence ${String(m.expiryMonth).padStart(2, '0')}/${m.expiryYear}`
+                                : m.type === 'sinpe' ? 'SINPE Móvil' : 'Efectivo'}
+                            </Text>
+                          </View>
+                          <Pressable
+                            onPress={() => handleSetFavorite(m.id)}
+                            disabled={m.isFavorite || togglingFavId === m.id}
+                            hitSlop={8}
+                            style={{ padding: 4 }}
+                          >
+                            <Ionicons
+                              name={m.isFavorite ? 'star' : 'star-outline'}
+                              size={16}
+                              color={m.isFavorite ? '#f7a900' : colors.textMuted}
+                            />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleDeleteMethod(m.id)}
+                            disabled={deletingMethodId === m.id}
+                            hitSlop={8}
+                            style={{ padding: 4, marginLeft: 4, opacity: deletingMethodId === m.id ? 0.4 : 1 }}
+                          >
+                            <Ionicons name="trash-outline" size={15} color={Brand.colors.alerts.error} />
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))
+                  )}
                 </GlassCard>
               </View>
+
+              {/* Modal: agregar método de pago */}
+              <Modal
+                visible={showAddMethod}
+                transparent
+                animationType="slide"
+                onRequestClose={() => { setShowAddMethod(false); setAddMethodType(null); setNewAlias(''); }}
+              >
+                <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }}>
+                  <View style={{ backgroundColor: isDark ? '#1a1a1a' : '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 }}>
+                    <Text style={{ fontFamily: Fonts.headingBold, fontSize: 17, color: colors.textPrimary, marginBottom: 16 }}>
+                      {addMethodType ? (addMethodType === 'card' ? 'Agregar tarjeta' : addMethodType === 'sinpe' ? 'Agregar SINPE Móvil' : 'Agregar efectivo') : 'Tipo de método'}
+                    </Text>
+
+                    {!addMethodType && (
+                      <View style={{ gap: 10 }}>
+                        {paymentMethods.filter(m => m.type === 'card').length < 3 && (
+                          <Pressable onPress={() => setAddMethodType('card')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, backgroundColor: colors.inputBg }}>
+                            <Ionicons name="card-outline" size={20} color={Brand.colors.green.normal} />
+                            <Text style={{ fontFamily: Fonts.sans, color: colors.textPrimary }}>Tarjeta de crédito/débito</Text>
+                          </Pressable>
+                        )}
+                        <Pressable onPress={() => setAddMethodType('sinpe')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, backgroundColor: colors.inputBg }}>
+                          <Ionicons name="phone-portrait-outline" size={20} color={Brand.colors.green.normal} />
+                          <Text style={{ fontFamily: Fonts.sans, color: colors.textPrimary }}>SINPE Móvil</Text>
+                        </Pressable>
+                        <Pressable onPress={() => setAddMethodType('cash')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, backgroundColor: colors.inputBg }}>
+                          <Ionicons name="cash-outline" size={20} color={Brand.colors.green.normal} />
+                          <Text style={{ fontFamily: Fonts.sans, color: colors.textPrimary }}>Efectivo</Text>
+                        </Pressable>
+                        <Pressable onPress={() => setShowAddMethod(false)} style={{ padding: 14, alignItems: 'center' }}>
+                          <Text style={{ fontFamily: Fonts.sans, color: colors.textMuted }}>Cancelar</Text>
+                        </Pressable>
+                      </View>
+                    )}
+
+                    {(addMethodType === 'sinpe' || addMethodType === 'cash') && (
+                      <View style={{ gap: 12 }}>
+                        <TextInput
+                          value={newAlias}
+                          onChangeText={setNewAlias}
+                          placeholder={addMethodType === 'sinpe' ? 'Alias (ej. Mi SINPE)' : 'Alias (ej. Efectivo)'}
+                          placeholderTextColor={colors.textMuted}
+                          style={{ backgroundColor: colors.inputBg, borderRadius: 10, padding: 12, fontFamily: Fonts.sans, color: colors.textPrimary }}
+                        />
+                        <Pressable
+                          onPress={handleAddSimpleMethod}
+                          disabled={addingMethod}
+                          style={{ backgroundColor: Brand.colors.green.normal, borderRadius: 12, padding: 14, alignItems: 'center', opacity: addingMethod ? 0.6 : 1 }}
+                        >
+                          {addingMethod ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: Fonts.headingBold, color: '#fff' }}>Guardar</Text>}
+                        </Pressable>
+                        <Pressable onPress={() => setAddMethodType(null)} style={{ padding: 12, alignItems: 'center' }}>
+                          <Text style={{ fontFamily: Fonts.sans, color: colors.textMuted }}>Volver</Text>
+                        </Pressable>
+                      </View>
+                    )}
+
+                    {addMethodType === 'card' && (
+                      <View style={{ gap: 12 }}>
+                        <View style={{ backgroundColor: colors.inputBg, borderRadius: 12, padding: 16, alignItems: 'center', gap: 8 }}>
+                          <Ionicons name="card-outline" size={28} color={colors.textMuted} />
+                          <Text style={{ fontFamily: Fonts.headingBold, fontSize: 14, color: colors.textPrimary, textAlign: 'center' }}>
+                            Tarjetas disponibles próximamente
+                          </Text>
+                          <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
+                            Esta función requiere la versión nativa de la app.
+                          </Text>
+                        </View>
+                        <Pressable onPress={() => setAddMethodType(null)} style={{ padding: 12, alignItems: 'center' }}>
+                          <Text style={{ fontFamily: Fonts.sans, color: colors.textMuted }}>Volver</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </Modal>
 
               <Pressable style={styles.shareButton} onPress={() => Share.share({ message: 'Jalemos - comparte viaje y ahorra en cada ruta.' })}>
                 <Ionicons name="share-social-outline" size={16} color={Brand.colors.black.b1} />
@@ -593,6 +801,27 @@ export default function ProfileScreen() {
                   <Ionicons name={showQr ? 'eye-off-outline' : 'qr-code-outline'} size={16} color="#fff" />
                   <Text style={profileStaticStyles.qrToggleBtnText}>
                     {showQr ? 'Ocultar QR' : 'Mostrar mi QR'}
+                  </Text>
+                </Pressable>
+
+                {/* Email me my QR — 5-minute cooldown enforced by the backend */}
+                <Pressable
+                  style={[
+                    styles.sendQrBtn,
+                    (sendingQr || qrCooldown > 0) && profileStaticStyles.sendQrBtnDisabled,
+                  ]}
+                  onPress={handleSendQrEmail}
+                  disabled={sendingQr || qrCooldown > 0}
+                >
+                  {sendingQr ? (
+                    <ActivityIndicator size="small" color={Brand.colors.green.normal} />
+                  ) : (
+                    <Ionicons name="mail-outline" size={16} color={Brand.colors.green.normal} />
+                  )}
+                  <Text style={styles.sendQrBtnText}>
+                    {qrCooldown > 0
+                      ? `Reenviar en ${Math.floor(qrCooldown / 60)}:${String(qrCooldown % 60).padStart(2, '0')}`
+                      : 'Enviar QR a mi correo'}
                   </Text>
                 </Pressable>
               </GlassCard>

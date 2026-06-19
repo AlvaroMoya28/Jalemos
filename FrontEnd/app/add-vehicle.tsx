@@ -3,8 +3,8 @@
 // Al aprobarse se crea el vehículo directo en la tabla vehicles sin cambiar el rol del usuario.
 // Updated by Claude Sonnet 4.6: make/model/year dropdowns, ABC123 plate format enforcement.
 
-import GlassCard from '@/components/glass-card';
-import SelectModal from '@/components/select-modal';
+import GlassCard from '@/components/shared/glass-card';
+import SelectModal from '@/components/shared/select-modal';
 import { VEHICLE_MAKES, VEHICLE_MODELS, VEHICLE_YEARS } from '@/constants/vehicle-data';
 import { Brand } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';

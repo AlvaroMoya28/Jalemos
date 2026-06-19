@@ -3,6 +3,7 @@
 
 using JalemosBackend.Infrastructure.Persistence;
 using JalemosBackend.Modules.Auth.Application;
+using JalemosBackend.Modules.Email;
 using JalemosBackend.Modules.Storage;
 using JalemosBackend.Modules.Bookings.Application;
 using JalemosBackend.Modules.Bookings.Infrastructure;
@@ -18,7 +19,12 @@ using JalemosBackend.Modules.Trips.Application;
 using JalemosBackend.Modules.Trips.Infrastructure;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Infrastructure;
+using JalemosBackend.Modules.Payments.Application;
+using JalemosBackend.Modules.Payments.Infrastructure;
+using JalemosBackend.Modules.TripReports.Application;
+using JalemosBackend.Modules.TripReports.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Stripe;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -26,11 +32,15 @@ using Npgsql.NameTranslation;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+builder.WebHost.UseUrls($"http://*:{port}");
 
 // Register MVC controllers and Swagger for API documentation
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
+
 
 // CORS — allows the Expo app (any origin in dev) to call the API
 builder.Services.AddCors(opts =>
@@ -66,6 +76,9 @@ dataSourceBuilder.MapEnum<ApplicationStatus>("application_status", new NpgsqlSna
 dataSourceBuilder.MapEnum<ReportReason>("report_reason", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<ReportStatus>("report_status", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<AdminActionType>("admin_action_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<PaymentStatus>("payment_status", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<TripReportType>("trip_report_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<TripReportStatus>("trip_report_status", new NpgsqlSnakeCaseNameTranslator());
 var dataSource = dataSourceBuilder.Build();
 Console.WriteLine($"DataSource type: {dataSource.GetType().FullName}");
 
@@ -87,11 +100,17 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
         o.MapEnum<ReportReason>("report_reason");
         o.MapEnum<ReportStatus>("report_status");
         o.MapEnum<AdminActionType>("admin_action_type");
+        o.MapEnum<PaymentStatus>("payment_status");
+        o.MapEnum<TripReportType>("trip_report_type");
+        o.MapEnum<TripReportStatus>("trip_report_status");
     })
     .AddInterceptors(sp.GetRequiredService<PushNotificationInterceptor>()));
 
 // Storage — singleton because IAmazonS3 is thread-safe and expensive to create
 builder.Services.AddSingleton<IStorageService, S3StorageService>();
+
+// Email module
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Auth module
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -125,6 +144,15 @@ builder.Services.AddScoped<VehiclesRepository>();
 builder.Services.AddScoped<IDriverApplicationsService, DriverApplicationsService>();
 builder.Services.AddScoped<DriverApplicationsRepository>();
 
+// Payments module
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+builder.Services.AddScoped<IPaymentsService, PaymentsService>();
+builder.Services.AddScoped<PaymentsRepository>();
+
+// TripReports module
+builder.Services.AddScoped<ITripReportsService, TripReportsService>();
+builder.Services.AddScoped<TripReportsRepository>();
+
 var app = builder.Build();
 
 // Enable Swagger UI only in development; production should use auth middleware and structured logging
@@ -135,6 +163,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseHealthChecks("/health");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

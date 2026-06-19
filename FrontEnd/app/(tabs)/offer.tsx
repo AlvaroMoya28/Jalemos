@@ -28,13 +28,13 @@ import { useAuth } from '@/contexts/auth';
 import { get, post, ApiError, tripLifecycleApi, TripStatusResponse } from '@/services/api';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
-import GlassCard from '@/components/glass-card';
-import GlassAlert from '@/components/glass-alert';
-import NotificationsModal from '@/components/NotificationsModal';
+import GlassCard from '@/components/shared/glass-card';
+import GlassAlert from '@/components/shared/glass-alert';
+import NotificationsModal from '@/components/shared/NotificationsModal';
 import UnreadBadge from '@/components/shared/unread-badge';
 import { useNotifications } from '@/contexts/notifications';
-import PlaceSearchInput, { PlacePrediction } from '@/components/place-search-input';
-import BoardingScreen from '@/components/boarding-screen';
+import PlaceSearchInput, { PlacePrediction } from '@/components/shared/place-search-input';
+import BoardingScreen from '@/components/offer/boarding-screen';
 import { Brand } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useActiveTrip } from '@/contexts/active-trip';

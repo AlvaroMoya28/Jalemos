@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using JalemosBackend.Infrastructure.Persistence;
+using JalemosBackend.Modules.Email;
 using JalemosBackend.Modules.Storage;
 using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Application.DTOs;
@@ -16,12 +17,23 @@ public class UsersServiceValidationTests
             => Task.FromResult<string?>(null);
     }
 
+    // Minimal email stub — these tests never send mail.
+    private sealed class FakeEmailService : IEmailService
+    {
+        public Task SendVerificationCodeAsync(string toEmail, string firstName, string code, CancellationToken ct = default)
+            => Task.CompletedTask;
+        public Task SendWelcomeWithQrAsync(string toEmail, string firstName, string qrData, CancellationToken ct = default)
+            => Task.CompletedTask;
+        public Task SendBoardingQrAsync(string toEmail, string firstName, string qrData, CancellationToken ct = default)
+            => Task.CompletedTask;
+    }
+
     private static UsersService BuildService()
     {
         var opts = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new UsersService(new UsersRepository(new ApplicationDbContext(opts)), new FakeStorageService());
+        return new UsersService(new UsersRepository(new ApplicationDbContext(opts)), new FakeStorageService(), new FakeEmailService());
     }
 
     [Fact]

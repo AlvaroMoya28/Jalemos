@@ -1,30 +1,29 @@
-// Expo push-notification helpers (E1-3 client side).
-// Requests permission, configures the Android channel, and returns this device's
-// Expo push token so the backend can target it. Safe to call on simulators (returns
-// null) and never throws.
-
+// Updated by Claude Sonnet 4.6
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Show notifications as a banner while the app is foregrounded.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
-/**
- * Asks for permission and returns the Expo push token, or null if unavailable
- * (no permission, running on a simulator, or token retrieval failed).
- */
+// Only set the notification handler in real builds — importing expo-notifications
+// in Expo Go triggers a push-token auto-registration that throws since SDK 53.
+if (!IS_EXPO_GO) {
+  const Notifications = require('expo-notifications');
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
+
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  // Physical device required — emulators/simulators can't receive remote push.
+  if (IS_EXPO_GO) return null;
   if (!Device.isDevice) return null;
+
+  const Notifications = require('expo-notifications');
 
   const { status: existing } = await Notifications.getPermissionsAsync();
   let finalStatus = existing;

@@ -9,3 +9,5 @@ export * from "./trips";
 export * from "./ratings";
 export * from "./me";
 export * from "./notifications";
+export * from "./payments";
+export * from "./reports";

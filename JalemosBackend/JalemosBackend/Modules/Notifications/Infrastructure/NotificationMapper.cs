@@ -13,6 +13,7 @@ public static class NotificationMapper
     {
         NotificationType.DriverCancelled,
         NotificationType.PassengerCancelled,
+        NotificationType.PassengerCancelledLate,
         NotificationType.NoShowMarked,
     };
 
@@ -36,9 +37,10 @@ public static class NotificationMapper
         Type      = ToSnake(e.Type),
         Title     = e.Title,
         Body      = e.Body,
-        TripId    = e.TripId,
-        BookingId = e.BookingId,
-        Read      = e.Read,
+        TripId      = e.TripId,
+        BookingId   = e.BookingId,
+        PassengerId = e.PassengerId,
+        Read        = e.Read,
         Audience  = e.Audience,
         CreatedAt = e.CreatedAt,
     };

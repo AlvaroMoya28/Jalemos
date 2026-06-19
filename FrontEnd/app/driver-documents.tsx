@@ -2,9 +2,9 @@
 // and expiry dates. Submits a renewal application (is_renewal: true) that goes through
 // the same admin review queue as the original application.
 
-import DocumentCameraModal from '@/components/document-camera-modal';
-import ExpiryInput, { parseExpiry } from '@/components/expiry-input';
-import GlassCard from '@/components/glass-card';
+import DocumentCameraModal from '@/components/shared/document-camera-modal';
+import ExpiryInput, { parseExpiry } from '@/components/shared/expiry-input';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { useApplications } from '@/contexts/applications';
 import { useLoading } from '@/contexts/loading';

@@ -3,7 +3,7 @@
 // username/password fields, social auth options, and a registration link.
 // Card colors adapt to the device light/dark mode setting.
 
-import GlassCard from '@/components/glass-card';
+import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
@@ -48,6 +48,12 @@ export default function LoginScreen() {
     try {
       const result = await login(user.trim(), password);
       if (!result.success) {
+        // Account exists but email isn't verified → send the user to the code screen.
+        if (result.needsVerification && result.userId) {
+          setError('');
+          router.push({ pathname: '/verify-email', params: { userId: result.userId, email: result.email } });
+          return;
+        }
         setError(result.error ?? 'Error al iniciar sesión');
         return;
       }

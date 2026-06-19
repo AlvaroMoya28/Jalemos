@@ -25,6 +25,10 @@ namespace JalemosBackend.Modules.Auth.Presentation
                     return Unauthorized(new { error = "Usuario o contraseña incorrectos" });
                 return Ok(result);
             }
+            catch (EmailNotVerifiedException ex)
+            {
+                return StatusCode(403, new { error = ex.Message, needsVerification = true, userId = ex.UserId, email = ex.Email });
+            }
             catch (AccountBlockedException ex)
             {
                 var message = ex.IsDeactivated
@@ -32,19 +36,70 @@ namespace JalemosBackend.Modules.Auth.Presentation
                     : $"Tu cuenta está suspendida hasta el {ex.SuspendedUntil!.Value.ToLocalTime():dd/MM/yyyy 'a las' HH:mm}.";
                 return StatusCode(403, new { error = message });
             }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
         }
 
+        // Returns 202 Accepted with { userId, email, expiresAt } — the user must verify their email before logging in.
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto, CancellationToken ct)
         {
             try
             {
                 var result = await _authService.RegisterAsync(dto, ct);
-                return Created($"/api/users/{result.Id}", result);
+                return Accepted(new { userId = result.UserId, email = result.Email, expiresAt = result.ExpiresAt });
             }
             catch (InvalidOperationException ex)
             {
                 return Conflict(new { error = ex.Message });
+            }
+        }
+
+        // POST /api/auth/verify-email — validates the 6-digit code and returns a JWT on success.
+        [HttpPost("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequestDto dto, CancellationToken ct)
+        {
+            try
+            {
+                var result = await _authService.VerifyEmailAsync(dto, ct);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        // POST /api/auth/resend-verification — sends a fresh code, enforcing the resend cooldown.
+        [HttpPost("resend-verification")]
+        public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationRequestDto dto, CancellationToken ct)
+        {
+            try
+            {
+                var expiresAt = await _authService.ResendVerificationAsync(dto, ct);
+                return Ok(new { expiresAt });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ResendCooldownException ex)
+            {
+                return StatusCode(429, new { error = ex.Message, retryAfterSeconds = ex.RetryAfterSeconds });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
             }
         }
 

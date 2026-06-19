@@ -181,6 +181,15 @@ export function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
       gap: 6, flexDirection: 'row', paddingVertical: 12,
     },
     logoutText: { color: Brand.colors.alerts.error, fontFamily: Fonts.headingBold, fontSize: 14 },
+    sendQrBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, borderRadius: 12, borderWidth: 1,
+      borderColor: Brand.colors.green.normal, backgroundColor: c.surfaceAlt,
+      paddingHorizontal: 20, paddingVertical: 11,
+    },
+    sendQrBtnText: {
+      color: Brand.colors.green.normal, fontFamily: Fonts.headingBold, fontSize: 13,
+    },
   });
 }
 
@@ -218,5 +227,8 @@ export const staticStyles = StyleSheet.create({
     color: '#fff',
     fontFamily: Fonts.headingBold,
     fontSize: 13,
+  },
+  sendQrBtnDisabled: {
+    opacity: 0.5,
   },
 });
