@@ -39,6 +39,7 @@ builder.WebHost.UseUrls($"http://*:{port}");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 
 // CORS — allows the Expo app (any origin in dev) to call the API
