@@ -191,12 +191,18 @@ public sealed class BookingsService : IBookingsService
         if (booking.State == BookingState.Cancelled || booking.State == BookingState.Completed)
             throw new InvalidOperationException("Esta reserva ya está cancelada o completada.");
 
-        var trip = await _db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == booking.TripId, cancellationToken);
+        var trip = await _db.Trips.FirstOrDefaultAsync(t => t.TripId == booking.TripId, cancellationToken);
 
-        booking.State        = BookingState.Cancelled;
-        booking.CancelReason = reason;
+        if (trip is not null && trip.State is TripState.InProgress or TripState.Completed or TripState.Cancelled)
+            throw new InvalidOperationException("No puedes cancelar una reserva de un viaje ya iniciado o completado.");
+
+        booking.State         = BookingState.Cancelled;
+        booking.CancelReason  = reason;
         booking.CancelDetails = details;
-        booking.UpdatedAt    = DateTime.UtcNow;
+        booking.UpdatedAt     = DateTime.UtcNow;
+
+        if (trip is not null)
+            trip.AvailableSeats = (short)(trip.AvailableSeats + booking.SeatsReserved);
 
         var reasonLabel = reason switch
         {
@@ -206,7 +212,6 @@ public sealed class BookingsService : IBookingsService
             _                    => "Otro motivo",
         };
 
-        // Notify driver
         if (trip is not null)
         {
             var passenger = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == callerId, cancellationToken);
@@ -218,7 +223,7 @@ public sealed class BookingsService : IBookingsService
                 BookingId = booking.BookingId,
                 Type      = NotificationType.PassengerCancelled,
                 Title     = $"{passengerName} canceló su reserva",
-                Body      = $"Motivo: {reasonLabel}. Revisa el estado de abordaje.",
+                Body      = $"Motivo: {reasonLabel}. El asiento quedó disponible.",
             });
         }
 

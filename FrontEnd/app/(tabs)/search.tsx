@@ -184,7 +184,7 @@ export default function SearchScreen() {
       if (
         mode === 'passenger' &&
         bookings &&
-        bookings.some((b: any) => b.tripId === t.id && b.passengerId === user?.id)
+        bookings.some((b: any) => b.tripId === t.id && b.passengerId === user?.id && b.state !== 'Cancelled')
       ) {
         return false;
       }

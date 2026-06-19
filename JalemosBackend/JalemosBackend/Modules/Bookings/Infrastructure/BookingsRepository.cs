@@ -76,7 +76,7 @@ public sealed class BookingsRepository
             throw new InvalidOperationException("No hay suficientes espacios disponibles para este viaje.");
 
         // Prevent duplicate booking by same passenger for same trip
-        var exists = await _dbContext.Bookings.AnyAsync(b => b.TripId == booking.TripId && b.PassengerId == booking.PassengerId, cancellationToken);
+        var exists = await _dbContext.Bookings.AnyAsync(b => b.TripId == booking.TripId && b.PassengerId == booking.PassengerId && b.State != BookingState.Cancelled, cancellationToken);
         if (exists) throw new InvalidOperationException("Ya existe una reserva para este usuario en ese viaje.");
 
         // Decrement available seats and insert booking
