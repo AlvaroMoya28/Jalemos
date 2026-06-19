@@ -32,6 +32,7 @@ import GlassAlert from '../shared/glass-alert';
 import QrDisplay from '../shared/qr-display';
 import RatingModal from '../shared/rating-modal';
 import CancellationModal from '../shared/cancellation-modal';
+import EmergencyReportModal from '../shared/emergency-report-modal';
 import { TripInfoCard } from './trip-info-card';
 import { PaymentMethodCard } from './payment-method-card';
 
@@ -72,6 +73,8 @@ export default function ActiveTripBubble() {
   const [payment, setPayment]                   = useState<PaymentDto | null>(null);
   const [paymentCreating, setPaymentCreating]   = useState(false);
   const paymentCreatedFor                       = useRef<string | null>(null);
+
+  const [showEmergencyReport, setShowEmergencyReport] = useState(false);
 
   const pulse              = useRef(new Animated.Value(1)).current;
   const seatbeltShown      = useRef(false);
@@ -523,6 +526,22 @@ export default function ActiveTripBubble() {
                     </View>
                   )}
 
+                  {/* Emergency / driver report button — only while in_progress.
+                      Close the expanded sheet first to avoid two Modals open at once
+                      (same pattern as late-cancel rating — see comment at line 272). */}
+                  {passengerTrip.tripState === 'in_progress' && (
+                    <Pressable
+                      style={[styles.qrBtn, { backgroundColor: '#e53e3e' }]}
+                      onPress={() => {
+                        setExpanded(false);
+                        setTimeout(() => setShowEmergencyReport(true), 350);
+                      }}
+                    >
+                      <Ionicons name="warning" size={18} color="#fff" />
+                      <Text style={styles.qrBtnText}>Emergencia / Reporte</Text>
+                    </Pressable>
+                  )}
+
                   {/* Cancel booking — only if active and not yet boarded */}
                   {isActive && passengerTrip.bookingState !== 'boarded' && (
                     <Pressable style={styles.cancelLink} onPress={() => setShowCancel(true)}>
@@ -611,6 +630,15 @@ export default function ActiveTripBubble() {
         onConfirm={handleCancelBooking}
         onCancel={() => setShowCancel(false)}
       />
+
+      {/* Emergency / driver report (E3-2) */}
+      {passengerTrip && (
+        <EmergencyReportModal
+          visible={showEmergencyReport}
+          tripId={passengerTrip.tripId}
+          onDismiss={() => setShowEmergencyReport(false)}
+        />
+      )}
     </>
   );
 }

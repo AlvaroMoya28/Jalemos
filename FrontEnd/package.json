@@ -66,5 +66,8 @@
     "ts-jest": "^29.4.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "react-native": "0.83.6"
+  }
 }

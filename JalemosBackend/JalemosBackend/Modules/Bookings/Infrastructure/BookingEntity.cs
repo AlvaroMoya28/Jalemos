@@ -13,6 +13,7 @@ public class BookingEntity
     public DateTime? BoardedAt { get; set; }
     public string? CancelReason { get; set; }
     public string? CancelDetails { get; set; }
+    public bool IsLateCancel { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

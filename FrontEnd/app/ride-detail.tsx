@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import InteractiveMapModal from "../components/ride-detail/map-modal";
 
 import AnimatedPressable from "@/components/shared/animated-pressable";
+import EmergencyReportModal from "@/components/shared/emergency-report-modal";
 import GlassCard from "@/components/shared/glass-card";
 import GlassAlert from "@/components/shared/glass-alert";
 import RatingModal from "@/components/shared/rating-modal";
@@ -250,8 +251,16 @@ export default function RideDetailScreen() {
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // Passenger booking cancellation
+  const [showPassengerCancelModal, setShowPassengerCancelModal] = useState(false);
+  const [passengerCancelSubmitting, setPassengerCancelSubmitting] = useState(false);
+  const [passengerCancelSuccess, setPassengerCancelSuccess] = useState(false);
+  const [passengerCancelError, setPassengerCancelError] = useState<string | null>(null);
   // Reviews received by the driver
   const [driverReviews, setDriverReviews] = useState<RatingDTO[]>([]);
+  // Post-trip driver report
+  const [showDriverReport, setShowDriverReport] = useState(false);
+  const [driverReportSent, setDriverReportSent] = useState(false);
 
   const canRate = isHistory &&
     !isDriverOwn &&
@@ -268,6 +277,34 @@ export default function RideDetailScreen() {
       })
       .catch(() => {});
   }, [canRate, paramDriverId, tripId, user]);
+
+  // Passenger can report the driver after a completed trip
+  const canReportDriver = isHistory &&
+    !isDriverOwn &&
+    !!paramDriverId &&
+    (paramTripState === 'completed') &&
+    (bookingState === 'completed' || bookingState === 'boarded');
+
+  const canCancelBooking = isHistory &&
+    !isDriverOwn &&
+    !!bookingId &&
+    (bookingState === 'pending' || bookingState === 'confirmed') &&
+    (paramTripState === 'scheduled' || paramTripState === 'boarding');
+
+  const handleCancelBooking = async (reason: string, details: string | null) => {
+    if (!token || !bookingId) return;
+    setPassengerCancelSubmitting(true);
+    try {
+      await bookingsApi.cancel(bookingId, reason, details, token);
+      setShowPassengerCancelModal(false);
+      setPassengerCancelSuccess(true);
+    } catch (e: any) {
+      setShowPassengerCancelModal(false);
+      setPassengerCancelError(e.message ?? 'No se pudo cancelar la reserva.');
+    } finally {
+      setPassengerCancelSubmitting(false);
+    }
+  };
 
   const handleCancelTrip = async (reason: string, details: string | null) => {
     if (!token || !tripId) return;
@@ -436,7 +473,7 @@ export default function RideDetailScreen() {
       try {
         const list = await bookingsApi.getAll(token);
         if (!mounted || !Array.isArray(list)) return;
-        const match = list.find((b: any) => b.tripId === ride.id && b.passengerId === user.id);
+        const match = list.find((b: any) => b.tripId === ride.id && b.passengerId === user.id && b.state !== 'Cancelled');
         if (match) {
           setBooked(true);
           setExistingBookingId(String(match.id));
@@ -897,6 +934,38 @@ export default function RideDetailScreen() {
                 </View>
               )}
 
+              {/* Cancel booking — passenger only, scheduled/boarding trips */}
+              {canCancelBooking && !passengerCancelSuccess && (
+                <>
+                  <AnimatedPressable
+                    pressedScale={0.97}
+                    style={[
+                      styles.reserveBtn,
+                      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e53e3e' },
+                    ]}
+                    onPress={() => setShowPassengerCancelModal(true)}
+                  >
+                    <Ionicons name="close-circle-outline" size={16} color="#fff" />
+                    <Text style={[styles.reserveBtnText, { color: '#fff' }]}>Cancelar reserva</Text>
+                  </AnimatedPressable>
+                  <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textMuted, textAlign: 'center', paddingHorizontal: 8 }}>
+                    Cancelaciones con menos de 30 min de anticipación pueden afectar tu calificación.
+                  </Text>
+                </>
+              )}
+              {passengerCancelSuccess && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 10,
+                  padding: 14, borderRadius: 14,
+                  backgroundColor: '#e53e3e22',
+                }}>
+                  <Ionicons name="checkmark-circle" size={18} color="#e53e3e" />
+                  <Text style={{ fontFamily: Fonts.heading, fontSize: 13, color: '#e53e3e', flex: 1 }}>
+                    Reserva cancelada. El conductor ha sido notificado.
+                  </Text>
+                </View>
+              )}
+
               {/* Rating section */}
               {canRate && (
                 alreadyRated || ratingSuccess ? (
@@ -918,6 +987,31 @@ export default function RideDetailScreen() {
                   >
                     <Ionicons name="star-outline" size={16} color={Brand.colors.black.b1} />
                     <Text style={styles.reserveBtnText}>Calificar al conductor</Text>
+                  </AnimatedPressable>
+                )
+              )}
+
+              {/* Report driver — completed trips only */}
+              {canReportDriver && (
+                driverReportSent ? (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    padding: 14, borderRadius: 14,
+                    backgroundColor: '#f4a52222',
+                  }}>
+                    <Ionicons name="checkmark-circle" size={18} color="#f4a522" />
+                    <Text style={{ fontFamily: Fonts.heading, fontSize: 13, color: '#f4a522', flex: 1 }}>
+                      Reporte enviado. El equipo de Jalemos lo revisará.
+                    </Text>
+                  </View>
+                ) : (
+                  <AnimatedPressable
+                    pressedScale={0.97}
+                    style={[styles.reserveBtn, { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f4a522' }]}
+                    onPress={() => setShowDriverReport(true)}
+                  >
+                    <Ionicons name="flag-outline" size={16} color="#fff" />
+                    <Text style={[styles.reserveBtnText, { color: '#fff' }]}>Reportar conductor</Text>
                   </AnimatedPressable>
                 )
               )}
@@ -1018,6 +1112,37 @@ export default function RideDetailScreen() {
         primaryLabel="Entendido"
         onDismiss={() => setCancelError(null)}
       />
+
+      <CancellationModal
+        visible={showPassengerCancelModal}
+        type="passenger"
+        title="¿Por qué cancelas tu reserva?"
+        onConfirm={handleCancelBooking}
+        onCancel={() => setShowPassengerCancelModal(false)}
+        loading={passengerCancelSubmitting}
+      />
+
+      <GlassAlert
+        visible={!!passengerCancelError}
+        icon="alert-circle"
+        iconColor="#e53e3e"
+        title="Error al cancelar reserva"
+        body={passengerCancelError ?? ''}
+        primaryLabel="Entendido"
+        onDismiss={() => setPassengerCancelError(null)}
+      />
+
+      {/* Post-trip driver report */}
+      {canReportDriver && (
+        <EmergencyReportModal
+          visible={showDriverReport}
+          tripId={tripId}
+          defaultType="driver_report"
+          lockType
+          onSuccess={() => setDriverReportSent(true)}
+          onDismiss={() => setShowDriverReport(false)}
+        />
+      )}
     </View>
   );
 }

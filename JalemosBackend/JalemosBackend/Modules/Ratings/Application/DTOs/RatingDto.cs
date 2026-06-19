@@ -12,4 +12,7 @@ public sealed class RatingDto
     // Display info for the person who left the rating
     public string RaterFirstName { get; set; } = string.Empty;
     public string RaterLastName { get; set; } = string.Empty;
+    // Display info for the person who received the rating
+    public string RatedFirstName { get; set; } = string.Empty;
+    public string RatedLastName { get; set; } = string.Empty;
 }

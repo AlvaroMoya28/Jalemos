@@ -8,6 +8,7 @@ using JalemosBackend.Modules.Ratings.Infrastructure;
 using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.DriverApplications.Infrastructure;
 using JalemosBackend.Modules.Payments.Infrastructure;
+using JalemosBackend.Modules.TripReports.Infrastructure;
 
 namespace JalemosBackend.Infrastructure.Persistence
 {
@@ -21,16 +22,21 @@ namespace JalemosBackend.Infrastructure.Persistence
         TripStarting, TripCompleted, RatingReceived, General,
         // v5 lifecycle
         TripBoarding, QrScanned, TripStarted,
-        DriverCancelled, PassengerCancelled,
+        DriverCancelled, PassengerCancelled, PassengerCancelledLate,
         NoShowMarked, PaymentReminder, RatingReminder,
         // v6 — admin broadcast (promos, policy updates, announcements)
-        AdminBroadcast
+        AdminBroadcast,
+        // v11 — in-trip emergency / driver report (E3-1)
+        EmergencyReport
     }
     public enum ApplicationStatus { pending, under_review, needs_correction, approved, rejected }
     public enum ReportReason { bad_behavior, dangerous_driving, no_show, late_cancellation, harassment, vehicle_condition, other }
     public enum ReportStatus { pending, resolved, dismissed }
     public enum AdminActionType { suspended, deactivated, dismissed }
     public enum PaymentStatus { pending, confirmed, failed }
+    // E3-1 — Trip Reports module
+    public enum TripReportType { Emergency, DriverReport }
+    public enum TripReportStatus { Open, Verified, Dismissed, ActionTaken }
 
     public sealed class ApplicationDbContext : DbContext
     {
@@ -47,6 +53,7 @@ namespace JalemosBackend.Infrastructure.Persistence
         public DbSet<DriverApplicationEntity> DriverApplications { get; set; } = null!;
         public DbSet<UserReportEntity> UserReports { get; set; } = null!;
         public DbSet<PaymentEntity> Payments { get; set; } = null!;
+        public DbSet<TripReportEntity> TripReports { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -61,6 +68,8 @@ namespace JalemosBackend.Infrastructure.Persistence
             modelBuilder.HasPostgresEnum<ReportStatus>("report_status");
             modelBuilder.HasPostgresEnum<AdminActionType>("admin_action_type");
             modelBuilder.HasPostgresEnum<PaymentStatus>("payment_status");
+            modelBuilder.HasPostgresEnum<TripReportType>("trip_report_type");
+            modelBuilder.HasPostgresEnum<TripReportStatus>("trip_report_status");
             modelBuilder.HasPostgresExtension("pgcrypto");
 
             // Users
@@ -172,6 +181,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.BoardedAt).HasColumnName("boarded_at");
                 e.Property(x => x.CancelReason).HasColumnName("cancel_reason").HasMaxLength(60);
                 e.Property(x => x.CancelDetails).HasColumnName("cancel_details");
+                e.Property(x => x.IsLateCancel).HasColumnName("is_late_cancel").HasDefaultValue(false);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.TripId).HasDatabaseName("idx_bookings_trip");
@@ -269,6 +279,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
                 e.Property(x => x.TripId).HasColumnName("trip_id");
                 e.Property(x => x.BookingId).HasColumnName("booking_id");
+                e.Property(x => x.PassengerId).HasColumnName("passenger_id");
                 e.Property(x => x.Type).HasColumnName("type").HasColumnType("notification_type").HasDefaultValue(NotificationType.General);
                 e.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
                 e.Property(x => x.Body).HasColumnName("body");
@@ -279,6 +290,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<TripEntity>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne<BookingEntity>().WithMany().HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.PassengerId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // DriverApplications
@@ -339,6 +351,31 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.ToTable(t => t.HasCheckConstraint("chk_no_self_report", "reported_user_id <> reported_by_id"));
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.ReportedUserId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.ReportedById).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // TripReports (E3-1)
+            modelBuilder.Entity<TripReportEntity>(e =>
+            {
+                e.ToTable("trip_reports");
+                e.HasKey(x => x.ReportId);
+                e.Property(x => x.ReportId).HasColumnName("report_id").HasDefaultValueSql("gen_random_uuid()");
+                e.Property(x => x.TripId).HasColumnName("trip_id").IsRequired();
+                e.Property(x => x.DriverId).HasColumnName("driver_id").IsRequired();
+                e.Property(x => x.ReporterId).HasColumnName("reporter_id").IsRequired();
+                e.Property(x => x.Type).HasColumnName("type").HasColumnType("trip_report_type").IsRequired();
+                e.Property(x => x.Status).HasColumnName("status").HasColumnType("trip_report_status").HasDefaultValue(TripReportStatus.Open);
+                e.Property(x => x.Description).HasColumnName("description").IsRequired();
+                e.Property(x => x.AdminNotes).HasColumnName("admin_notes");
+                e.Property(x => x.ResolvedAt).HasColumnName("resolved_at");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
+                e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
+                e.HasIndex(x => x.TripId).HasDatabaseName("idx_trip_reports_trip");
+                e.HasIndex(x => x.DriverId).HasDatabaseName("idx_trip_reports_driver");
+                e.HasIndex(x => x.ReporterId).HasDatabaseName("idx_trip_reports_reporter");
+                e.HasIndex(x => x.Status).HasDatabaseName("idx_trip_reports_status");
+                e.HasOne<TripEntity>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.DriverId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.ReporterId).OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

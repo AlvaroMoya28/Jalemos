@@ -6,6 +6,7 @@ using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.Ratings.Application.DTOs;
 using JalemosBackend.Modules.Ratings.Domain;
 using JalemosBackend.Modules.Ratings.Infrastructure;
+using JalemosBackend.Modules.Users.Infrastructure;
 
 namespace JalemosBackend.Modules.Ratings.Application;
 
@@ -29,20 +30,50 @@ public sealed class RatingsService : IRatingsService
     public async Task<IEnumerable<RatingDto>> GetByRatedUserAsync(Guid ratedId, CancellationToken ct = default)
     {
         var ratings = (await _repo.GetByRatedUserAsync(ratedId, ct)).ToList();
+        return await EnrichWithNamesAsync(ratings, ct);
+    }
 
-        // Load rater names in one query to avoid N+1
-        var raterIds = ratings.Select(r => r.RaterId).Distinct().ToList();
-        var raters   = await _db.Users.AsNoTracking()
-            .Where(u => raterIds.Contains(u.UserId))
+    public async Task<IEnumerable<RatingDto>> GetLowRatingsAsync(short maxScore = 2, CancellationToken ct = default)
+    {
+        var entities = await _db.Ratings.AsNoTracking()
+            .Where(r => r.Rating <= maxScore)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(200)
             .ToListAsync(ct);
-        var raterMap = raters.ToDictionary(u => u.UserId);
+
+        var domainRatings = entities.Select(r => new Rating
+        {
+            Id        = r.RatingId,
+            TripId    = r.TripId,
+            RaterId   = r.RaterId,
+            RatedId   = r.RatedId,
+            Score     = r.Rating,
+            Comment   = r.Comment,
+            CreatedAt = r.CreatedAt,
+        }).ToList();
+
+        return await EnrichWithNamesAsync(domainRatings, ct);
+    }
+
+    private async Task<List<RatingDto>> EnrichWithNamesAsync(List<Rating> ratings, CancellationToken ct)
+    {
+        var allUserIds = ratings
+            .SelectMany(r => new[] { r.RaterId, r.RatedId })
+            .Distinct()
+            .ToList();
+        var userMap = await _db.Users.AsNoTracking()
+            .Where(u => allUserIds.Contains(u.UserId))
+            .ToDictionaryAsync(u => u.UserId, ct);
 
         return ratings.Select(r =>
         {
-            raterMap.TryGetValue(r.RaterId, out var rater);
+            userMap.TryGetValue(r.RaterId, out var rater);
+            userMap.TryGetValue(r.RatedId, out var rated);
             var dto = ToDto(r);
             dto.RaterFirstName = rater?.FirstName ?? string.Empty;
             dto.RaterLastName  = rater?.LastName  ?? string.Empty;
+            dto.RatedFirstName = rated?.FirstName ?? string.Empty;
+            dto.RatedLastName  = rated?.LastName  ?? string.Empty;
             return dto;
         }).ToList();
     }
@@ -58,14 +89,18 @@ public sealed class RatingsService : IRatingsService
         var trip = await _db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == dto.TripId, ct)
             ?? throw new KeyNotFoundException("Viaje no encontrado.");
 
-        // Allow rating on completed trips, or cancelled trips where the driver cancelled late
-        var isCompleted  = trip.State == TripState.Completed;
+        // Allow rating on completed trips, or cancelled trips where the driver cancelled late,
+        // or when the driver rates a passenger who cancelled their booking late (<30 min).
+        var isCompleted       = trip.State == TripState.Completed;
         var isCancelledLately = trip.State == TripState.Cancelled &&
                                 trip.CancelledAt.HasValue &&
-                                trip.BoardingStartedAt.HasValue; // boarding had started → late cancel
+                                trip.BoardingStartedAt.HasValue;
+        var isDriverRatingLateCancelPassenger = trip.DriverUserId == raterId &&
+            await _db.Bookings.AnyAsync(
+                b => b.TripId == dto.TripId && b.PassengerId == dto.RatedId && b.IsLateCancel, ct);
 
-        if (!isCompleted && !isCancelledLately)
-            throw new InvalidOperationException("Solo puedes calificar viajes completados o cancelados con poco tiempo de antelación.");
+        if (!isCompleted && !isCancelledLately && !isDriverRatingLateCancelPassenger)
+            throw new InvalidOperationException("Solo puedes calificar viajes completados o cuando el pasajero canceló tardíamente.");
 
         // Verify rater participated
         var isDriver    = trip.DriverUserId == raterId;
@@ -75,10 +110,11 @@ public sealed class RatingsService : IRatingsService
         if (!isDriver && !isPassenger)
             throw new InvalidOperationException("Solo los participantes del viaje pueden dejar calificaciones.");
 
-        // Check if rated person also participated
+        // Check if rated person also participated (include late-cancelled bookings)
         var ratedIsDriver    = trip.DriverUserId == dto.RatedId;
         var ratedIsPassenger = await _db.Bookings.AnyAsync(
-            b => b.TripId == dto.TripId && b.PassengerId == dto.RatedId && b.State != BookingState.Cancelled, ct);
+            b => b.TripId == dto.TripId && b.PassengerId == dto.RatedId &&
+                 (b.State != BookingState.Cancelled || b.IsLateCancel), ct);
 
         if (!ratedIsDriver && !ratedIsPassenger)
             throw new InvalidOperationException("El usuario calificado no participó en este viaje.");

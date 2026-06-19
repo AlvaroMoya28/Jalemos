@@ -191,12 +191,22 @@ public sealed class BookingsService : IBookingsService
         if (booking.State == BookingState.Cancelled || booking.State == BookingState.Completed)
             throw new InvalidOperationException("Esta reserva ya está cancelada o completada.");
 
-        var trip = await _db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == booking.TripId, cancellationToken);
+        var trip = await _db.Trips.FirstOrDefaultAsync(t => t.TripId == booking.TripId, cancellationToken);
 
-        booking.State        = BookingState.Cancelled;
-        booking.CancelReason = reason;
+        if (trip is not null && trip.State is TripState.InProgress or TripState.Completed or TripState.Cancelled)
+            throw new InvalidOperationException("No puedes cancelar una reserva de un viaje ya iniciado o completado.");
+
+        var isLate = trip is not null &&
+                     (trip.StartDateTime - DateTime.UtcNow).TotalMinutes < 30;
+
+        booking.State         = BookingState.Cancelled;
+        booking.CancelReason  = reason;
         booking.CancelDetails = details;
-        booking.UpdatedAt    = DateTime.UtcNow;
+        booking.IsLateCancel  = isLate;
+        booking.UpdatedAt     = DateTime.UtcNow;
+
+        if (trip is not null)
+            trip.AvailableSeats = (short)(trip.AvailableSeats + booking.SeatsReserved);
 
         var reasonLabel = reason switch
         {
@@ -206,19 +216,25 @@ public sealed class BookingsService : IBookingsService
             _                    => "Otro motivo",
         };
 
-        // Notify driver
         if (trip is not null)
         {
             var passenger = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == callerId, cancellationToken);
             var passengerName = passenger is null ? "Un pasajero" : $"{passenger.FirstName} {passenger.LastName}";
+            var body = isLate
+                ? $"Motivo: {reasonLabel}. Cancelación tardía — puedes calificar al pasajero."
+                : $"Motivo: {reasonLabel}. El asiento quedó disponible.";
             _db.Notifications.Add(new NotificationEntity
             {
-                UserId    = trip.DriverUserId,
-                TripId    = trip.TripId,
-                BookingId = booking.BookingId,
-                Type      = NotificationType.PassengerCancelled,
-                Title     = $"{passengerName} canceló su reserva",
-                Body      = $"Motivo: {reasonLabel}. Revisa el estado de abordaje.",
+                UserId      = trip.DriverUserId,
+                TripId      = trip.TripId,
+                BookingId   = booking.BookingId,
+                PassengerId = isLate ? callerId : null,
+                Type        = isLate ? NotificationType.PassengerCancelledLate : NotificationType.PassengerCancelled,
+                Title       = isLate
+                    ? $"{passengerName} canceló su reserva tardíamente"
+                    : $"{passengerName} canceló su reserva",
+                Body        = body,
+                Audience    = "driver",
             });
         }
 
