@@ -8,6 +8,7 @@ public class NotificationEntity
     public Guid UserId { get; set; }
     public Guid? TripId { get; set; }
     public Guid? BookingId { get; set; }
+    public Guid? PassengerId { get; set; }
     public NotificationType Type { get; set; }
     public string Title { get; set; } = null!;
     public string? Body { get; set; }

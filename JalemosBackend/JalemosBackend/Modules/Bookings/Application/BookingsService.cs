@@ -196,9 +196,13 @@ public sealed class BookingsService : IBookingsService
         if (trip is not null && trip.State is TripState.InProgress or TripState.Completed or TripState.Cancelled)
             throw new InvalidOperationException("No puedes cancelar una reserva de un viaje ya iniciado o completado.");
 
+        var isLate = trip is not null &&
+                     (trip.StartDateTime - DateTime.UtcNow).TotalMinutes < 30;
+
         booking.State         = BookingState.Cancelled;
         booking.CancelReason  = reason;
         booking.CancelDetails = details;
+        booking.IsLateCancel  = isLate;
         booking.UpdatedAt     = DateTime.UtcNow;
 
         if (trip is not null)
@@ -216,14 +220,21 @@ public sealed class BookingsService : IBookingsService
         {
             var passenger = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == callerId, cancellationToken);
             var passengerName = passenger is null ? "Un pasajero" : $"{passenger.FirstName} {passenger.LastName}";
+            var body = isLate
+                ? $"Motivo: {reasonLabel}. Cancelación tardía — puedes calificar al pasajero."
+                : $"Motivo: {reasonLabel}. El asiento quedó disponible.";
             _db.Notifications.Add(new NotificationEntity
             {
-                UserId    = trip.DriverUserId,
-                TripId    = trip.TripId,
-                BookingId = booking.BookingId,
-                Type      = NotificationType.PassengerCancelled,
-                Title     = $"{passengerName} canceló su reserva",
-                Body      = $"Motivo: {reasonLabel}. El asiento quedó disponible.",
+                UserId      = trip.DriverUserId,
+                TripId      = trip.TripId,
+                BookingId   = booking.BookingId,
+                PassengerId = isLate ? callerId : null,
+                Type        = isLate ? NotificationType.PassengerCancelledLate : NotificationType.PassengerCancelled,
+                Title       = isLate
+                    ? $"{passengerName} canceló su reserva tardíamente"
+                    : $"{passengerName} canceló su reserva",
+                Body        = body,
+                Audience    = "driver",
             });
         }
 

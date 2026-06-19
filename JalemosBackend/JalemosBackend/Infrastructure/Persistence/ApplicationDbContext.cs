@@ -21,7 +21,7 @@ namespace JalemosBackend.Infrastructure.Persistence
         TripStarting, TripCompleted, RatingReceived, General,
         // v5 lifecycle
         TripBoarding, QrScanned, TripStarted,
-        DriverCancelled, PassengerCancelled,
+        DriverCancelled, PassengerCancelled, PassengerCancelledLate,
         NoShowMarked, PaymentReminder, RatingReminder,
         // v6 — admin broadcast (promos, policy updates, announcements)
         AdminBroadcast
@@ -172,6 +172,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.BoardedAt).HasColumnName("boarded_at");
                 e.Property(x => x.CancelReason).HasColumnName("cancel_reason").HasMaxLength(60);
                 e.Property(x => x.CancelDetails).HasColumnName("cancel_details");
+                e.Property(x => x.IsLateCancel).HasColumnName("is_late_cancel").HasDefaultValue(false);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.TripId).HasDatabaseName("idx_bookings_trip");
@@ -269,6 +270,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
                 e.Property(x => x.TripId).HasColumnName("trip_id");
                 e.Property(x => x.BookingId).HasColumnName("booking_id");
+                e.Property(x => x.PassengerId).HasColumnName("passenger_id");
                 e.Property(x => x.Type).HasColumnName("type").HasColumnType("notification_type").HasDefaultValue(NotificationType.General);
                 e.Property(x => x.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
                 e.Property(x => x.Body).HasColumnName("body");
@@ -279,6 +281,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<TripEntity>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne<BookingEntity>().WithMany().HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.PassengerId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // DriverApplications

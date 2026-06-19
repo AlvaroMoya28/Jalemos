@@ -262,22 +262,29 @@ export default function MyRidesScreen() {
                 const driverName  = `${driverFirst} ${driverLast}`.trim() || item.driverName || 'Conductor';
                 const seats       = item.seatsReserved ?? item.availableSeats ?? 1;
                 const tripId      = item.tripId ?? item.id;
-                const tripState   = (item.tripState ?? item.state ?? '').toLowerCase();
+                const tripState    = (item.tripState ?? item.state ?? '').toLowerCase();
+                const bookingState = (item.bookingState ?? '').toLowerCase();
+                // Passenger cancelled voluntarily when there's a cancelReason set by their own action.
+                // A booking that was auto-cancelled due to the driver cancelling the trip will have no cancelReason.
+                const passengerCancelledOwn = bookingState === 'cancelled' && !!item.cancelReason;
+                // Trip was cancelled by the driver; only show this if the passenger didn't already cancel first.
+                const tripCancelledByDriver = tripState === 'cancelled' && !passengerCancelledOwn;
 
                 const nameParts = driverName.split(' ');
                 const avatar    = `${nameParts[0]?.[0] ?? ''}${nameParts[1]?.[0] ?? ''}`.toUpperCase();
 
-                const stateBadge = tripState === 'completed' ? 'Completado'
-                  : tripState === 'cancelled' ? 'Cancelado'
-                  : tripState === 'in_progress' ? 'En curso'
-                  : tripState === 'boarding'  ? 'Abordaje'
+                const stateBadge = passengerCancelledOwn  ? 'Reserva cancelada'
+                  : tripState === 'completed'              ? 'Viaje completado'
+                  : tripCancelledByDriver                  ? 'Viaje cancelado'
+                  : tripState === 'in_progress'            ? 'Viaje en curso'
+                  : tripState === 'boarding'               ? 'Viaje en abordaje'
                   : null;
 
-                const statusColor =
-                  tripState === 'completed'   ? '#1a9e6a'
-                  : tripState === 'cancelled' ? '#e53e3e'
-                  : tripState === 'in_progress' ? Brand.colors.green.normal
-                  : tripState === 'boarding'  ? '#f4a522'
+                const statusColor = passengerCancelledOwn  ? '#c05621'
+                  : tripState === 'completed'              ? '#1a9e6a'
+                  : tripCancelledByDriver                  ? '#e53e3e'
+                  : tripState === 'in_progress'            ? Brand.colors.green.normal
+                  : tripState === 'boarding'               ? '#f4a522'
                   : undefined;
 
                 const ride: Ride = {

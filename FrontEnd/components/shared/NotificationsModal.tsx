@@ -5,12 +5,15 @@
 
 import AnimatedPressable from './animated-pressable';
 import GlassCard from './glass-card';
+import RatingModal from './rating-modal';
 import { Brand } from '@/constants/theme';
 import { useNotifications } from '@/contexts/notifications';
+import { useAuth } from '@/contexts/auth';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { NotificationKind } from '@/types/notifications';
+import { ratingsApi } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, Text, View } from 'react-native';
 import { makeStyles } from './styles/NotificationsModal.styles';
 
@@ -33,6 +36,7 @@ const iconMap: Record<NotificationKind, keyof typeof Ionicons.glyphMap> = {
   trip_started: 'car-outline',
   driver_cancelled: 'alert-circle-outline',
   passenger_cancelled: 'person-remove-outline',
+  passenger_cancelled_late: 'alert-circle-outline',
   no_show_marked: 'remove-circle-outline',
   payment_reminder: 'card-outline',
   rating_reminder: 'star-half-outline',
@@ -55,10 +59,28 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+type RatingTarget = { passengerId: string; passengerName: string; tripId: string };
+
 export default function NotificationsModal({ visible, onClose }: NotificationsModalProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { items, unreadCount, isLoading, refresh, markRead, markAllRead, clearAll } = useNotifications();
+  const { token } = useAuth();
+
+  const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+
+  const handleRatePassenger = async (score: number, comment: string | null) => {
+    if (!token || !ratingTarget) return;
+    try {
+      await ratingsApi.submit(
+        { tripId: ratingTarget.tripId, ratedId: ratingTarget.passengerId, score, comment: comment ?? undefined },
+        token,
+      );
+      setRatingTarget(null);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo enviar la calificación.');
+    }
+  };
 
   // Refresh the feed each time the sheet opens.
   useEffect(() => {
@@ -125,6 +147,27 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
                     <Text style={styles.cardTitle}>{item.title}</Text>
                     {!!item.body && <Text style={styles.cardDesc}>{item.body}</Text>}
                     <Text style={styles.cardTime}>{relativeTime(item.createdAt)}</Text>
+                    {item.type === 'passenger_cancelled_late' && item.passengerId && item.tripId && (
+                      <AnimatedPressable
+                        pressedScale={0.96}
+                        style={{
+                          marginTop: 8, alignSelf: 'flex-start',
+                          flexDirection: 'row', alignItems: 'center', gap: 6,
+                          paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99,
+                          backgroundColor: Brand.colors.green.normal + '22',
+                        }}
+                        onPress={() => {
+                          if (!item.read) markRead(item.id);
+                          const passengerName = item.title.split(' canceló')[0] || 'Pasajero';
+                          setRatingTarget({ passengerId: item.passengerId!, passengerName, tripId: item.tripId! });
+                        }}
+                      >
+                        <Ionicons name="star-outline" size={13} color={Brand.colors.green.normal} />
+                        <Text style={{ fontFamily: 'Poppins_600SemiBold', fontSize: 12, color: Brand.colors.green.normal }}>
+                          Calificar pasajero
+                        </Text>
+                      </AnimatedPressable>
+                    )}
                   </View>
                   {!item.read && <View style={styles.dot} />}
                 </GlassCard>
@@ -140,6 +183,13 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
             </AnimatedPressable>
           </GlassCard>
         )}
+
+        <RatingModal
+          visible={!!ratingTarget}
+          ratedUser={ratingTarget ? { id: ratingTarget.passengerId, name: ratingTarget.passengerName, role: 'passenger' } : null}
+          onSubmit={handleRatePassenger}
+          onSkip={() => setRatingTarget(null)}
+        />
       </View>
     </Modal>
   );

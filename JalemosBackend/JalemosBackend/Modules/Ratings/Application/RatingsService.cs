@@ -58,14 +58,18 @@ public sealed class RatingsService : IRatingsService
         var trip = await _db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == dto.TripId, ct)
             ?? throw new KeyNotFoundException("Viaje no encontrado.");
 
-        // Allow rating on completed trips, or cancelled trips where the driver cancelled late
-        var isCompleted  = trip.State == TripState.Completed;
+        // Allow rating on completed trips, or cancelled trips where the driver cancelled late,
+        // or when the driver rates a passenger who cancelled their booking late (<30 min).
+        var isCompleted       = trip.State == TripState.Completed;
         var isCancelledLately = trip.State == TripState.Cancelled &&
                                 trip.CancelledAt.HasValue &&
-                                trip.BoardingStartedAt.HasValue; // boarding had started → late cancel
+                                trip.BoardingStartedAt.HasValue;
+        var isDriverRatingLateCancelPassenger = trip.DriverUserId == raterId &&
+            await _db.Bookings.AnyAsync(
+                b => b.TripId == dto.TripId && b.PassengerId == dto.RatedId && b.IsLateCancel, ct);
 
-        if (!isCompleted && !isCancelledLately)
-            throw new InvalidOperationException("Solo puedes calificar viajes completados o cancelados con poco tiempo de antelación.");
+        if (!isCompleted && !isCancelledLately && !isDriverRatingLateCancelPassenger)
+            throw new InvalidOperationException("Solo puedes calificar viajes completados o cuando el pasajero canceló tardíamente.");
 
         // Verify rater participated
         var isDriver    = trip.DriverUserId == raterId;
@@ -75,10 +79,11 @@ public sealed class RatingsService : IRatingsService
         if (!isDriver && !isPassenger)
             throw new InvalidOperationException("Solo los participantes del viaje pueden dejar calificaciones.");
 
-        // Check if rated person also participated
+        // Check if rated person also participated (include late-cancelled bookings)
         var ratedIsDriver    = trip.DriverUserId == dto.RatedId;
         var ratedIsPassenger = await _db.Bookings.AnyAsync(
-            b => b.TripId == dto.TripId && b.PassengerId == dto.RatedId && b.State != BookingState.Cancelled, ct);
+            b => b.TripId == dto.TripId && b.PassengerId == dto.RatedId &&
+                 (b.State != BookingState.Cancelled || b.IsLateCancel), ct);
 
         if (!ratedIsDriver && !ratedIsPassenger)
             throw new InvalidOperationException("El usuario calificado no participó en este viaje.");
