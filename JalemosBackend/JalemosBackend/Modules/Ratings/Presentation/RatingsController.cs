@@ -26,6 +26,15 @@ public sealed class RatingsController : ControllerBase
         return Ok(ratings);
     }
 
+    /// <summary>GET /api/ratings/low?maxScore=2 — admin: all ratings at or below maxScore.</summary>
+    [HttpGet("low")]
+    public async Task<IActionResult> GetLow([FromQuery] short maxScore = 2, CancellationToken ct = default)
+    {
+        if (User.FindFirstValue(ClaimTypes.Role) != "admin") return Forbid();
+        var ratings = await _svc.GetLowRatingsAsync(maxScore, ct);
+        return Ok(ratings);
+    }
+
     /// <summary>POST /api/ratings — submit a rating for a trip participant.</summary>
     [HttpPost]
     public async Task<IActionResult> Submit([FromBody] SubmitRatingDto dto, CancellationToken ct)

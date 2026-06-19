@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import InteractiveMapModal from "../components/ride-detail/map-modal";
 
 import AnimatedPressable from "@/components/shared/animated-pressable";
+import EmergencyReportModal from "@/components/shared/emergency-report-modal";
 import GlassCard from "@/components/shared/glass-card";
 import GlassAlert from "@/components/shared/glass-alert";
 import RatingModal from "@/components/shared/rating-modal";
@@ -257,6 +258,9 @@ export default function RideDetailScreen() {
   const [passengerCancelError, setPassengerCancelError] = useState<string | null>(null);
   // Reviews received by the driver
   const [driverReviews, setDriverReviews] = useState<RatingDTO[]>([]);
+  // Post-trip driver report
+  const [showDriverReport, setShowDriverReport] = useState(false);
+  const [driverReportSent, setDriverReportSent] = useState(false);
 
   const canRate = isHistory &&
     !isDriverOwn &&
@@ -273,6 +277,13 @@ export default function RideDetailScreen() {
       })
       .catch(() => {});
   }, [canRate, paramDriverId, tripId, user]);
+
+  // Passenger can report the driver after a completed trip
+  const canReportDriver = isHistory &&
+    !isDriverOwn &&
+    !!paramDriverId &&
+    (paramTripState === 'completed') &&
+    (bookingState === 'completed' || bookingState === 'boarded');
 
   const canCancelBooking = isHistory &&
     !isDriverOwn &&
@@ -979,6 +990,31 @@ export default function RideDetailScreen() {
                   </AnimatedPressable>
                 )
               )}
+
+              {/* Report driver — completed trips only */}
+              {canReportDriver && (
+                driverReportSent ? (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    padding: 14, borderRadius: 14,
+                    backgroundColor: '#f4a52222',
+                  }}>
+                    <Ionicons name="checkmark-circle" size={18} color="#f4a522" />
+                    <Text style={{ fontFamily: Fonts.heading, fontSize: 13, color: '#f4a522', flex: 1 }}>
+                      Reporte enviado. El equipo de Jalemos lo revisará.
+                    </Text>
+                  </View>
+                ) : (
+                  <AnimatedPressable
+                    pressedScale={0.97}
+                    style={[styles.reserveBtn, { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f4a522' }]}
+                    onPress={() => setShowDriverReport(true)}
+                  >
+                    <Ionicons name="flag-outline" size={16} color="#fff" />
+                    <Text style={[styles.reserveBtnText, { color: '#fff' }]}>Reportar conductor</Text>
+                  </AnimatedPressable>
+                )
+              )}
             </Animated.View>
           )}
         </View>
@@ -1095,6 +1131,18 @@ export default function RideDetailScreen() {
         primaryLabel="Entendido"
         onDismiss={() => setPassengerCancelError(null)}
       />
+
+      {/* Post-trip driver report */}
+      {canReportDriver && (
+        <EmergencyReportModal
+          visible={showDriverReport}
+          tripId={tripId}
+          defaultType="driver_report"
+          lockType
+          onSuccess={() => setDriverReportSent(true)}
+          onDismiss={() => setShowDriverReport(false)}
+        />
+      )}
     </View>
   );
 }
