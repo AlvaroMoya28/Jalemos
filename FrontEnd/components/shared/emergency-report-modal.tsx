@@ -24,23 +24,26 @@ interface Props {
   visible: boolean;
   tripId: string;
   onDismiss: () => void;
+  defaultType?: 'emergency' | 'driver_report';
+  lockType?: boolean;
+  onSuccess?: () => void;
 }
 
 type ReportType = 'emergency' | 'driver_report';
 
 const MAX_DESC = 400;
 
-export default function EmergencyReportModal({ visible, tripId, onDismiss }: Props) {
+export default function EmergencyReportModal({ visible, tripId, onDismiss, defaultType = 'emergency', lockType = false, onSuccess }: Props) {
   const { token } = useAuth();
   const { colors, isDark } = useAppTheme();
 
-  const [type, setType] = useState<ReportType>('emergency');
+  const [type, setType] = useState<ReportType>(defaultType);
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
   const reset = () => {
-    setType('emergency');
+    setType(defaultType);
     setDescription('');
     setSubmitting(false);
     setSent(false);
@@ -61,6 +64,7 @@ export default function EmergencyReportModal({ visible, tripId, onDismiss }: Pro
     try {
       await reportsApi.create({ tripId, type, description: description.trim() }, token);
       setSent(true);
+      onSuccess?.();
     } catch (e: any) {
       Alert.alert('Error al enviar', e.message ?? 'No se pudo enviar el reporte. Intenta de nuevo.');
     } finally {
@@ -122,8 +126,8 @@ export default function EmergencyReportModal({ visible, tripId, onDismiss }: Pro
                   Tu reporte llega al equipo de Jalemos en tiempo real.
                 </Text>
 
-                {/* Type selector */}
-                <View style={styles.typeRow}>
+                {/* Type selector — hidden when type is locked (e.g. post-trip driver report) */}
+                {!lockType && <View style={styles.typeRow}>
                   {(['emergency', 'driver_report'] as ReportType[]).map(t => {
                     const isSelected = type === t;
                     const color      = t === 'emergency' ? emergencyColor : driverColor;
@@ -148,7 +152,7 @@ export default function EmergencyReportModal({ visible, tripId, onDismiss }: Pro
                       </Pressable>
                     );
                   })}
-                </View>
+                </View>}
 
                 {/* Description */}
                 <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>

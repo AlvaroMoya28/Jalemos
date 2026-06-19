@@ -6,6 +6,8 @@ public sealed class TripReportDto
     public Guid TripId { get; init; }
     public Guid DriverId { get; init; }
     public Guid ReporterId { get; init; }
+    public string? DriverName { get; init; }
+    public string? ReporterName { get; init; }
     public string Type { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;

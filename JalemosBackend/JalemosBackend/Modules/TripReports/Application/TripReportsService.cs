@@ -5,6 +5,7 @@ using JalemosBackend.Modules.TripReports.Application.DTOs;
 using JalemosBackend.Modules.TripReports.Domain;
 using JalemosBackend.Modules.TripReports.Infrastructure;
 using JalemosBackend.Modules.Users.Domain;
+using JalemosBackend.Modules.Users.Infrastructure;
 
 namespace JalemosBackend.Modules.TripReports.Application;
 
@@ -29,8 +30,11 @@ public sealed class TripReportsService : ITripReportsService
         var trip = await _db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.TripId == dto.TripId, ct)
             ?? throw new KeyNotFoundException("Viaje no encontrado.");
 
-        if (trip.State != TripState.InProgress)
-            throw new InvalidOperationException("Solo se pueden crear reportes durante un viaje en curso.");
+        // Emergency reports require an active trip; driver_reports are also allowed after the trip ends.
+        var tripIsActive    = trip.State == TripState.InProgress;
+        var tripIsCompleted = trip.State == TripState.Completed;
+        if (!tripIsActive && !(tripIsCompleted && reportType == TripReportType.DriverReport))
+            throw new InvalidOperationException("Los reportes de emergencia solo se permiten durante un viaje en curso. Los reportes al conductor también se permiten tras finalizar el viaje.");
 
         var now = DateTime.UtcNow;
         var report = new TripReport
@@ -86,13 +90,26 @@ public sealed class TripReportsService : ITripReportsService
         page     = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
         var reports = await _repository.GetAllAsync(status, (page - 1) * pageSize, pageSize, ct);
-        return reports.Select(ToDto).ToList();
+
+        var userIds = reports.SelectMany(r => new[] { r.DriverId, r.ReporterId }).Distinct().ToList();
+        var userMap = await _db.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.UserId))
+            .ToDictionaryAsync(u => u.UserId, ct);
+
+        return reports.Select(r => ToDto(r, userMap)).ToList();
     }
 
     public async Task<TripReportDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         var report = await _repository.GetByIdAsync(id, ct);
-        return report is null ? null : ToDto(report);
+        if (report is null) return null;
+
+        var userIds = new[] { report.DriverId, report.ReporterId };
+        var userMap = await _db.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.UserId))
+            .ToDictionaryAsync(u => u.UserId, ct);
+
+        return ToDto(report, userMap);
     }
 
     public async Task<TripReportDto> UpdateStatusAsync(Guid id, UpdateTripReportStatusDto dto, CancellationToken ct = default)
@@ -120,20 +137,28 @@ public sealed class TripReportsService : ITripReportsService
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static TripReportDto ToDto(TripReport r) => new()
+    private static TripReportDto ToDto(TripReport r,
+        Dictionary<Guid, UserEntity>? userMap = null)
     {
-        Id          = r.Id,
-        TripId      = r.TripId,
-        DriverId    = r.DriverId,
-        ReporterId  = r.ReporterId,
-        Type        = r.Type == TripReportType.Emergency ? "emergency" : "driver_report",
-        Status      = StatusStr(r.Status),
-        Description = r.Description,
-        AdminNotes  = r.AdminNotes,
-        ResolvedAt  = r.ResolvedAt,
-        CreatedAt   = r.CreatedAt,
-        UpdatedAt   = r.UpdatedAt,
-    };
+        var driver   = userMap?.GetValueOrDefault(r.DriverId);
+        var reporter = userMap?.GetValueOrDefault(r.ReporterId);
+        return new()
+        {
+            Id           = r.Id,
+            TripId       = r.TripId,
+            DriverId     = r.DriverId,
+            ReporterId   = r.ReporterId,
+            DriverName   = driver   is null ? null : $"{driver.FirstName} {driver.LastName}",
+            ReporterName = reporter is null ? null : $"{reporter.FirstName} {reporter.LastName}",
+            Type         = r.Type == TripReportType.Emergency ? "emergency" : "driver_report",
+            Status       = StatusStr(r.Status),
+            Description  = r.Description,
+            AdminNotes   = r.AdminNotes,
+            ResolvedAt   = r.ResolvedAt,
+            CreatedAt    = r.CreatedAt,
+            UpdatedAt    = r.UpdatedAt,
+        };
+    }
 
     private static string StatusStr(TripReportStatus s) => s switch
     {

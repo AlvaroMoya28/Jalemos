@@ -11,6 +11,8 @@ export interface TripReportDto {
   tripId: string;
   driverId: string;
   reporterId: string;
+  driverName: string | null;
+  reporterName: string | null;
   type: 'emergency' | 'driver_report';
   status: 'open' | 'verified' | 'dismissed' | 'action_taken';
   description: string;

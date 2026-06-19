@@ -6,6 +6,7 @@ using JalemosBackend.Modules.Notifications.Infrastructure;
 using JalemosBackend.Modules.Ratings.Application.DTOs;
 using JalemosBackend.Modules.Ratings.Domain;
 using JalemosBackend.Modules.Ratings.Infrastructure;
+using JalemosBackend.Modules.Users.Infrastructure;
 
 namespace JalemosBackend.Modules.Ratings.Application;
 
@@ -29,20 +30,50 @@ public sealed class RatingsService : IRatingsService
     public async Task<IEnumerable<RatingDto>> GetByRatedUserAsync(Guid ratedId, CancellationToken ct = default)
     {
         var ratings = (await _repo.GetByRatedUserAsync(ratedId, ct)).ToList();
+        return await EnrichWithNamesAsync(ratings, ct);
+    }
 
-        // Load rater names in one query to avoid N+1
-        var raterIds = ratings.Select(r => r.RaterId).Distinct().ToList();
-        var raters   = await _db.Users.AsNoTracking()
-            .Where(u => raterIds.Contains(u.UserId))
+    public async Task<IEnumerable<RatingDto>> GetLowRatingsAsync(short maxScore = 2, CancellationToken ct = default)
+    {
+        var entities = await _db.Ratings.AsNoTracking()
+            .Where(r => r.Rating <= maxScore)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(200)
             .ToListAsync(ct);
-        var raterMap = raters.ToDictionary(u => u.UserId);
+
+        var domainRatings = entities.Select(r => new Rating
+        {
+            Id        = r.RatingId,
+            TripId    = r.TripId,
+            RaterId   = r.RaterId,
+            RatedId   = r.RatedId,
+            Score     = r.Rating,
+            Comment   = r.Comment,
+            CreatedAt = r.CreatedAt,
+        }).ToList();
+
+        return await EnrichWithNamesAsync(domainRatings, ct);
+    }
+
+    private async Task<List<RatingDto>> EnrichWithNamesAsync(List<Rating> ratings, CancellationToken ct)
+    {
+        var allUserIds = ratings
+            .SelectMany(r => new[] { r.RaterId, r.RatedId })
+            .Distinct()
+            .ToList();
+        var userMap = await _db.Users.AsNoTracking()
+            .Where(u => allUserIds.Contains(u.UserId))
+            .ToDictionaryAsync(u => u.UserId, ct);
 
         return ratings.Select(r =>
         {
-            raterMap.TryGetValue(r.RaterId, out var rater);
+            userMap.TryGetValue(r.RaterId, out var rater);
+            userMap.TryGetValue(r.RatedId, out var rated);
             var dto = ToDto(r);
             dto.RaterFirstName = rater?.FirstName ?? string.Empty;
             dto.RaterLastName  = rater?.LastName  ?? string.Empty;
+            dto.RatedFirstName = rated?.FirstName ?? string.Empty;
+            dto.RatedLastName  = rated?.LastName  ?? string.Empty;
             return dto;
         }).ToList();
     }
