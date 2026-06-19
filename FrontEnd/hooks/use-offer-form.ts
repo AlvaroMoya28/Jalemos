@@ -179,26 +179,20 @@ export function useOfferForm() {
     setFrom(pred.description);
     fromResolvedTextRef.current = pred.description;
     fromPlaceIdRef.current = pred.placeId;
-    if (pred.coords) { applyFromCoords(pred.coords); console.log('[offer] origen coords (pred):', pred.coords); }
+    if (pred.coords) applyFromCoords(pred.coords);
     else {
       applyFromCoords(null);
-      resolveCoords(pred.placeId, pred.description).then((c) => {
-        console.log('[offer] origen coords:', c, 'placeId:', pred.placeId, 'desc:', pred.description);
-        if (c) applyFromCoords(c);
-      });
+      resolveCoords(pred.placeId, pred.description).then((c) => { if (c) applyFromCoords(c); });
     }
   };
   const onSelectTo = (pred: PlacePrediction) => {
     setTo(pred.description);
     toResolvedTextRef.current = pred.description;
     toPlaceIdRef.current = pred.placeId;
-    if (pred.coords) { applyToCoords(pred.coords); console.log('[offer] destino coords (pred):', pred.coords); }
+    if (pred.coords) applyToCoords(pred.coords);
     else {
       applyToCoords(null);
-      resolveCoords(pred.placeId, pred.description).then((c) => {
-        console.log('[offer] destino coords:', c, 'placeId:', pred.placeId, 'desc:', pred.description);
-        if (c) applyToCoords(c);
-      });
+      resolveCoords(pred.placeId, pred.description).then((c) => { if (c) applyToCoords(c); });
     }
   };
 
@@ -206,10 +200,6 @@ export function useOfferForm() {
     // Coordinates resolve asynchronously after picking a suggestion. If the user
     // publishes before that lands (or it failed), resolve from the stored place_id
     // now so a valid selection never reports "sin coordenadas".
-    console.log('[offer] publish raw → from:', JSON.stringify(from), 'to:', JSON.stringify(to),
-      'fromCoords(state):', fromCoords, 'fromCoords(ref):', fromCoordsRef.current,
-      'toCoords(ref):', toCoordsRef.current, 'fromPlaceId:', fromPlaceIdRef.current, 'toPlaceId:', toPlaceIdRef.current);
-
     // Refs hold the latest resolved coords regardless of render timing.
     let resolvedFrom = fromCoordsRef.current ?? fromCoords;
     let resolvedTo   = toCoordsRef.current ?? toCoords;
@@ -221,7 +211,6 @@ export function useOfferForm() {
       resolvedTo = await resolveCoords(toPlaceIdRef.current, to);
       if (resolvedTo) applyToCoords(resolvedTo);
     }
-    console.log('[offer] publish coords → origen:', resolvedFrom, 'destino:', resolvedTo);
 
     const error = validateOfferForm({ from, to, selectedDate, vehicleId, userId: user?.id, fromCoords: resolvedFrom, toCoords: resolvedTo });
     if (error) { showError(error.title, error.body); return; }
