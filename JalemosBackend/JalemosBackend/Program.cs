@@ -21,6 +21,8 @@ using JalemosBackend.Modules.Users.Application;
 using JalemosBackend.Modules.Users.Infrastructure;
 using JalemosBackend.Modules.Payments.Application;
 using JalemosBackend.Modules.Payments.Infrastructure;
+using JalemosBackend.Modules.TripReports.Application;
+using JalemosBackend.Modules.TripReports.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Stripe;
 using Microsoft.EntityFrameworkCore;
@@ -71,6 +73,8 @@ dataSourceBuilder.MapEnum<ReportReason>("report_reason", new NpgsqlSnakeCaseName
 dataSourceBuilder.MapEnum<ReportStatus>("report_status", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<AdminActionType>("admin_action_type", new NpgsqlSnakeCaseNameTranslator());
 dataSourceBuilder.MapEnum<PaymentStatus>("payment_status", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<TripReportType>("trip_report_type", new NpgsqlSnakeCaseNameTranslator());
+dataSourceBuilder.MapEnum<TripReportStatus>("trip_report_status", new NpgsqlSnakeCaseNameTranslator());
 var dataSource = dataSourceBuilder.Build();
 Console.WriteLine($"DataSource type: {dataSource.GetType().FullName}");
 
@@ -93,6 +97,8 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
         o.MapEnum<ReportStatus>("report_status");
         o.MapEnum<AdminActionType>("admin_action_type");
         o.MapEnum<PaymentStatus>("payment_status");
+        o.MapEnum<TripReportType>("trip_report_type");
+        o.MapEnum<TripReportStatus>("trip_report_status");
     })
     .AddInterceptors(sp.GetRequiredService<PushNotificationInterceptor>()));
 
@@ -138,6 +144,10 @@ builder.Services.AddScoped<DriverApplicationsRepository>();
 StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddScoped<IPaymentsService, PaymentsService>();
 builder.Services.AddScoped<PaymentsRepository>();
+
+// TripReports module
+builder.Services.AddScoped<ITripReportsService, TripReportsService>();
+builder.Services.AddScoped<TripReportsRepository>();
 
 var app = builder.Build();
 
