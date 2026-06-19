@@ -30,11 +30,14 @@ using Npgsql.NameTranslation;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+builder.WebHost.UseUrls($"http://*:{port}");
 
 // Register MVC controllers and Swagger for API documentation
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 
 // CORS — allows the Expo app (any origin in dev) to call the API
 builder.Services.AddCors(opts =>
@@ -149,6 +152,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseHealthChecks("/health");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
