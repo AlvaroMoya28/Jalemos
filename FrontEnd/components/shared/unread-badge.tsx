@@ -1,5 +1,5 @@
 // Small unread-count pill, positioned at the top-right of a bell/icon button.
-// Renders nothing when count is 0. Shows "9+" past 9. Shared across screens (E0-1).
+// Renders nothing when count is 0. Shows "9+" past 9.
 
 import { StyleSheet, Text, View } from 'react-native';
 

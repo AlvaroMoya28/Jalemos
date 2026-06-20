@@ -1,5 +1,5 @@
 // Reusable bottom-sheet picker with search and optional "Otro" custom entry.
-// Created by Claude Sonnet 4.6 for the Jalemos driver-registration vehicle dropdowns.
+// Updated by Claude Sonnet 4.6 for the Jalemos driver-registration vehicle dropdowns.
 
 import { Brand } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';

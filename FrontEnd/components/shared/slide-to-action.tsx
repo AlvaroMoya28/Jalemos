@@ -1,12 +1,15 @@
 // Slide to action — real PanResponder drag: pull the thumb to the right edge to trigger.
 // A GlassAlert confirmation appears once the drag threshold is reached.
+// Shared component (used by the driver boarding flow).
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { Animated, PanResponder, Text, View } from 'react-native';
-import { slideStyles } from './styles/boarding-screen.styles';
+
 import { useAppTheme } from '@/hooks/use-app-theme';
-import GlassAlert from '../shared/glass-alert';
+
+import GlassAlert from './glass-alert';
+import { slideStyles } from './styles/slide-to-action.styles';
 
 const THUMB_SIZE = 62;
 const DRAG_THRESHOLD = 0.82; // fraction of track width that triggers confirm

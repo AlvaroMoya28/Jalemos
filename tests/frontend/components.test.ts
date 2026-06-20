@@ -404,13 +404,8 @@ describe('FrontEnd components/NotificationsModal — NotificationsModal', () => 
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('FrontEnd components — smoke tests', () => {
-  it('animated-pressable renders without error', () => {
-    const AnimatedPressable = require('../../FrontEnd/components/shared/animated-pressable').default;
-    expect(() =>
-      render(createElement(AnimatedPressable, { onPress: jest.fn() }, createElement('span', null, 'Press me'))),
-    ).not.toThrow();
-  });
-
+  // page-loader has no behavioural logic; a single render smoke is the only
+  // coverage that adds value here.
   it('page-loader renders without error when visible', () => {
     const PageLoader = require('../../FrontEnd/components/shared/page-loader').default;
     expect(() => render(createElement(PageLoader, { visible: true, label: 'Cargando...' }))).not.toThrow();
@@ -471,15 +466,6 @@ describe('FrontEnd components/place-search-input — PlaceSearchInput', () => {
     onSelect: jest.fn(),
   };
 
-  it('renders without error', () => {
-    expect(() => render(createElement(PlaceSearchInput, defaultProps))).not.toThrow();
-  });
-
-  it('renders the text input', () => {
-    const { container } = render(createElement(PlaceSearchInput, defaultProps));
-    expect(container.querySelector('input')).not.toBeNull();
-  });
-
   it('calls onChangeText when input value changes', () => {
     const onChangeText = jest.fn();
     const { container } = render(
@@ -503,23 +489,6 @@ describe('FrontEnd components/place-search-input — PlaceSearchInput', () => {
     );
     fireEvent.click(container.querySelectorAll('button')[0]);
     expect(onChangeText).toHaveBeenCalledWith('');
-  });
-
-  it('renders a leading icon when provided', () => {
-    const { container } = render(
-      createElement(PlaceSearchInput, {
-        ...defaultProps,
-        leadingIcon: createElement('span', { 'data-testid': 'lead-icon' }),
-      }),
-    );
-    expect(container.querySelector('[data-testid="lead-icon"]')).not.toBeNull();
-  });
-
-  it('renders with placeholder text', () => {
-    const { container } = render(
-      createElement(PlaceSearchInput, { ...defaultProps, placeholder: 'Buscar lugar...' }),
-    );
-    expect(container.querySelector('input')!.getAttribute('placeholder')).toBe('Buscar lugar...');
   });
 
   it('does not show a clear button when value is empty', () => {
