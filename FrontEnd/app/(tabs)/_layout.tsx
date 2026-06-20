@@ -14,6 +14,7 @@ import { useUserMode } from '@/contexts/user-mode';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/tabs/haptic-tab';
 import ActiveTripBubble from '@/components/tabs/active-trip-bubble';
@@ -26,6 +27,7 @@ export default function TabLayout() {
   const { user } = useAuth();
   const { mode } = useUserMode();
   const { showLoader, hideLoader } = useLoading();
+  const { bottom } = useSafeAreaInsets();
 
   const isAdmin = user?.role === 'admin';
   // Only a passenger+driver account in driver mode can see driver screens.
@@ -33,8 +35,8 @@ export default function TabLayout() {
   const isDriver = mode === 'driver' && user?.role === 'passenger+driver';
 
   const tabBarStyle = {
-    height: 74,
-    paddingBottom: 10,
+    height: 74 + bottom,
+    paddingBottom: 10 + bottom,
     paddingTop: 8,
     backgroundColor: colors.tabBarBg,
     borderTopColor: colors.tabBarBorder,
