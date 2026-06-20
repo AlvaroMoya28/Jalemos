@@ -1,35 +1,32 @@
 // Driver boarding management screen — shown in the Offer tab when the driver has an active trip.
 // Handles QR scanning, passenger status, no-show marking, journey start, trip completion,
 // trip cancellation, and external navigation launch.
-// Updated by Claude Sonnet 4.6: PanResponder slide-to-action, in-trip route map, and
-// glassmorphism alerts replacing native Alerts.
+// State machine lives in useBoardingScreen; this file renders it.
 
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   Text,
   View,
 } from 'react-native';
-import { styles, mapStyles } from './styles/boarding-screen.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Brand, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { useActiveTrip } from '@/contexts/active-trip';
-import { useAuth } from '@/contexts/auth';
-import { TripStatusResponse, tripLifecycleApi, ratingsApi, paymentsApi, PaymentDto } from '@/services/api';
-import { openInMaps } from '@/utils/open-in-maps';
-import { fetchRoutePolyline, buildStaticMapUrl } from '@/utils/static-map';
-import QrScanner from './qr-scanner';
-import GlassAlert from '../shared/glass-alert';
+import { useBoardingScreen } from '@/hooks/use-boarding-screen';
+import { useTripRouteMap } from '@/hooks/use-trip-route-map';
+import { TripStatusResponse } from '@/services/api';
 import CancellationModal from '../shared/cancellation-modal';
+import GlassAlert from '../shared/glass-alert';
 import RatingModal from '../shared/rating-modal';
+import { SlideToAction } from '../shared/slide-to-action';
+import BoardingMap from './boarding-map';
 import { PassengerRow } from './passenger-row';
-import { SlideToAction } from './slide-to-action';
 import { PaymentConfirmationStep } from './payment-confirmation-step';
+import QrScanner from './qr-scanner';
+import { styles } from './styles/boarding-screen.styles';
 
 interface Props {
   trip: TripStatusResponse;
@@ -41,236 +38,29 @@ interface Props {
 
 export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: Props) {
   const { colors, isDark } = useAppTheme();
-  const { token }          = useAuth();
-  const { refresh }        = useActiveTrip();
   const insets             = useSafeAreaInsets();
 
-  const [scannerOpen, setScannerOpen]         = useState(false);
-  const [scanFeedback, setScanFeedback]       = useState<{ name: string; boarded: boolean } | null>(null);
-  const [scanning, setScanning]               = useState(false);
-  const [showCancel, setShowCancel]           = useState(false);
-  const [showSeatbelt, setShowSeatbelt]       = useState(false);
-  const [showRating, setShowRating]           = useState(false);
-  const [currentRatingIdx, setCurrentRatingIdx] = useState(0);
-  const [submitting, setSubmitting]           = useState(false);
-  const seatbeltShown                         = useRef(false);
-  // Glass alert state for native Alert replacements
-  const [noShowConfirm, setNoShowConfirm]     = useState<{ bookingId: string; name: string } | null>(null);
-  const [errorMsg, setErrorMsg]               = useState<{ title: string; body: string } | null>(null);
-  // Map state (shown when in_progress)
-  const [mapUrl, setMapUrl]                   = useState<string | null>(null);
-  const [mapError, setMapError]               = useState(false);
-  const [polyline, setPolyline]               = useState<string | null>(null);
+  const b = useBoardingScreen(trip, onTripEnded, onTripCompleted);
+  const { mapUrl, mapError, onMapError } = useTripRouteMap({
+    active: b.isInProgress,
+    originLat: trip.originLatitude, originLng: trip.originLongitude,
+    destLat: trip.destinationLatitude, destLng: trip.destinationLongitude,
+    isDark,
+  });
 
-  // Payment confirmation step (after rating flow)
-  const [showPayments, setShowPayments]           = useState(false);
-  const [pendingPayments, setPendingPayments]     = useState<(PaymentDto & { passengerName: string })[]>([]);
-  const [loadingPayments, setLoadingPayments]     = useState(false);
-  const [confirmingId, setConfirmingId]           = useState<string | null>(null);
-
-  const boardedPassengers  = trip.passengers.filter(p => p.bookingState === 'boarded');
-  const pendingPassengers  = trip.passengers.filter(p => p.bookingState === 'confirmed' || p.bookingState === 'pending');
-  const totalActive        = trip.passengers.filter(p => !['cancelled', 'no_show'].includes(p.bookingState));
-  const allBoarded         = pendingPassengers.length === 0;
-
-  const isBoarding   = trip.state === 'boarding';
-  const isInProgress = trip.state === 'in_progress';
-
-  // Grace period timer
-  const [graceLeft, setGraceLeft] = useState(0);
-  useEffect(() => {
-    if (!isBoarding || !trip.boardingStartedAt) return;
-    const deadline = new Date(trip.departureAt).getTime() + 5 * 60_000;
-    const tick = () => setGraceLeft(Math.max(0, deadline - Date.now()));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [isBoarding, trip.departureAt, trip.boardingStartedAt]);
-
-  const graceMinSec = graceLeft > 0
-    ? `${Math.floor(graceLeft / 60000)}:${String(Math.floor((graceLeft % 60000) / 1000)).padStart(2, '0')}`
-    : null;
-
-  // Fetch route polyline when journey starts
-  useEffect(() => {
-    if (!isInProgress) return;
-    const fLat = Number(trip.originLatitude);
-    const fLng = Number(trip.originLongitude);
-    const tLat = Number(trip.destinationLatitude);
-    const tLng = Number(trip.destinationLongitude);
-    fetchRoutePolyline(fLat, fLng, tLat, tLng).then(setPolyline);
-  }, [isInProgress, trip.destinationLatitude, trip.destinationLongitude, trip.originLatitude, trip.originLongitude, trip.tripId]);
-
-  // Build static map URL whenever polyline or theme changes
-  useEffect(() => {
-    if (!isInProgress) return;
-    const fLat = Number(trip.originLatitude);
-    const fLng = Number(trip.originLongitude);
-    const tLat = Number(trip.destinationLatitude);
-    const tLng = Number(trip.destinationLongitude);
-    setMapError(false);
-    setMapUrl(buildStaticMapUrl(fLat, fLng, tLat, tLng, polyline, isDark));
-  }, [isInProgress, polyline, isDark, trip.tripId, trip.originLatitude, trip.originLongitude, trip.destinationLatitude, trip.destinationLongitude]);
-
-  // QR scan handler
-  const handleScan = useCallback(async (qrToken: string) => {
-    if (scanning || !token) return;
-    setScanning(true);
-    setScannerOpen(false);
-    try {
-      const result = await tripLifecycleApi.scanQr(trip.tripId, qrToken, token);
-      setScanFeedback({ name: `${result.firstName} ${result.lastName}`, boarded: !result.alreadyBoarded });
-      refresh();
-    } catch (e: any) {
-      setErrorMsg({ title: 'QR inválido', body: e.message ?? 'No se pudo escanear el QR.' });
-    } finally {
-      setScanning(false);
-    }
-  }, [scanning, token, trip.tripId, refresh]);
-
-  // Mark no-show — opens a GlassAlert confirmation
-  const handleNoShow = (bookingId: string, name: string) => {
-    setNoShowConfirm({ bookingId, name });
-  };
-  const confirmNoShow = async () => {
-    if (!noShowConfirm) return;
-    const { bookingId } = noShowConfirm;
-    setNoShowConfirm(null);
-    try {
-      await tripLifecycleApi.markNoShow(bookingId, token!);
-      refresh();
-    } catch (e: any) {
-      setErrorMsg({ title: 'Error', body: e.message ?? 'No se pudo marcar la inasistencia.' });
-    }
-  };
-
-  // Start journey
-  const handleStartJourney = async () => {
-    if (!token) return;
-    setSubmitting(true);
-    try {
-      await tripLifecycleApi.startJourney(trip.tripId, token);
-      await refresh();
-      if (!seatbeltShown.current) { seatbeltShown.current = true; setShowSeatbelt(true); }
-    } catch (e: any) {
-      setErrorMsg({ title: 'No se puede iniciar', body: e.message ?? 'Inténtalo de nuevo.' });
-    } finally { setSubmitting(false); }
-  };
-
-  // Complete trip
-  const handleCompleteTrip = async () => {
-    if (!token) return;
-    setSubmitting(true);
-    try {
-      await tripLifecycleApi.completeTrip(trip.tripId, token);
-      if (boardedPassengers.length > 0) {
-        // Freeze this screen mounted in the parent so the rating flow isn't unmounted
-        // when the next poll sets driverTrip = null.
-        onTripCompleted?.(trip);
-        setCurrentRatingIdx(0);
-        setShowRating(true);
-      } else {
-        onTripEnded();
-      }
-    } catch (e: any) {
-      setErrorMsg({ title: 'Error al finalizar', body: e.message ?? 'Inténtalo de nuevo.' });
-    } finally { setSubmitting(false); }
-  };
-
-  // Cancel trip
-  const handleCancelTrip = async (reason: string, details: string | null) => {
-    if (!token) return;
-    setSubmitting(true);
-    try {
-      await tripLifecycleApi.cancelTrip(trip.tripId, reason, details, token);
-      setShowCancel(false);
-      refresh();
-      onTripEnded();
-    } catch (e: any) {
-      setErrorMsg({ title: 'Error al cancelar', body: e.message ?? 'Inténtalo de nuevo.' });
-    } finally { setSubmitting(false); }
-  };
-
-  // Rating flow for each boarded passenger
-  const handleRatingSubmit = async (score: number, comment: string | null) => {
-    if (!token) return;
-    const p = boardedPassengers[currentRatingIdx];
-    try {
-      await ratingsApi.submit({ tripId: trip.tripId, ratedId: p.passengerId, score, comment: comment ?? undefined }, token);
-    } catch { /* silent */ }
-    const next = currentRatingIdx + 1;
-    if (next < boardedPassengers.length) {
-      setCurrentRatingIdx(next);
-    } else {
-      setShowRating(false);
-      loadPendingPayments();
-    }
-  };
-
-  const loadPendingPayments = async () => {
-    if (!token) { onTripEnded(); return; }
-    setLoadingPayments(true);
-    setShowPayments(true);
-    try {
-      // The passenger's app creates the payment when it polls and detects the trip
-      // as completed. That poll may take a few seconds after the driver ends the trip,
-      // so we retry up to ~12 s before giving up.
-      const DEADLINE = Date.now() + 12_000;
-      let results: (PaymentDto & { passengerName: string })[] = [];
-
-      do {
-        results = [];
-        for (const p of boardedPassengers) {
-          try {
-            const pay = await paymentsApi.getByBooking(p.bookingId, token);
-            if (pay.status === 'pending')
-              results.push({ ...pay, passengerName: `${p.firstName} ${p.lastName}` });
-          } catch { }
-        }
-        if (results.length > 0 || Date.now() >= DEADLINE) break;
-        await new Promise(r => setTimeout(r, 3_000));
-      } while (true);
-
-      setPendingPayments(results);
-      if (results.length === 0) {
-        setShowPayments(false);
-        onTripEnded();
-      }
-    } catch {
-      setShowPayments(false);
-      onTripEnded();
-    } finally {
-      setLoadingPayments(false);
-    }
-  };
-
-  const handleConfirmPayment = async (paymentId: string) => {
-    if (!token) return;
-    setConfirmingId(paymentId);
-    try {
-      await paymentsApi.confirmPayment(paymentId, token);
-      setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
-    } catch (e: any) {
-      setErrorMsg({ title: 'Error', body: e.message ?? 'No se pudo confirmar el pago.' });
-    } finally {
-      setConfirmingId(null);
-    }
-  };
-
-  const stateColor  = isBoarding ? '#f4a522' : isInProgress ? Brand.colors.green.normal : '#aaa';
-  const stateLabel  = isBoarding ? 'Abordaje en curso' : isInProgress ? 'Viaje en curso' : 'Completado';
+  const visiblePassengers = trip.passengers.filter(p => p.bookingState !== 'cancelled');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.screenBg, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.stateBadge, { backgroundColor: stateColor + '22' }]}>
-          <View style={[styles.stateDot, { backgroundColor: stateColor }]} />
-          <Text style={[styles.stateText, { color: stateColor }]}>{stateLabel}</Text>
+        <View style={[styles.stateBadge, { backgroundColor: b.stateColor + '22' }]}>
+          <View style={[styles.stateDot, { backgroundColor: b.stateColor }]} />
+          <Text style={[styles.stateText, { color: b.stateColor }]}>{b.stateLabel}</Text>
         </View>
         <Pressable
           style={[styles.cancelBtn, { borderColor: colors.border }]}
-          onPress={() => setShowCancel(true)}
+          onPress={() => b.setShowCancel(true)}
         >
           <Ionicons name="close-circle-outline" size={16} color="#e53e3e" />
           <Text style={styles.cancelBtnText}>Cancelar</Text>
@@ -278,7 +68,7 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
       </View>
 
       {/* Route text card — boarding only */}
-      {isBoarding && (
+      {b.isBoarding && (
         <View style={[styles.routeCard, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
           <View style={styles.routeRow}>
             <Ionicons name="radio-button-on" size={14} color={Brand.colors.green.dark} />
@@ -293,72 +83,32 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
       )}
 
       {/* Scan QR button — boarding only */}
-      {isBoarding && (
+      {b.isBoarding && (
         <Pressable
-          style={[styles.scanBtn, { marginHorizontal: 16, marginBottom: 10 }, scanning && { opacity: 0.6 }]}
-          onPress={() => setScannerOpen(true)}
-          disabled={scanning}
+          style={[styles.scanBtn, { marginHorizontal: 16, marginBottom: 10 }, b.scanning && { opacity: 0.6 }]}
+          onPress={() => b.setScannerOpen(true)}
+          disabled={b.scanning}
         >
-          {scanning
+          {b.scanning
             ? <ActivityIndicator color="#fff" size="small" />
             : <Ionicons name="qr-code-outline" size={20} color="#fff" />
           }
-          <Text style={styles.scanBtnText}>{scanning ? 'Procesando…' : 'Escanear QR de pasajero'}</Text>
+          <Text style={styles.scanBtnText}>{b.scanning ? 'Procesando…' : 'Escanear QR de pasajero'}</Text>
         </Pressable>
       )}
 
       {/* Map + navigation — in_progress only */}
-      {isInProgress && (
-        <>
-          <Pressable
-            style={mapStyles.container}
-            onPress={() => openInMaps(
-              Number(trip.originLatitude), Number(trip.originLongitude),
-              Number(trip.destinationLatitude), Number(trip.destinationLongitude),
-              trip.origin, trip.destination,
-            )}
-          >
-            {mapUrl && !mapError ? (
-              <Image
-                source={{ uri: mapUrl }}
-                style={mapStyles.image}
-                resizeMode="cover"
-                onError={() => setMapError(true)}
-              />
-            ) : (
-              <View style={[mapStyles.fallback, { backgroundColor: colors.inputBg }]}>
-                <Ionicons name="map-outline" size={36} color={colors.textMuted} />
-                <Text style={[mapStyles.fallbackText, { color: colors.textMuted }]} numberOfLines={1}>
-                  {trip.origin} → {trip.destination}
-                </Text>
-              </View>
-            )}
-            <View style={mapStyles.expandIcon}>
-              <Ionicons name="navigate" size={14} color="#fff" />
-            </View>
-          </Pressable>
-
-          <Pressable
-            style={[styles.scanBtn, { backgroundColor: '#3182ce', marginHorizontal: 16, marginBottom: 10 }]}
-            onPress={() => openInMaps(
-              Number(trip.originLatitude), Number(trip.originLongitude),
-              Number(trip.destinationLatitude), Number(trip.destinationLongitude),
-              trip.origin, trip.destination,
-            )}
-          >
-            <Ionicons name="navigate-outline" size={20} color="#fff" />
-            <Text style={styles.scanBtnText}>Abrir en mapa</Text>
-          </Pressable>
-        </>
+      {b.isInProgress && (
+        <BoardingMap trip={trip} mapUrl={mapUrl} mapError={mapError} onMapError={onMapError} colors={colors} />
       )}
 
       {/* Passengers */}
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-        Pasajeros — {boardedPassengers.length}/{totalActive.length} abordados
+        Pasajeros — {b.boardedPassengers.length}/{b.totalActive.length} abordados
       </Text>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 8, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-        {trip.passengers.filter(p => p.bookingState !== 'cancelled').length === 0 ? (
+        {visiblePassengers.length === 0 ? (
           <View style={[styles.graceCard, { backgroundColor: colors.inputBg }]}>
             <Ionicons name="people-outline" size={16} color={colors.textMuted} />
             <Text style={[styles.graceText, { color: colors.textSecondary }]}>
@@ -366,132 +116,128 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
             </Text>
           </View>
         ) : (
-          trip.passengers.filter(p => p.bookingState !== 'cancelled').map(p => (
+          visiblePassengers.map(p => (
             <PassengerRow
               key={p.bookingId}
               passenger={p}
-              isBoarding={isBoarding}
-              graceElapsed={graceLeft === 0}
-              onMarkNoShow={() => handleNoShow(p.bookingId, `${p.firstName} ${p.lastName}`)}
+              isBoarding={b.isBoarding}
+              graceElapsed={b.graceLeft === 0}
+              onMarkNoShow={() => b.handleNoShow(p.bookingId, `${p.firstName} ${p.lastName}`)}
               colors={colors}
             />
           ))
         )}
 
-        {isBoarding && graceMinSec && pendingPassengers.length > 0 && (
+        {b.isBoarding && b.graceMinSec && b.pendingPassengers.length > 0 && (
           <View style={[styles.graceCard, { backgroundColor: '#f4a52218' }]}>
             <Ionicons name="timer-outline" size={16} color="#f4a522" />
             <Text style={styles.graceText}>
-              Período de gracia: <Text style={{ fontFamily: Fonts.headingBold }}>{graceMinSec}</Text> restante
+              Período de gracia: <Text style={{ fontFamily: Fonts.headingBold }}>{b.graceMinSec}</Text> restante
             </Text>
           </View>
         )}
       </ScrollView>
 
       {/* Primary action */}
-      {isBoarding && (
+      {b.isBoarding && (
         <SlideToAction
-          label={allBoarded ? 'Iniciar viaje' : `Iniciar viaje (${pendingPassengers.length} pendiente${pendingPassengers.length > 1 ? 's' : ''})`}
-          onSlide={allBoarded ? handleStartJourney : undefined}
-          disabled={!allBoarded || submitting}
+          label={b.allBoarded ? 'Iniciar viaje' : `Iniciar viaje (${b.pendingPassengers.length} pendiente${b.pendingPassengers.length > 1 ? 's' : ''})`}
+          onSlide={b.allBoarded ? b.handleStartJourney : undefined}
+          disabled={!b.allBoarded || b.submitting}
           color={Brand.colors.green.normal}
           insets={insets}
         />
       )}
-      {isInProgress && (
+      {b.isInProgress && (
         <SlideToAction
           label="Finalizar viaje"
-          onSlide={handleCompleteTrip}
-          disabled={submitting}
+          onSlide={b.handleCompleteTrip}
+          disabled={b.submitting}
           color="#2d6a4f"
           insets={insets}
         />
       )}
 
       {/* Modals */}
-      <QrScanner visible={scannerOpen} onScan={handleScan} onClose={() => setScannerOpen(false)} />
+      <QrScanner visible={b.scannerOpen} onScan={b.handleScan} onClose={() => b.setScannerOpen(false)} />
 
       <GlassAlert
-        visible={!!scanFeedback}
-        icon={scanFeedback?.boarded ? 'checkmark-circle' : 'information-circle'}
-        iconColor={scanFeedback?.boarded ? Brand.colors.green.normal : '#f4a522'}
-        title={scanFeedback?.boarded ? '¡Pasajero abordado!' : 'Ya estaba registrado'}
-        body={scanFeedback ? `${scanFeedback.name} ${scanFeedback.boarded ? 'está ahora en el vehículo.' : 'ya había sido registrado anteriormente.'}` : ''}
+        visible={!!b.scanFeedback}
+        icon={b.scanFeedback?.boarded ? 'checkmark-circle' : 'information-circle'}
+        iconColor={b.scanFeedback?.boarded ? Brand.colors.green.normal : '#f4a522'}
+        title={b.scanFeedback?.boarded ? '¡Pasajero abordado!' : 'Ya estaba registrado'}
+        body={b.scanFeedback ? `${b.scanFeedback.name} ${b.scanFeedback.boarded ? 'está ahora en el vehículo.' : 'ya había sido registrado anteriormente.'}` : ''}
         primaryLabel="Listo"
-        onDismiss={() => setScanFeedback(null)}
+        onDismiss={() => b.setScanFeedback(null)}
       />
 
       <GlassAlert
-        visible={showSeatbelt}
+        visible={b.showSeatbelt}
         icon="shield-checkmark"
         iconColor={Brand.colors.green.normal}
         title="Recuerden el cinturón"
         body="Antes de arrancar, asegúrate de que todos los pasajeros lleven el cinturón de seguridad puesto."
         primaryLabel="Todos listos"
-        onDismiss={() => setShowSeatbelt(false)}
+        onDismiss={() => b.setShowSeatbelt(false)}
       />
 
       {/* No-show confirmation */}
       <GlassAlert
-        visible={!!noShowConfirm}
+        visible={!!b.noShowConfirm}
         icon="person-remove"
         iconColor="#e53e3e"
-        title={noShowConfirm ? `¿Marcar a ${noShowConfirm.name}?` : ''}
-        body={graceLeft > 0
-          ? `Quedan ${graceMinSec} de período de gracia.`
+        title={b.noShowConfirm ? `¿Marcar a ${b.noShowConfirm.name}?` : ''}
+        body={b.graceLeft > 0
+          ? `Quedan ${b.graceMinSec} de período de gracia.`
           : 'El período de gracia ha finalizado. El pasajero no se presentó.'}
         primaryLabel="Sí, no se presentó"
-        onPrimary={confirmNoShow}
+        onPrimary={b.confirmNoShow}
         secondaryLabel="Cancelar"
-        onSecondary={() => setNoShowConfirm(null)}
+        onSecondary={() => b.setNoShowConfirm(null)}
         dismissible={false}
-        onDismiss={() => setNoShowConfirm(null)}
+        onDismiss={() => b.setNoShowConfirm(null)}
       />
 
       {/* Generic error */}
       <GlassAlert
-        visible={!!errorMsg}
+        visible={!!b.errorMsg}
         icon="alert-circle"
         iconColor="#e53e3e"
-        title={errorMsg?.title ?? 'Error'}
-        body={errorMsg?.body ?? ''}
+        title={b.errorMsg?.title ?? 'Error'}
+        body={b.errorMsg?.body ?? ''}
         primaryLabel="Entendido"
-        onDismiss={() => setErrorMsg(null)}
+        onDismiss={() => b.setErrorMsg(null)}
       />
 
       <CancellationModal
-        visible={showCancel}
+        visible={b.showCancel}
         type="driver"
         title="¿Por qué cancelas el viaje?"
-        onConfirm={handleCancelTrip}
-        onCancel={() => setShowCancel(false)}
-        loading={submitting}
+        onConfirm={b.handleCancelTrip}
+        onCancel={() => b.setShowCancel(false)}
+        loading={b.submitting}
       />
 
       <RatingModal
-        visible={showRating && boardedPassengers.length > 0}
-        ratedUser={boardedPassengers[currentRatingIdx] ? {
-          id: boardedPassengers[currentRatingIdx].passengerId,
-          name: `${boardedPassengers[currentRatingIdx].firstName} ${boardedPassengers[currentRatingIdx].lastName}`,
+        visible={b.showRating && b.boardedPassengers.length > 0}
+        ratedUser={b.boardedPassengers[b.currentRatingIdx] ? {
+          id: b.boardedPassengers[b.currentRatingIdx].passengerId,
+          name: `${b.boardedPassengers[b.currentRatingIdx].firstName} ${b.boardedPassengers[b.currentRatingIdx].lastName}`,
           role: 'passenger',
         } : null}
-        onSubmit={handleRatingSubmit}
-        onSkip={() => {
-          const next = currentRatingIdx + 1;
-          if (next < boardedPassengers.length) setCurrentRatingIdx(next);
-          else { setShowRating(false); loadPendingPayments(); }
-        }}
+        onSubmit={b.handleRatingSubmit}
+        onSkip={b.skipRating}
       />
 
       {/* Payment confirmation step after ratings */}
-      {showPayments && (
+      {b.showPayments && (
         <PaymentConfirmationStep
           colors={colors}
           insets={insets}
-          loadingPayments={loadingPayments}
-          pendingPayments={pendingPayments}
-          confirmingId={confirmingId}
-          onConfirmPayment={handleConfirmPayment}
+          loadingPayments={b.loadingPayments}
+          pendingPayments={b.pendingPayments}
+          confirmingId={b.confirmingId}
+          onConfirmPayment={b.handleConfirmPayment}
           onFinish={onTripEnded}
         />
       )}
