@@ -1,4 +1,4 @@
-// Segmented control switching between the three reports views.
+// Segmented control switching between the reports views.
 
 import { Pressable, Text, View } from 'react-native';
 
@@ -9,7 +9,6 @@ import { ViewMode } from '@/hooks/use-admin-reports';
 const SEGMENTS: [ViewMode, string][] = [
   ['trip', 'En Viaje'],
   ['ratings', 'Calificaciones'],
-  ['user', 'Usuarios'],
 ];
 
 export default function ReportsViewToggle({ value, onChange, colors }: {
