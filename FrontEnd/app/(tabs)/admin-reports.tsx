@@ -1,10 +1,10 @@
-// Admin tab — user reports moderation panel.
-// Three views: in-trip reports (real API), low ratings (real API) and in-memory
-// user reports. Tapping a card opens an action bottom sheet.
+// Admin tab — reports moderation panel.
+// Two views: in-trip reports (real API) and low ratings (real API).
+// Tapping a card opens an action bottom sheet.
 
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useNavigation } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -20,18 +20,12 @@ import { TripView } from '@/components/admin/report-config';
 import ReportsViewToggle from '@/components/admin/reports-view-toggle';
 import TripReportActionSheet from '@/components/admin/trip-report-action-sheet';
 import TripReportCard from '@/components/admin/trip-report-card';
-import UserReportActionSheet from '@/components/admin/user-report-action-sheet';
-import UserReportCard from '@/components/admin/user-report-card';
 import { Brand } from '@/constants/theme';
-import { ReportStatus, UserReport } from '@/constants/mock-reports';
-import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAdminReports } from '@/hooks/use-admin-reports';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { makeStyles } from '../../styles/tabs/admin-reports.styles';
-
-type Filter = 'all' | ReportStatus;
 
 export default function AdminReportsScreen() {
   const { user, token } = useAuth();
@@ -39,9 +33,6 @@ export default function AdminReportsScreen() {
   const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
-  const { reports, suspendUserFromReport, deactivateUserFromReport, dismissReport } = useApplications();
-  const [filter, setFilter] = useState<Filter>('all');
-  const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
 
   const {
     viewMode, setViewMode,
@@ -55,30 +46,11 @@ export default function AdminReportsScreen() {
     navigation.setOptions({ title: 'Reportes', icon: { sf: 'flag' } });
   }, [navigation]);
 
-  const filtered = useMemo(() =>
-    filter === 'all' ? reports : reports.filter((r) => r.status === filter),
-    [reports, filter]
-  );
-
-  const counts = useMemo(() => ({
-    all:       reports.length,
-    pending:   reports.filter((r) => r.status === 'pending').length,
-    resolved:  reports.filter((r) => r.status === 'resolved').length,
-    dismissed: reports.filter((r) => r.status === 'dismissed').length,
-  }), [reports]);
-
   // Non-admins must never see this screen. Redirect them to the appropriate user tab based on their mode.
   if (user?.role !== 'admin') {
     const fallback = (mode === 'driver' && user?.role === 'passenger+driver') ? '/(tabs)/offer' : '/(tabs)/search';
     return <Redirect href={fallback} />;
   }
-
-  const filterList: { key: Filter; label: string }[] = [
-    { key: 'all',       label: `Todos (${counts.all})` },
-    { key: 'pending',   label: `Pendientes (${counts.pending})` },
-    { key: 'resolved',  label: `Resueltos (${counts.resolved})` },
-    { key: 'dismissed', label: `Desestimados (${counts.dismissed})` },
-  ];
 
   const tripFilterList: { key: TripView; label: string }[] = [
     { key: 'all',         label: `Todos (${tripReports.length})` },
@@ -87,24 +59,6 @@ export default function AdminReportsScreen() {
     { key: 'dismissed',   label: `Desestimados (${tripReports.filter(r => r.status === 'dismissed').length})` },
     { key: 'action_taken',label: `Con acción (${tripReports.filter(r => r.status === 'action_taken').length})` },
   ];
-
-  const handleSuspend = (days: number) => {
-    if (!selectedReport) return;
-    suspendUserFromReport(selectedReport.id, days);
-    setSelectedReport(null);
-  };
-
-  const handleDeactivate = () => {
-    if (!selectedReport) return;
-    deactivateUserFromReport(selectedReport.id);
-    setSelectedReport(null);
-  };
-
-  const handleDismiss = () => {
-    if (!selectedReport) return;
-    dismissReport(selectedReport.id);
-    setSelectedReport(null);
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.screenBg : '#0a3f39' }]}>
@@ -172,41 +126,8 @@ export default function AdminReportsScreen() {
             </View>
           )}
 
-          {/* ══ USER REPORTS TAB ══════════════════════════════════════════ */}
-          {viewMode === 'user' && (
-            <>
-              <FilterChips options={filterList} value={filter} onChange={setFilter} styles={styles} colors={colors} />
-
-              <View style={styles.list}>
-                {filtered.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Ionicons name="flag-outline" size={40} color={colors.textMuted} />
-                    <Text style={styles.emptyText}>No hay reportes en esta categoría</Text>
-                  </View>
-                ) : (
-                  filtered.map((report, idx) => (
-                    <Animated.View key={report.id} entering={FadeInDown.duration(200).delay(idx * 40)}>
-                      <UserReportCard report={report} onPress={() => setSelectedReport(report)} styles={styles} colors={colors} />
-                    </Animated.View>
-                  ))
-                )}
-              </View>
-            </>
-          )}
         </ScrollView>
       </View>
-
-      {/* ── User report action sheet ── */}
-      <UserReportActionSheet
-        report={selectedReport}
-        visible={!!selectedReport}
-        onClose={() => setSelectedReport(null)}
-        onSuspend={handleSuspend}
-        onDeactivate={handleDeactivate}
-        onDismiss={handleDismiss}
-        styles={styles}
-        colors={colors}
-      />
 
       {/* ── Trip report action sheet ── */}
       <TripReportActionSheet

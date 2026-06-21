@@ -20,181 +20,27 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import InteractiveMapModal from "../components/ride-detail/map-modal";
 
-import AnimatedPressable from "@/components/shared/animated-pressable";
+import BookingPanel from "@/components/ride-detail/booking-panel";
+import DriverReviews from "@/components/ride-detail/driver-reviews";
+import HistoryActions from "@/components/ride-detail/history-actions";
+import TripInfoCards from "@/components/ride-detail/trip-info-cards";
+import { RideDetail, RideReview } from "@/components/ride-detail/types";
+import { dateLabel, timeLabel } from "@/utils/datetime";
+import { buildMapUrl, fetchRoutePolyline } from "@/utils/ride-map";
 import EmergencyReportModal from "@/components/shared/emergency-report-modal";
-import GlassCard from "@/components/shared/glass-card";
 import GlassAlert from "@/components/shared/glass-alert";
 import RatingModal from "@/components/shared/rating-modal";
 import CancellationModal from "@/components/shared/cancellation-modal";
-import { Brand, Fonts } from "@/constants/theme";
 import { useTripsData } from "@/hooks/use-trips-data";
 import { useAppTheme } from "@/hooks/use-app-theme";
-import { makeStyles, staticStyles as rideDetailStaticStyles } from "../styles/app/ride-detail.styles";
+import { makeStyles } from "../styles/app/ride-detail.styles";
 
-const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? "";
 const BOOKING_PANEL_HEIGHT = 112;
 
-// Fetches the road route polyline from Directions API.
-// Returns the encoded polyline string, or null if unavailable (web / no key / API error).
-async function fetchRoutePolyline(
-  fromLat: number,
-  fromLng: number,
-  toLat: number,
-  toLng: number,
-): Promise<string | null> {
-  // Directions REST API is blocked by CORS from the browser (same restriction as Places Autocomplete).
-  // On web the static map falls back to a straight line between the two points.
-  if (!GOOGLE_MAPS_KEY || typeof document !== "undefined") return null;
-  try {
-    const params = new URLSearchParams({
-      origin: `${fromLat},${fromLng}`,
-      destination: `${toLat},${toLng}`,
-      key: GOOGLE_MAPS_KEY,
-    });
-    const res = await fetch(
-      `https://maps.googleapis.com/maps/api/directions/json?${params}`,
-    );
-    const json = await res.json();
-    if (json.status !== "OK" || !json.routes?.[0]) return null;
-    return json.routes[0].overview_polyline.points as string;
-  } catch (e) {
-    console.warn("[Directions] fetch error", e);
-    return null;
-  }
-}
-
-// Map style rules — each entry becomes a &style= parameter in the Static Maps URL.
-// Dark theme mirrors the app's dark surface (#1a1a1a) with teal water and muted labels.
-// Light theme keeps roads clean and tints water with the app's brand green (#bae2dd).
-const DARK_MAP_STYLES = [
-  "feature:all|element:geometry|color:0x060e0d",
-  "feature:all|element:labels.text.fill|color:0x4a7a74",
-  "feature:all|element:labels.text.stroke|color:0x060e0d",
-  "feature:road|element:geometry|color:0x0f1f1d",
-  "feature:road.highway|element:geometry|color:0x162624",
-  "feature:road.highway|element:geometry.stroke|color:0x1a9e8f",
-  "feature:water|element:geometry|color:0x040a09",
-  "feature:landscape.natural|element:geometry|color:0x060c0b",
-  "feature:landscape.man_made|element:geometry|color:0x0a1916",
-  "feature:poi|element:geometry|color:0x060e0d",
-  "feature:poi.park|element:geometry|color:0x07110a",
-  "feature:transit|element:geometry|color:0x0d1b19",
-  "feature:administrative|element:labels.text.fill|color:0x2e5550",
-];
-
-const LIGHT_MAP_STYLES = [
-  "feature:water|element:geometry|color:0xbae2dd",
-  "feature:landscape.natural|element:geometry|color:0xf0f7f5",
-  "feature:poi.park|element:geometry|color:0xdceee9",
-  "feature:road|element:geometry|color:0xffffff",
-  "feature:road.highway|element:geometry|color:0xe8f4f1",
-  "feature:road.highway|element:geometry.stroke|color:0x1a9e8f",
-  "feature:administrative|element:labels.text.fill|color:0x595959",
-];
-
-function buildMapUrl(
-  fromLat: number,
-  fromLng: number,
-  toLat: number,
-  toLng: number,
-  encodedPolyline: string | null,
-  isDark: boolean,
-): string | null {
-  if (!GOOGLE_MAPS_KEY) return null;
-  let url =
-    `https://maps.googleapis.com/maps/api/staticmap?size=800x440&scale=2&maptype=roadmap` +
-    `&markers=color:0x1a9e8f|size:mid|label:A|${fromLat},${fromLng}` +
-    `&markers=color:0xE53935|size:mid|label:B|${toLat},${toLng}`;
-  if (encodedPolyline) {
-    url += `&path=color:0x1a9e8fff|weight:4|enc:${encodedPolyline}`;
-  } else {
-    url += `&path=color:0x1a9e8fff|weight:4|${fromLat},${fromLng}|${toLat},${toLng}`;
-  }
-  const styles = isDark ? DARK_MAP_STYLES : LIGHT_MAP_STYLES;
-  for (const style of styles) {
-    url += `&style=${encodeURIComponent(style)}`;
-  }
-  return url + `&key=${GOOGLE_MAPS_KEY}`;
-}
-
-function StarRating({ rating, size = 13 }: { rating: number; size?: number }) {
-  const full = Math.floor(rating);
-  const hasHalf = rating % 1 >= 0.4;
-  const empty = 5 - full - (hasHalf ? 1 : 0);
-  return (
-    <View style={rideDetailStaticStyles.starRatingRow}>
-      {Array.from({ length: full }).map((_, i) => (
-        <Ionicons key={`f${i}`} name="star" size={size} color="#f7a900" />
-      ))}
-      {hasHalf ? (
-        <Ionicons name="star-half" size={size} color="#f7a900" />
-      ) : null}
-      {Array.from({ length: empty }).map((_, i) => (
-        <Ionicons
-          key={`e${i}`}
-          name="star-outline"
-          size={size}
-          color="#f7a900"
-        />
-      ))}
-    </View>
-  );
-}
-
-function dateLabel(date: Date) {
-  return date.toLocaleDateString("es-CR", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function timeLabel(hour: number, minute: number) {
-  const period = hour < 12 ? "AM" : "PM";
-  const h = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h}:${String(minute).padStart(2, "0")} ${period}`;
-}
-
-type RideReview = {
-  id: string;
-  reviewer: string;
-  avatar: string;
-  rating: number;
-  comment: string;
-  date: string;
-};
-
-type RideDetail = {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: { lat: number; lng: number };
-  toCoords: { lat: number; lng: number };
-  date: string;
-  time: string;
-  price: number;
-  totalSeats: number;
-  availableSeats: number;
-  notes?: string;
-  driver: {
-    id: string;
-    fullName: string;
-    avatar: string;
-    rating: number;
-    ratingsCount: number;
-    tripsCompleted: number;
-    memberSince: string;
-    vehicle: string;
-    plate: string;
-    verified: boolean;
-    reviews: RideReview[];
-  };
-};
 export default function RideDetailScreen() {
   const params = useLocalSearchParams<{
     id: string;
@@ -635,387 +481,31 @@ export default function RideDetailScreen() {
 
         {/* Content surface */}
         <View style={styles.surface}>
-          {/* Trip info card */}
-          <Animated.View entering={FadeInDown.duration(240).delay(60)}>
-            <GlassCard style={styles.card} intensity={34}>
-              {/* Route */}
-              <View style={styles.routeRow}>
-                <View style={styles.routeLine}>
-                  <View style={styles.routeDot} />
-                  <View style={styles.routeConnector} />
-                  <Ionicons
-                    name="location"
-                    size={14}
-                    color={Brand.colors.green.normal}
-                  />
-                </View>
-                <View style={styles.routePlaces}>
-                  <View style={styles.routePlaceBlock}>
-                    <Text style={styles.routeLabel}>Origen</Text>
-                    <Text style={styles.routePlace}>{ride.from}</Text>
-                  </View>
-                  <View style={styles.routePlaceBlock}>
-                    <Text style={styles.routeLabel}>Destino</Text>
-                    <Text style={styles.routePlace}>{ride.to}</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* 2×2 detail grid */}
-              <View style={styles.detailGrid}>
-                <View style={styles.detailCell}>
-                  <Ionicons
-                    style={styles.detailIcon}
-                    name="calendar-outline"
-                    size={16}
-                    color={Brand.colors.green.dark}
-                  />
-                  <Text style={styles.detailLabel}>Fecha</Text>
-                  <Text style={styles.detailValue}>{ride.date}</Text>
-                </View>
-                <View style={[styles.detailCell, styles.detailCellRight]}>
-                  <Ionicons
-                    style={styles.detailIcon}
-                    name="time-outline"
-                    size={16}
-                    color={Brand.colors.green.dark}
-                  />
-                  <Text style={styles.detailLabel}>Hora</Text>
-                  <Text style={styles.detailValue}>{ride.time}</Text>
-                </View>
-                <View style={[styles.detailCell, styles.detailCellBottom]}>
-                  <Ionicons
-                    style={styles.detailIcon}
-                    name="people-outline"
-                    size={16}
-                    color={Brand.colors.green.dark}
-                  />
-                  <Text style={styles.detailLabel}>Espacios libres</Text>
-                  <Text style={styles.detailValue}>
-                    {ride.availableSeats}{" "}
-                    <Text
-                      style={{
-                        color: colors.textMuted,
-                        fontSize: 13,
-                        fontFamily: Fonts.sans,
-                      }}
-                    >
-                      de {ride.totalSeats}
-                    </Text>
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.detailCell,
-                    styles.detailCellRight,
-                    styles.detailCellBottom,
-                  ]}
-                >
-                  <Ionicons
-                    style={styles.detailIcon}
-                    name="cash-outline"
-                    size={16}
-                    color={Brand.colors.green.dark}
-                  />
-                  <Text style={styles.detailLabel}>Por persona</Text>
-                  <Text style={[styles.detailValue, styles.detailValueGreen]}>
-                    ₡{ride.price.toLocaleString()}
-                  </Text>
-                </View>
-              </View>
-
-              {ride.notes ? (
-                <>
-                  <View style={styles.divider} />
-                  <View style={styles.notesRow}>
-                    <Ionicons
-                      name="information-circle-outline"
-                      size={16}
-                      color={colors.textMuted}
-                    />
-                    <Text style={styles.notesText}>{ride.notes}</Text>
-                  </View>
-                </>
-              ) : null}
-            </GlassCard>
-          </Animated.View>
-
-          {/* Driver card */}
-          <Animated.View entering={FadeInDown.duration(240).delay(130)}>
-            <GlassCard style={styles.card} intensity={34}>
-              <View style={styles.driverHeader}>
-                <View style={styles.driverAvatar}>
-                  <Text style={styles.driverAvatarText}>
-                    {ride.driver.avatar}
-                  </Text>
-                </View>
-                <View style={styles.driverInfo}>
-                  <View style={styles.driverNameRow}>
-                    <Text style={styles.driverName}>
-                      {ride.driver.fullName}
-                    </Text>
-                    {ride.driver.verified && (
-                      <View style={styles.verifiedBadge}>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={12}
-                          color={Brand.colors.green.normal}
-                        />
-                        <Text style={styles.verifiedText}>Verificado</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.driverRatingRow}>
-                    <StarRating rating={ride.driver.rating} size={13} />
-                    <Text style={styles.driverRatingText}>
-                      {ride.driver.rating} ({ride.driver.ratingsCount})
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.statsRow}>
-                <View style={styles.statCell}>
-                  <Text style={styles.statValue}>
-                    {ride.driver.tripsCompleted}
-                  </Text>
-                  <Text style={styles.statLabel}>Viajes</Text>
-                </View>
-                <View style={[styles.statCell, styles.statCellDivider]}>
-                  <Text style={styles.statValue}>
-                    {ride.driver.memberSince}
-                  </Text>
-                  <Text style={styles.statLabel}>Miembro desde</Text>
-                </View>
-              </View>
-            </GlassCard>
-          </Animated.View>
-
-          {/* Vehicle card */}
-          {(ride.driver.vehicle || ride.driver.plate) ? (
-            <Animated.View entering={FadeInDown.duration(240).delay(165)}>
-              <GlassCard style={styles.card} intensity={34}>
-                <View style={styles.vehicleRow}>
-                  <View style={styles.vehicleIconWrap}>
-                    <Ionicons name="car-sport-outline" size={22} color={Brand.colors.green.dark} />
-                  </View>
-                  <View style={styles.vehicleInfo}>
-                    <Text style={styles.vehicleModel} numberOfLines={1}>
-                      {ride.driver.vehicle || "Vehículo sin modelo"}
-                    </Text>
-                    {ride.driver.plate ? (
-                      <View style={styles.vehiclePlateBadge}>
-                        <Text style={styles.vehiclePlateText}>{ride.driver.plate}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              </GlassCard>
-            </Animated.View>
-          ) : null}
+          <TripInfoCards ride={ride} styles={styles} colors={colors} />
 
           {/* Reviews */}
-          <Animated.View
-            entering={FadeInDown.duration(240).delay(200)}
-            style={styles.reviewsSection}
-          >
-            <Text style={styles.sectionTitle}>Reseñas recientes</Text>
-            {driverReviews.length === 0 ? (
-              <Text style={[styles.reviewComment, { color: colors.textMuted }]}>
-                Este conductor aún no tiene reseñas.
-              </Text>
-            ) : (
-              // Show at most the 5 most recent reviews (already sorted newest-first).
-              driverReviews.slice(0, 5).map((review) => {
-                const reviewerName = `${review.raterFirstName} ${review.raterLastName}`.trim() || 'Usuario';
-                const avatar = `${review.raterFirstName?.[0] ?? ''}${review.raterLastName?.[0] ?? ''}`.toUpperCase() || '?';
-                const date = new Date(review.createdAt).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' });
-                return (
-                  <GlassCard key={review.id} style={styles.reviewCard} intensity={28}>
-                    <View style={styles.reviewHeader}>
-                      <View style={styles.reviewAvatar}>
-                        <Text style={styles.reviewAvatarText}>{avatar}</Text>
-                      </View>
-                      <View style={styles.reviewMeta}>
-                        <Text style={styles.reviewerName}>{reviewerName}</Text>
-                        <View style={styles.reviewRatingRow}>
-                          <StarRating rating={review.score} size={11} />
-                          <Text style={styles.reviewDate}>{date}</Text>
-                        </View>
-                      </View>
-                    </View>
-                    {review.comment ? (
-                      <Text style={styles.reviewComment}>{review.comment}</Text>
-                    ) : null}
-                  </GlassCard>
-                );
-              })
-            )}
-          </Animated.View>
+          <DriverReviews reviews={driverReviews} styles={styles} colors={colors} />
 
-          {/* ── History: state badge + rating — live inside the scroll so nothing overlaps ── */}
+          {/* History: state badge + contextual actions */}
           {isHistory && (
-            <Animated.View
-              entering={FadeInDown.duration(240).delay(230)}
-              style={{ marginHorizontal: 16, marginTop: 8, gap: 10 }}
-            >
-              {/* State badge */}
-              <View style={{
-                flexDirection: 'row', alignItems: 'center',
-                alignSelf: 'flex-start',
-                gap: 6,
-                paddingHorizontal: 14, paddingVertical: 8,
-                borderRadius: 999,
-                backgroundColor:
-                  paramTripState === 'completed'   ? Brand.colors.green.normal + '22'
-                  : paramTripState === 'cancelled' ? '#e53e3e22'
-                  : paramTripState === 'scheduled' ? '#f4a52222'
-                  : colors.border,
-              }}>
-                <Ionicons
-                  name={
-                    paramTripState === 'completed'   ? 'checkmark-circle'
-                    : paramTripState === 'cancelled' ? 'close-circle'
-                    : paramTripState === 'scheduled' ? 'time-outline'
-                    : 'ellipse'
-                  }
-                  size={16}
-                  color={
-                    paramTripState === 'completed'   ? Brand.colors.green.normal
-                    : paramTripState === 'cancelled' ? '#e53e3e'
-                    : paramTripState === 'scheduled' ? '#f4a522'
-                    : Brand.colors.green.normal
-                  }
-                />
-                <Text style={{
-                  fontFamily: Fonts.headingBold, fontSize: 13,
-                  color: paramTripState === 'completed'
-                    ? Brand.colors.green.normal
-                    : paramTripState === 'cancelled' ? '#e53e3e'
-                    : colors.textMuted,
-                }}>
-                  {paramTripState === 'completed'   ? 'Viaje completado'
-                    : paramTripState === 'cancelled' ? 'Viaje cancelado'
-                    : paramTripState === 'scheduled' ? 'Próximo'
-                    : paramTripState === 'in_progress' ? 'En curso'
-                    : paramTripState === 'boarding'  ? 'Abordaje'
-                    : paramTripState}
-                </Text>
-              </View>
-
-              {/* Cancel trip — only for scheduled driver trips */}
-              {isDriverOwn && paramTripState === 'scheduled' && !cancelSuccess && (
-                <AnimatedPressable
-                  pressedScale={0.97}
-                  style={[
-                    styles.reserveBtn,
-                    { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e53e3e' },
-                  ]}
-                  onPress={() => setShowCancelModal(true)}
-                >
-                  <Ionicons name="close-circle-outline" size={16} color="#fff" />
-                  <Text style={[styles.reserveBtnText, { color: '#fff' }]}>Cancelar viaje</Text>
-                </AnimatedPressable>
-              )}
-              {cancelSuccess && (
-                <View style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 10,
-                  padding: 14, borderRadius: 14,
-                  backgroundColor: '#e53e3e22',
-                }}>
-                  <Ionicons name="checkmark-circle" size={18} color="#e53e3e" />
-                  <Text style={{ fontFamily: Fonts.heading, fontSize: 13, color: '#e53e3e', flex: 1 }}>
-                    Viaje cancelado. Los pasajeros han sido notificados.
-                  </Text>
-                </View>
-              )}
-
-              {/* Cancel booking — passenger only, scheduled/boarding trips */}
-              {canCancelBooking && !passengerCancelSuccess && (
-                <>
-                  <AnimatedPressable
-                    pressedScale={0.97}
-                    style={[
-                      styles.reserveBtn,
-                      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e53e3e' },
-                    ]}
-                    onPress={() => setShowPassengerCancelModal(true)}
-                  >
-                    <Ionicons name="close-circle-outline" size={16} color="#fff" />
-                    <Text style={[styles.reserveBtnText, { color: '#fff' }]}>Cancelar reserva</Text>
-                  </AnimatedPressable>
-                  <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textMuted, textAlign: 'center', paddingHorizontal: 8 }}>
-                    Cancelaciones con menos de 30 min de anticipación pueden afectar tu calificación.
-                  </Text>
-                </>
-              )}
-              {passengerCancelSuccess && (
-                <View style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 10,
-                  padding: 14, borderRadius: 14,
-                  backgroundColor: '#e53e3e22',
-                }}>
-                  <Ionicons name="checkmark-circle" size={18} color="#e53e3e" />
-                  <Text style={{ fontFamily: Fonts.heading, fontSize: 13, color: '#e53e3e', flex: 1 }}>
-                    Reserva cancelada. El conductor ha sido notificado.
-                  </Text>
-                </View>
-              )}
-
-              {/* Rating section */}
-              {canRate && (
-                alreadyRated || ratingSuccess ? (
-                  <View style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 10,
-                    padding: 14, borderRadius: 14,
-                    backgroundColor: Brand.colors.green.normal + '18',
-                  }}>
-                    <Ionicons name="star" size={18} color={Brand.colors.green.normal} />
-                    <Text style={{ fontFamily: Fonts.heading, fontSize: 14, color: Brand.colors.green.normal }}>
-                      Ya calificaste al conductor
-                    </Text>
-                  </View>
-                ) : (
-                  <AnimatedPressable
-                    pressedScale={0.97}
-                    style={[styles.reserveBtn, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
-                    onPress={() => setShowRatingModal(true)}
-                  >
-                    <Ionicons name="star-outline" size={16} color={Brand.colors.black.b1} />
-                    <Text style={styles.reserveBtnText}>Calificar al conductor</Text>
-                  </AnimatedPressable>
-                )
-              )}
-
-              {/* Report driver — completed trips only */}
-              {canReportDriver && (
-                driverReportSent ? (
-                  <View style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 10,
-                    padding: 14, borderRadius: 14,
-                    backgroundColor: '#f4a52222',
-                  }}>
-                    <Ionicons name="checkmark-circle" size={18} color="#f4a522" />
-                    <Text style={{ fontFamily: Fonts.heading, fontSize: 13, color: '#f4a522', flex: 1 }}>
-                      Reporte enviado. El equipo de Jalemos lo revisará.
-                    </Text>
-                  </View>
-                ) : (
-                  <AnimatedPressable
-                    pressedScale={0.97}
-                    style={[styles.reserveBtn, { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f4a522' }]}
-                    onPress={() => setShowDriverReport(true)}
-                  >
-                    <Ionicons name="flag-outline" size={16} color="#fff" />
-                    <Text style={[styles.reserveBtnText, { color: '#fff' }]}>Reportar conductor</Text>
-                  </AnimatedPressable>
-                )
-              )}
-            </Animated.View>
+            <HistoryActions
+              tripState={paramTripState}
+              isDriverOwn={isDriverOwn}
+              cancelSuccess={cancelSuccess}
+              onOpenCancelTrip={() => setShowCancelModal(true)}
+              canCancelBooking={canCancelBooking}
+              passengerCancelSuccess={passengerCancelSuccess}
+              onOpenCancelBooking={() => setShowPassengerCancelModal(true)}
+              canRate={canRate}
+              alreadyRated={alreadyRated}
+              ratingSuccess={ratingSuccess}
+              onOpenRating={() => setShowRatingModal(true)}
+              canReportDriver={canReportDriver}
+              driverReportSent={driverReportSent}
+              onOpenReport={() => setShowDriverReport(true)}
+              styles={styles}
+              colors={colors}
+            />
           )}
         </View>
       </ScrollView>
@@ -1024,44 +514,18 @@ export default function RideDetailScreen() {
       {!isHistory && (
         /* ── Booking panel (scheduled trips) ────────────────────────────── */
         user?.id !== scheduledTrip?.driverId && (
-          <View style={[styles.bookingPanel, { paddingBottom: insets.bottom + 14 }]}>
-            <View style={styles.bookingRow}>
-              <View style={styles.bookingGroup}>
-                <Text style={styles.bookingLabel}>Espacios</Text>
-                <View style={styles.seatCounter}>
-                  <Pressable
-                    style={[styles.seatBtn, (seats <= 1 || booked) && styles.seatBtnDisabled]}
-                    onPress={() => setSeats((s) => Math.max(1, s - 1))}
-                    disabled={seats <= 1 || booked}
-                  >
-                    <Ionicons name="remove" size={16} color={seats <= 1 || booked ? colors.textMuted : Brand.colors.black.b1} />
-                  </Pressable>
-                  <Text style={[styles.seatNumber, booked && { color: colors.textMuted }]}>{seats}</Text>
-                  <Pressable
-                    style={[styles.seatBtn, (seats >= ride.availableSeats || booked) && styles.seatBtnDisabled]}
-                    onPress={() => setSeats((s) => Math.min(ride.availableSeats, s + 1))}
-                    disabled={seats >= ride.availableSeats || booked}
-                  >
-                    <Ionicons name="add" size={16} color={seats >= ride.availableSeats || booked ? colors.textMuted : Brand.colors.black.b1} />
-                  </Pressable>
-                </View>
-              </View>
-              <View style={styles.bookingGroup}>
-                <Text style={styles.bookingLabel}>Total</Text>
-                <Text style={styles.totalPrice}>₡{totalPrice.toLocaleString()}</Text>
-              </View>
-            </View>
-            <AnimatedPressable
-              pressedScale={0.98}
-              style={[styles.reserveBtn, (bookingLoading || booked) && { opacity: 0.7 }]}
-              onPress={handleReserve}
-              disabled={bookingLoading || booked}
-            >
-              <Text style={[styles.reserveBtnText, (bookingLoading || booked) && { color: colors.textMuted }]}>
-                {booked ? 'Espacio reservado' : (bookingLoading ? 'Reservando...' : 'Reservar espacio')}
-              </Text>
-            </AnimatedPressable>
-          </View>
+          <BookingPanel
+            ride={ride}
+            seats={seats}
+            setSeats={setSeats}
+            booked={booked}
+            bookingLoading={bookingLoading}
+            totalPrice={totalPrice}
+            bottomInset={insets.bottom}
+            onReserve={handleReserve}
+            styles={styles}
+            colors={colors}
+          />
         )
       )}
 

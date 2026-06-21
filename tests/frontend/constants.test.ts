@@ -5,7 +5,6 @@
 const { withElevation, Colors, Brand, Fonts } = require('../../FrontEnd/constants/theme');
 const { REVIEW_ISSUES, SEED_APPLICATIONS }    = require('../../FrontEnd/constants/mock-applications');
 const { SEED_USERS }                          = require('../../FrontEnd/constants/mock-users');
-const { REPORT_REASON_LABELS, SEED_REPORTS }  = require('../../FrontEnd/constants/mock-reports');
 const { DETAILED_RIDES }                      = require('../../FrontEnd/constants/mock-rides');
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -228,70 +227,6 @@ describe('FrontEnd constants/mock-users', () => {
     SEED_USERS.forEach((u: { tripsCount: number; driverTripsCount: number }) => {
       expect(u.tripsCount).toBeGreaterThanOrEqual(0);
       expect(u.driverTripsCount).toBeGreaterThanOrEqual(0);
-    });
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// mock-reports.ts
-// ══════════════════════════════════════════════════════════════════════════════
-
-describe('FrontEnd constants/mock-reports', () => {
-
-  describe('REPORT_REASON_LABELS', () => {
-    const expectedReasons = [
-      'bad_behavior', 'dangerous_driving', 'no_show',
-      'late_cancellation', 'harassment', 'vehicle_condition', 'other',
-    ];
-
-    it('covers all 7 report reason keys', () => {
-      expect(Object.keys(REPORT_REASON_LABELS).sort()).toEqual(expectedReasons.sort());
-    });
-
-    it('every label is a non-empty string', () => {
-      Object.values(REPORT_REASON_LABELS as Record<string, string>).forEach((label) => {
-        expect(typeof label).toBe('string');
-        expect(label.length).toBeGreaterThan(0);
-      });
-    });
-  });
-
-  describe('SEED_REPORTS', () => {
-    it('contains 5 seed reports', () => {
-      expect(SEED_REPORTS).toHaveLength(5);
-    });
-
-    it('all report ids are unique', () => {
-      const ids = SEED_REPORTS.map((r: { id: string }) => r.id);
-      expect(new Set(ids).size).toBe(ids.length);
-    });
-
-    it('all statuses are valid', () => {
-      const validStatuses = new Set(['pending', 'resolved', 'dismissed']);
-      SEED_REPORTS.forEach((r: { status: string }) => {
-        expect(validStatuses.has(r.status)).toBe(true);
-      });
-    });
-
-    it('includes at least one pending and one resolved/dismissed report', () => {
-      const statuses = new Set(SEED_REPORTS.map((r: { status: string }) => r.status));
-      expect(statuses.has('pending')).toBe(true);
-      expect(statuses.has('resolved') || statuses.has('dismissed')).toBe(true);
-    });
-
-    it('resolved and dismissed reports have adminAction', () => {
-      SEED_REPORTS
-        .filter((r: { status: string }) => r.status !== 'pending')
-        .forEach((r: { adminAction?: { type: string; resolvedAt: string } }) => {
-          expect(r.adminAction).toBeDefined();
-          expect(r.adminAction!.resolvedAt.length).toBeGreaterThan(0);
-        });
-    });
-
-    it('all reason values match a key in REPORT_REASON_LABELS', () => {
-      SEED_REPORTS.forEach((r: { reason: string }) => {
-        expect(REPORT_REASON_LABELS).toHaveProperty(r.reason);
-      });
     });
   });
 });

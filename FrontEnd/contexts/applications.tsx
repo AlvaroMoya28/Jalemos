@@ -1,7 +1,5 @@
 // Driver application pipeline context — connected to the real API.
-// Reports section is still mock until the reports backend is built.
 
-import { SEED_REPORTS, UserReport } from '@/constants/mock-reports';
 import { useAuth } from '@/contexts/auth';
 import { applicationsApi, DriverApplicationDTO, SubmitVehicleApplicationPayload } from '@/services/api';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
@@ -118,12 +116,6 @@ interface ApplicationsContextType {
   approveApplication: (id: string) => Promise<void>;
   rejectApplication: (id: string, issueIds: string[], notes: string) => Promise<void>;
   liftCooldown: (id: string) => Promise<void>;
-
-  // Admin-facing — reports (mock until backend is built)
-  reports: UserReport[];
-  suspendUserFromReport: (reportId: string, days: number) => void;
-  deactivateUserFromReport: (reportId: string) => void;
-  dismissReport: (reportId: string) => void;
 }
 
 const ApplicationsContext = createContext<ApplicationsContextType>({
@@ -143,10 +135,6 @@ const ApplicationsContext = createContext<ApplicationsContextType>({
   approveApplication:      async () => {},
   rejectApplication:       async () => {},
   liftCooldown:            async () => {},
-  reports:                 [],
-  suspendUserFromReport:   () => {},
-  deactivateUserFromReport: () => {},
-  dismissReport:           () => {},
 });
 
 // Provider
@@ -159,7 +147,6 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
   const [myApplicationLoading, setMyApplicationLoading] = useState(false);
   const [applications,         setApplications]         = useState<DriverApplication[]>([]);
   const [applicationsLoading,  setApplicationsLoading]  = useState(false);
-  const [reports,              setReports]              = useState<UserReport[]>([...SEED_REPORTS]);
 
   const requireToken = (): string => {
     if (!token) throw new Error('Sesión expirada. Por favor iniciá sesión de nuevo.');
@@ -291,20 +278,6 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
     optimisticUpdate(id, { cooldownUntil: undefined });
   };
 
-  const resolveReport = (reportId: string, action: UserReport['adminAction']) => {
-    setReports((prev) => prev.map((r) =>
-      r.id !== reportId ? r :
-      { ...r, status: action?.type === 'dismissed' ? 'dismissed' : 'resolved', adminAction: action }
-    ));
-  };
-
-  const suspendUserFromReport   = (id: string, days: number) =>
-    resolveReport(id, { type: 'suspended', suspensionDays: days, resolvedAt: new Date().toISOString() });
-  const deactivateUserFromReport = (id: string) =>
-    resolveReport(id, { type: 'deactivated', resolvedAt: new Date().toISOString() });
-  const dismissReport            = (id: string) =>
-    resolveReport(id, { type: 'dismissed',   resolvedAt: new Date().toISOString() });
-
   return (
     <ApplicationsContext.Provider value={{
       myApplication,
@@ -323,10 +296,6 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
       approveApplication,
       rejectApplication,
       liftCooldown,
-      reports,
-      suspendUserFromReport,
-      deactivateUserFromReport,
-      dismissReport,
     }}>
       {children}
     </ApplicationsContext.Provider>
