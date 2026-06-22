@@ -9,7 +9,7 @@ import { RatingDTO, TripReportDto, ratingsApi, reportsApi, usersApi } from '@/se
 
 import { TripView } from '@/components/admin/report-config';
 
-export type ViewMode = 'trip' | 'ratings' | 'user';
+export type ViewMode = 'trip' | 'ratings';
 
 export interface DriverActionTarget {
   driverId: string;

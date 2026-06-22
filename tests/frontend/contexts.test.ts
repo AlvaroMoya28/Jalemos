@@ -46,10 +46,6 @@ jest.mock('@/services/api', () => {
   };
 });
 
-jest.mock('@/constants/mock-reports', () => ({
-  SEED_REPORTS: [],
-}));
-
 // ── Mock references ────────────────────────────────────────────────────────────
 const secureMock = jest.requireMock('expo-secure-store') as {
   getItemAsync: jest.Mock;
@@ -328,7 +324,6 @@ describe('FrontEnd contexts/applications — ApplicationsProvider', () => {
     expect(result.current.myApplication).toBeNull();
     expect(result.current.myApplicationLoading).toBe(false);
     expect(result.current.applications).toEqual([]);
-    expect(result.current.reports).toEqual([]);
   });
 
   it('loadMyApplication returns and stores the mapped application', async () => {
@@ -450,35 +445,6 @@ describe('FrontEnd contexts/applications — ApplicationsProvider', () => {
 
     expect(result.current.applications[0].status).toBe('rejected');
     expect(result.current.applications[0].adminFeedback?.notes).toBe('Documentos falsos');
-  });
-
-  describe('report actions (in-memory)', () => {
-    beforeEach(() => {
-      jest.requireMock('@/constants/mock-reports').SEED_REPORTS = [
-        { id: 'r1', status: 'pending', adminAction: undefined },
-      ];
-    });
-
-    it('suspendUserFromReport marks the report as resolved with suspended action', () => {
-      const { result } = renderHook(() => useApplications(), { wrapper });
-      act(() => { result.current.suspendUserFromReport('r1', 3); });
-      expect(result.current.reports[0].status).toBe('resolved');
-      expect(result.current.reports[0].adminAction?.type).toBe('suspended');
-    });
-
-    it('deactivateUserFromReport marks the report as resolved with deactivated action', () => {
-      const { result } = renderHook(() => useApplications(), { wrapper });
-      act(() => { result.current.deactivateUserFromReport('r1'); });
-      expect(result.current.reports[0].status).toBe('resolved');
-      expect(result.current.reports[0].adminAction?.type).toBe('deactivated');
-    });
-
-    it('dismissReport marks the report as dismissed', () => {
-      const { result } = renderHook(() => useApplications(), { wrapper });
-      act(() => { result.current.dismissReport('r1'); });
-      expect(result.current.reports[0].status).toBe('dismissed');
-      expect(result.current.reports[0].adminAction?.type).toBe('dismissed');
-    });
   });
 
   describe('loadMyVehicleApplications and submitVehicleApplication', () => {

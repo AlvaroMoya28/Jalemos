@@ -1,31 +1,30 @@
-// Profile tab — shows the user's avatar, stats, and mode-aware sections.
-// A Pasajero / Conductor segmented toggle lets the user switch roles:
-//   • First-time drivers are routed to /driver-registration to complete their profile.
-//   • Returning drivers flip the UserModeContext directly and jump to the Offer tab.
-// Passenger sections: favourite places, payment methods, share button.
-// Driver sections:    registered vehicles, licence and Dekra documents.
-// Preferencias and Soporte sections are always visible regardless of mode.
-// Stats row adapts labels and values to reflect the active role (saved vs earned).
+// Profile tab — thin container that composes the profile sections.
+// Mode-aware: passenger (favourites, payment methods, share), driver (vehicles, docs),
+// plus the always-visible QR, preferences and support sections. Section UIs live in
+// components/profile/*; payment-method state lives in usePaymentMethods.
 
 import GlassCard from '@/components/shared/glass-card';
 import NotificationsModal from '@/components/shared/NotificationsModal';
 import UnreadBadge from '@/components/shared/unread-badge';
+import DriverSections from '@/components/profile/driver-sections';
+import PaymentMethodsSection from '@/components/profile/payment-methods-section';
+import ProfileHeaderCard from '@/components/profile/profile-header-card';
+import QrSection from '@/components/profile/qr-section';
+import { Brand } from '@/constants/theme';
 import { useNotifications } from '@/contexts/notifications';
-import QrDisplay from '@/components/shared/qr-display';
-import { Brand, Fonts } from '@/constants/theme';
-import { makeStyles, staticStyles as profileStaticStyles } from '../../styles/tabs/profile.styles';
-import { meApi, VehicleDTO, vehiclesApi, paymentsApi, PaymentMethodDto, ApiError } from '@/services/api';
 import { useApplications } from '@/contexts/applications';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { ApiError, meApi, VehicleDTO, vehiclesApi } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { router, useNavigation, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, ActivityIndicator, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, Modal, TextInput } from 'react-native';
+import { ActionSheetIOS, Alert, Image, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { makeStyles, staticStyles as profileStaticStyles } from '../../styles/tabs/profile.styles';
 
 const preferencesSections = [
   {
@@ -46,24 +45,6 @@ const preferencesSections = [
   },
 ];
 
-type ExpiryState = 'ok' | 'soon' | 'expired';
-
-function expiryState(month: number | null, year: number | null): ExpiryState {
-  if (!month || !year) return 'ok';
-  const now = new Date();
-  const expiry = new Date(year, month - 1, 1); // first day of expiry month
-  const diffMs = expiry.getTime() - now.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-  if (diffDays < 0) return 'expired';
-  if (diffDays <= 60) return 'soon';
-  return 'ok';
-}
-
-function expiryLabel(month: number | null, year: number | null): string {
-  if (!month || !year) return 'Sin fecha';
-  return `Vence ${String(month).padStart(2, '0')}/${year}`;
-}
-
 export default function ProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -72,6 +53,7 @@ export default function ProfileScreen() {
   const { showLoader, hideLoader } = useLoading();
   const { mode, profilePhoto, setMode, setProfilePhoto } = useUserMode();
   const { loadMyApplication, myVehicleApplications, loadMyVehicleApplications } = useApplications();
+  const { unreadCount } = useNotifications();
   const isAdmin = user?.role === 'admin';
   const isDriver = !isAdmin && mode === 'driver';
 
@@ -79,9 +61,7 @@ export default function ProfileScreen() {
     navigation.setOptions({ title: 'Perfil', icon: { sf: 'person' } });
   }, [navigation]);
 
-
   const [notifOpen, setNotifOpen] = useState(false);
-  const { unreadCount } = useNotifications();
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [sendingQr, setSendingQr] = useState(false);
@@ -90,31 +70,11 @@ export default function ProfileScreen() {
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Payment methods state
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodDto[]>([]);
-  const [methodsLoading, setMethodsLoading] = useState(false);
-  const [showAddMethod, setShowAddMethod] = useState(false);
-  const [addMethodType, setAddMethodType] = useState<'sinpe' | 'cash' | 'card' | null>(null);
-  const [newAlias, setNewAlias] = useState('');
-  const [addingMethod, setAddingMethod] = useState(false);
-  const [deletingMethodId, setDeletingMethodId] = useState<string | null>(null);
-  const [togglingFavId, setTogglingFavId] = useState<string | null>(null);
-
-  const loadPaymentMethods = useCallback(() => {
-    if (!token || isAdmin || isDriver) return;
-    setMethodsLoading(true);
-    paymentsApi.getMethods(token)
-      .then(setPaymentMethods)
-      .catch(() => {})
-      .finally(() => setMethodsLoading(false));
-  }, [token, isAdmin, isDriver]);
-
   useFocusEffect(useCallback(() => {
     if (!token) return;
     if (!isAdmin) {
-      meApi.get(token).then(me => setQrToken(me.qrToken)).catch(() => {});
+      meApi.get(token).then((me) => setQrToken(me.qrToken)).catch(() => {});
     }
-    if (!isAdmin && !isDriver) loadPaymentMethods();
     if (!isDriver) return;
     setVehiclesLoading(true);
     vehiclesApi.getMy(token)
@@ -122,70 +82,7 @@ export default function ProfileScreen() {
       .catch(() => {})
       .finally(() => setVehiclesLoading(false));
     loadMyVehicleApplications().catch(() => {});
-  }, [isAdmin, isDriver, token, loadMyVehicleApplications, loadPaymentMethods]));
-
-  const handleAddSimpleMethod = async () => {
-    if (!token || !addMethodType || addMethodType === 'card') return;
-    const alias = newAlias.trim() || (addMethodType === 'sinpe' ? 'SINPE Móvil' : 'Efectivo');
-    setAddingMethod(true);
-    try {
-      const created = await paymentsApi.addSimple(addMethodType, alias, token);
-      setPaymentMethods(prev => [...prev, created]);
-      setShowAddMethod(false);
-      setAddMethodType(null);
-      setNewAlias('');
-    } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo agregar el método.');
-    } finally {
-      setAddingMethod(false);
-    }
-  };
-
-
-  const handleDeleteMethod = async (id: string) => {
-    if (!token) return;
-    setDeletingMethodId(id);
-    try {
-      await paymentsApi.deleteMethod(id, token);
-      setPaymentMethods(prev => {
-        const remaining = prev.filter(m => m.id !== id);
-        if (remaining.length === 1 && !remaining[0].isFavorite)
-          return [{ ...remaining[0], isFavorite: true }];
-        return remaining;
-      });
-    } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo eliminar el método.');
-    } finally {
-      setDeletingMethodId(null);
-    }
-  };
-
-  const handleSetFavorite = async (id: string) => {
-    if (!token) return;
-    setTogglingFavId(id);
-    try {
-      await paymentsApi.setFavorite(id, token);
-      setPaymentMethods(prev => prev.map(m => ({ ...m, isFavorite: m.id === id })));
-    } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo actualizar.');
-    } finally {
-      setTogglingFavId(null);
-    }
-  };
-
-  const licenseState = expiryState(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null);
-  const dekraState   = expiryState(user?.dekraExpiryMonth   ?? null, user?.dekraExpiryYear   ?? null);
-  const docsExpired  = licenseState === 'expired' || dekraState === 'expired';
-  const docsSoon     = licenseState === 'soon'    || dekraState === 'soon';
-
-  const expiryIconName = (state: ExpiryState) =>
-    state === 'expired' ? 'close-circle'     as const :
-    state === 'soon'    ? 'warning'           as const :
-                          'checkmark-circle'  as const;
-  const expiryIconColor = (state: ExpiryState) =>
-    state === 'expired' ? Brand.colors.alerts.error :
-    state === 'soon'    ? '#f7a900' :
-                          Brand.colors.green.normal;
+  }, [isAdmin, isDriver, token, loadMyVehicleApplications]));
 
   /** Uploads the picked asset to the backend (S3) and updates the user's photo URL. */
   const uploadProfilePhoto = async (asset: ImagePicker.ImagePickerAsset) => {
@@ -193,23 +90,20 @@ export default function ProfileScreen() {
       Alert.alert('Error', 'No se pudo leer la imagen seleccionada.');
       return;
     }
-    // Show the local URI immediately for instant feedback
-    setProfilePhoto(asset.uri);
+    setProfilePhoto(asset.uri); // instant feedback
     showLoader('Guardando foto...');
     try {
       const { profilePhotoUrl } = await meApi.uploadPhoto(asset.base64, token);
-      // Persist into the auth user so it survives reloads; clear the local override
       setProfilePhotoUrl(profilePhotoUrl);
       setProfilePhoto(null);
     } catch (e: any) {
-      setProfilePhoto(null); // revert optimistic preview on failure
+      setProfilePhoto(null);
       Alert.alert('No se pudo guardar', e?.message ?? 'Inténtalo de nuevo.');
     } finally {
       hideLoader();
     }
   };
 
-  /** Opens ActionSheet / Alert so the user can retake or pick a new profile photo. */
   const handleEditPhoto = () => {
     if (user?.profilePhotoLocked && user.role === 'passenger+driver') {
       Alert.alert('Foto bloqueada', 'La foto de perfil fue establecida al aprobar tu solicitud de conductor y no se puede cambiar.');
@@ -217,21 +111,21 @@ export default function ProfileScreen() {
     }
     const takePhoto = () =>
       ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1], base64: true })
-        .then(r => { if (!r.canceled) uploadProfilePhoto(r.assets[0]); });
+        .then((r) => { if (!r.canceled) uploadProfilePhoto(r.assets[0]); });
     const pickPhoto = () =>
       ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1], base64: true })
-        .then(r => { if (!r.canceled) uploadProfilePhoto(r.assets[0]); });
+        .then((r) => { if (!r.canceled) uploadProfilePhoto(r.assets[0]); });
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         { options: ['Cancelar', 'Tomar foto', 'Elegir de galería'], cancelButtonIndex: 0 },
-        i => { if (i === 1) takePhoto(); if (i === 2) pickPhoto(); }
+        (i) => { if (i === 1) takePhoto(); if (i === 2) pickPhoto(); },
       );
     } else {
       Alert.alert('Foto de perfil', '', [
-        { text: 'Tomar foto',        onPress: takePhoto  },
-        { text: 'Elegir de galería', onPress: pickPhoto  },
-        { text: 'Cancelar', style: 'cancel'              },
+        { text: 'Tomar foto', onPress: takePhoto },
+        { text: 'Elegir de galería', onPress: pickPhoto },
+        { text: 'Cancelar', style: 'cancel' },
       ]);
     }
   };
@@ -253,7 +147,7 @@ export default function ProfileScreen() {
             setDeletingId(vehicle.vehicleId);
             try {
               await vehiclesApi.delete(vehicle.vehicleId, token);
-              setVehicles(prev => prev.filter(v => v.vehicleId !== vehicle.vehicleId));
+              setVehicles((prev) => prev.filter((v) => v.vehicleId !== vehicle.vehicleId));
             } catch (e: any) {
               Alert.alert('Error', e?.message ?? 'No se pudo eliminar el vehículo.');
             } finally {
@@ -261,14 +155,14 @@ export default function ProfileScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
   // Tick the QR-email cooldown down to zero.
   useEffect(() => {
     if (qrCooldown <= 0) return;
-    const timer = setInterval(() => setQrCooldown(c => (c <= 1 ? 0 : c - 1)), 1000);
+    const timer = setInterval(() => setQrCooldown((c) => (c <= 1 ? 0 : c - 1)), 1000);
     return () => clearInterval(timer);
   }, [qrCooldown]);
 
@@ -277,10 +171,9 @@ export default function ProfileScreen() {
     setSendingQr(true);
     try {
       await meApi.sendQr(token);
-      setQrCooldown(300); // 5-minute cooldown
+      setQrCooldown(300);
       Alert.alert('QR enviado', 'Te enviamos tu QR de abordaje al correo.');
     } catch (e: any) {
-      // Server-enforced cooldown — sync the countdown to its retry hint.
       if (e instanceof ApiError && e.status === 429) {
         setQrCooldown(e.body?.retryAfterSeconds ?? 300);
         Alert.alert('Esperá un momento', e.message);
@@ -296,9 +189,7 @@ export default function ProfileScreen() {
     showLoader('Cerrando sesión...');
     try {
       await logout();
-      navigation.getParent()?.dispatch(
-        CommonActions.reset({ index: 0, routes: [{ name: 'index' }] })
-      );
+      navigation.getParent()?.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'index' }] }));
     } finally {
       hideLoader();
     }
@@ -317,7 +208,6 @@ export default function ProfileScreen() {
       try {
         const app = await loadMyApplication();
         if (app) {
-          // Application approved but role was revoked by admin → force re-registration
           if (app.status === 'approved' && (user?.role as string) !== 'passenger+driver') {
             router.push('/driver-registration');
           } else {
@@ -335,13 +225,15 @@ export default function ProfileScreen() {
     }
   };
 
+  const displayPhoto = profilePhoto ?? user?.profilePhotoUrl ?? null;
+
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={profileStaticStyles.scrollContentContainer}
         contentInsetAdjustmentBehavior="automatic"
-        style={{ backgroundColor: colors.bottomSurface }}>
-
+        style={{ backgroundColor: colors.bottomSurface }}
+      >
         <View style={styles.heroWrap}>
           <Image
             source={isDark ? require('../../assets/images/hero-banner-dark.jpg') : require('../../assets/images/hero-banner.jpg')}
@@ -361,109 +253,27 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.bottomSurface}>
+          <ProfileHeaderCard
+            user={user}
+            isAdmin={isAdmin}
+            isDriver={isDriver}
+            displayPhoto={displayPhoto}
+            onEditPhoto={handleEditPhoto}
+            styles={styles}
+            colors={colors}
+          />
 
-          {/* Profile card */}
-          <GlassCard style={styles.profileCard}>
-            <View style={styles.profileTop}>
-              {/* Avatar — local override first, then server photo, then initials */}
-              {(() => {
-                const displayPhoto = profilePhoto ?? user?.profilePhotoUrl ?? null;
-                return (
-                  <Pressable style={styles.avatar} onPress={handleEditPhoto}>
-                    {displayPhoto
-                      ? <Image source={{ uri: displayPhoto }} style={styles.avatarPhoto} />
-                      : <Text style={styles.avatarText}>{user?.avatar ?? '?'}</Text>}
-                    <View style={styles.avatarEditBadge}>
-                      <Ionicons name={user?.profilePhotoLocked && user.role === 'passenger+driver' ? 'lock-closed-outline' : 'camera-outline'} size={12} color="#fff" />
-                    </View>
-                  </Pressable>
-                );
-              })()}
-              <View style={styles.profileMain}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.name}>{user ? `${user.firstName} ${user.lastName}` : '—'}</Text>
-                  <Ionicons name="checkmark-circle" size={16} color={Brand.colors.green.dark} />
-                  {isDriver && (
-                    <Ionicons name="car" size={16} color={Brand.colors.green.normal} />
-                  )}
-                </View>
-                <Text style={styles.email}>{user?.email ?? ''}</Text>
-                {isAdmin ? (
-                  <View style={styles.ratingRow}>
-                    <Ionicons name="shield-checkmark-outline" size={13} color={Brand.colors.green.normal} />
-                    <Text style={[styles.rating, { color: Brand.colors.green.normal }]}>Administrador</Text>
-                  </View>
-                ) : (
-                  <View style={styles.ratingRow}>
-                    <Ionicons name="star" size={13} color="#f7a900" />
-                    <Text style={styles.rating}>{user?.rating?.toFixed(1) ?? '—'}</Text>
-                    <Text style={styles.ratingSub}>· {isDriver ? `${user?.driverTripsCount ?? 0} viajes ofrecidos` : `${user?.tripsCount ?? 0} viajes`}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-            <View style={styles.statsRow}>
-              {isAdmin ? (
-                <>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValueGreen}>Admin</Text>
-                    <Text style={styles.statLabel}>Rol</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{user?.memberSince ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Miembro desde</Text>
-                  </View>
-                </>
-              ) : isDriver ? (
-                <>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{user?.driverTripsCount ?? 0}</Text>
-                    <Text style={styles.statLabel}>Ofrecidos</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{user?.tripsCount ?? 0}</Text>
-                    <Text style={styles.statLabel}>Tomados</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValueGreen}>{user?.rating?.toFixed(1) ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Calificación</Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{user?.tripsCount ?? 0}</Text>
-                    <Text style={styles.statLabel}>Viajes</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{user?.memberSince ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Miembro desde</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValueGreen}>{user?.rating?.toFixed(1) ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Calificación</Text>
-                  </View>
-                </>
-              )}
-            </View>
-          </GlassCard>
-
-          {/* Mode toggle — hidden for admins */}
           {!isAdmin && (
-          <View style={styles.modeToggleWrap}>
-            <Pressable
-              style={[styles.modeBtn, !isDriver && styles.modeBtnActive]}
-              onPress={() => handleSwitchMode('passenger')}>
-              <Ionicons name="person-outline" size={15} color={!isDriver ? Brand.colors.black.b1 : colors.textMuted} />
-              <Text style={[styles.modeBtnText, !isDriver && styles.modeBtnTextActive]}>Pasajero</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.modeBtn, isDriver && styles.modeBtnActive]}
-              onPress={() => handleSwitchMode('driver')}>
-              <Ionicons name="car-outline" size={15} color={isDriver ? Brand.colors.black.b1 : colors.textMuted} />
-              <Text style={[styles.modeBtnText, isDriver && styles.modeBtnTextActive]}>Conductor</Text>
-            </Pressable>
-          </View>
+            <View style={styles.modeToggleWrap}>
+              <Pressable style={[styles.modeBtn, !isDriver && styles.modeBtnActive]} onPress={() => handleSwitchMode('passenger')}>
+                <Ionicons name="person-outline" size={15} color={!isDriver ? Brand.colors.black.b1 : colors.textMuted} />
+                <Text style={[styles.modeBtnText, !isDriver && styles.modeBtnTextActive]}>Pasajero</Text>
+              </Pressable>
+              <Pressable style={[styles.modeBtn, isDriver && styles.modeBtnActive]} onPress={() => handleSwitchMode('driver')}>
+                <Ionicons name="car-outline" size={15} color={isDriver ? Brand.colors.black.b1 : colors.textMuted} />
+                <Text style={[styles.modeBtnText, isDriver && styles.modeBtnTextActive]}>Conductor</Text>
+              </Pressable>
+            </View>
           )}
 
           {/* Passenger-only sections */}
@@ -480,151 +290,7 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
               </GlassCard>
 
-              <View style={styles.sectionWrap}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={styles.sectionTitle}>Métodos de pago</Text>
-                  {paymentMethods.length < 3 && (
-                    <Pressable onPress={() => setShowAddMethod(true)} hitSlop={8}>
-                      <Ionicons name="add-circle-outline" size={22} color={Brand.colors.green.normal} />
-                    </Pressable>
-                  )}
-                </View>
-                <GlassCard style={styles.sectionCard}>
-                  {methodsLoading ? (
-                    <ActivityIndicator color={Brand.colors.green.normal} style={{ paddingVertical: 16 }} />
-                  ) : paymentMethods.length === 0 ? (
-                    <Pressable style={styles.sectionItem} onPress={() => setShowAddMethod(true)}>
-                      <View style={styles.itemIconWrap}>
-                        <Ionicons name="card-outline" size={16} color={Brand.colors.green.darkActive} />
-                      </View>
-                      <View style={styles.itemTextWrap}>
-                        <Text style={styles.itemLabel}>Sin métodos de pago</Text>
-                        <Text style={styles.itemDesc}>Toca + para agregar uno</Text>
-                      </View>
-                    </Pressable>
-                  ) : (
-                    paymentMethods.map((m, idx) => (
-                      <View key={m.id}>
-                        {idx > 0 && <View style={styles.sectionDivider} />}
-                        <View style={[styles.sectionItem, { paddingVertical: 12 }]}>
-                          <View style={styles.itemIconWrap}>
-                            <Ionicons
-                              name={m.type === 'card' ? 'card-outline' : m.type === 'sinpe' ? 'phone-portrait-outline' : 'cash-outline'}
-                              size={16}
-                              color={Brand.colors.green.darkActive}
-                            />
-                          </View>
-                          <View style={styles.itemTextWrap}>
-                            <Text style={styles.itemLabel}>{m.alias}</Text>
-                            <Text style={styles.itemDesc}>
-                              {m.type === 'card' && m.expiryMonth && m.expiryYear
-                                ? `Vence ${String(m.expiryMonth).padStart(2, '0')}/${m.expiryYear}`
-                                : m.type === 'sinpe' ? 'SINPE Móvil' : 'Efectivo'}
-                            </Text>
-                          </View>
-                          <Pressable
-                            onPress={() => handleSetFavorite(m.id)}
-                            disabled={m.isFavorite || togglingFavId === m.id}
-                            hitSlop={8}
-                            style={{ padding: 4 }}
-                          >
-                            <Ionicons
-                              name={m.isFavorite ? 'star' : 'star-outline'}
-                              size={16}
-                              color={m.isFavorite ? '#f7a900' : colors.textMuted}
-                            />
-                          </Pressable>
-                          <Pressable
-                            onPress={() => handleDeleteMethod(m.id)}
-                            disabled={deletingMethodId === m.id}
-                            hitSlop={8}
-                            style={{ padding: 4, marginLeft: 4, opacity: deletingMethodId === m.id ? 0.4 : 1 }}
-                          >
-                            <Ionicons name="trash-outline" size={15} color={Brand.colors.alerts.error} />
-                          </Pressable>
-                        </View>
-                      </View>
-                    ))
-                  )}
-                </GlassCard>
-              </View>
-
-              {/* Modal: agregar método de pago */}
-              <Modal
-                visible={showAddMethod}
-                transparent
-                animationType="slide"
-                onRequestClose={() => { setShowAddMethod(false); setAddMethodType(null); setNewAlias(''); }}
-              >
-                <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }}>
-                  <View style={{ backgroundColor: isDark ? '#1a1a1a' : '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 }}>
-                    <Text style={{ fontFamily: Fonts.headingBold, fontSize: 17, color: colors.textPrimary, marginBottom: 16 }}>
-                      {addMethodType ? (addMethodType === 'card' ? 'Agregar tarjeta' : addMethodType === 'sinpe' ? 'Agregar SINPE Móvil' : 'Agregar efectivo') : 'Tipo de método'}
-                    </Text>
-
-                    {!addMethodType && (
-                      <View style={{ gap: 10 }}>
-                        {paymentMethods.filter(m => m.type === 'card').length < 3 && (
-                          <Pressable onPress={() => setAddMethodType('card')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, backgroundColor: colors.inputBg }}>
-                            <Ionicons name="card-outline" size={20} color={Brand.colors.green.normal} />
-                            <Text style={{ fontFamily: Fonts.sans, color: colors.textPrimary }}>Tarjeta de crédito/débito</Text>
-                          </Pressable>
-                        )}
-                        <Pressable onPress={() => setAddMethodType('sinpe')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, backgroundColor: colors.inputBg }}>
-                          <Ionicons name="phone-portrait-outline" size={20} color={Brand.colors.green.normal} />
-                          <Text style={{ fontFamily: Fonts.sans, color: colors.textPrimary }}>SINPE Móvil</Text>
-                        </Pressable>
-                        <Pressable onPress={() => setAddMethodType('cash')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, backgroundColor: colors.inputBg }}>
-                          <Ionicons name="cash-outline" size={20} color={Brand.colors.green.normal} />
-                          <Text style={{ fontFamily: Fonts.sans, color: colors.textPrimary }}>Efectivo</Text>
-                        </Pressable>
-                        <Pressable onPress={() => setShowAddMethod(false)} style={{ padding: 14, alignItems: 'center' }}>
-                          <Text style={{ fontFamily: Fonts.sans, color: colors.textMuted }}>Cancelar</Text>
-                        </Pressable>
-                      </View>
-                    )}
-
-                    {(addMethodType === 'sinpe' || addMethodType === 'cash') && (
-                      <View style={{ gap: 12 }}>
-                        <TextInput
-                          value={newAlias}
-                          onChangeText={setNewAlias}
-                          placeholder={addMethodType === 'sinpe' ? 'Alias (ej. Mi SINPE)' : 'Alias (ej. Efectivo)'}
-                          placeholderTextColor={colors.textMuted}
-                          style={{ backgroundColor: colors.inputBg, borderRadius: 10, padding: 12, fontFamily: Fonts.sans, color: colors.textPrimary }}
-                        />
-                        <Pressable
-                          onPress={handleAddSimpleMethod}
-                          disabled={addingMethod}
-                          style={{ backgroundColor: Brand.colors.green.normal, borderRadius: 12, padding: 14, alignItems: 'center', opacity: addingMethod ? 0.6 : 1 }}
-                        >
-                          {addingMethod ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: Fonts.headingBold, color: '#fff' }}>Guardar</Text>}
-                        </Pressable>
-                        <Pressable onPress={() => setAddMethodType(null)} style={{ padding: 12, alignItems: 'center' }}>
-                          <Text style={{ fontFamily: Fonts.sans, color: colors.textMuted }}>Volver</Text>
-                        </Pressable>
-                      </View>
-                    )}
-
-                    {addMethodType === 'card' && (
-                      <View style={{ gap: 12 }}>
-                        <View style={{ backgroundColor: colors.inputBg, borderRadius: 12, padding: 16, alignItems: 'center', gap: 8 }}>
-                          <Ionicons name="card-outline" size={28} color={colors.textMuted} />
-                          <Text style={{ fontFamily: Fonts.headingBold, fontSize: 14, color: colors.textPrimary, textAlign: 'center' }}>
-                            Tarjetas disponibles próximamente
-                          </Text>
-                          <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
-                            Esta función requiere la versión nativa de la app.
-                          </Text>
-                        </View>
-                        <Pressable onPress={() => setAddMethodType(null)} style={{ padding: 12, alignItems: 'center' }}>
-                          <Text style={{ fontFamily: Fonts.sans, color: colors.textMuted }}>Volver</Text>
-                        </Pressable>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </Modal>
+              <PaymentMethodsSection token={token} isDark={isDark} styles={styles} colors={colors} />
 
               <Pressable style={styles.shareButton} onPress={() => Share.share({ message: 'Jalemos - comparte viaje y ahorra en cada ruta.' })}>
                 <Ionicons name="share-social-outline" size={16} color={Brand.colors.black.b1} />
@@ -635,209 +301,46 @@ export default function ProfileScreen() {
 
           {/* Driver-only sections */}
           {!isAdmin && isDriver && (
-            <>
-              <View style={styles.sectionWrap}>
-                <Text style={styles.sectionTitle}>Mis vehículos</Text>
-                <GlassCard style={styles.sectionCard}>
-                  <View style={styles.vehicleSectionHeader}>
-                    <Text style={styles.vehicleSectionTitle}>Vehículos registrados</Text>
-                    <Text style={styles.vehicleSectionSub}>Selecciona cuál usar al ofrecer</Text>
-                  </View>
-                  <View style={styles.vehicleList}>
-                    {vehiclesLoading ? (
-                      <ActivityIndicator color={Brand.colors.green.normal} style={profileStaticStyles.activityIndicatorWrap} />
-                    ) : vehicles.length === 0 ? (
-                      <Text style={[styles.itemDesc, { textAlign: 'center', paddingVertical: 12 }]}>
-                        Sin vehículos registrados
-                      </Text>
-                    ) : (
-                      vehicles.map((v, idx) => (
-                        <View key={v.vehicleId} style={styles.vehicleCard}>
-                          <View style={styles.vehicleRowTop}>
-                            <View style={styles.itemIconWrap}>
-                              <Ionicons name="car-outline" size={16} color={Brand.colors.green.darkActive} />
-                            </View>
-                            <View style={styles.vehicleTextWrap}>
-                              <View style={styles.vehicleNameRow}>
-                                <Text style={styles.itemLabel}>{v.brand} {v.model}</Text>
-                                {idx === 0 && <Text style={styles.primaryBadge}>Principal</Text>}
-                              </View>
-                              <Text style={styles.itemDesc}>{v.numPlate} · {v.color} · {v.year}</Text>
-                            </View>
-                            <Pressable
-                              onPress={() => handleDeleteVehicle(v)}
-                              disabled={deletingId === v.vehicleId}
-                              hitSlop={8}
-                              style={{ padding: 6, opacity: deletingId === v.vehicleId ? 0.4 : 1 }}>
-                              <Ionicons name="trash-outline" size={17} color={Brand.colors.alerts.error} />
-                            </Pressable>
-                          </View>
-                        </View>
-                      ))
-                    )}
-                  </View>
-                </GlassCard>
-                <Pressable
-                  style={[styles.favButton, { marginTop: 8 }]}
-                  onPress={() => router.push('/add-vehicle')}>
-                  <View style={styles.favIconWrap}>
-                    <Ionicons name="add" size={18} color="#ecfff9" />
-                  </View>
-                  <View style={styles.favTextWrap}>
-                    <Text style={styles.favTitle}>Agregar vehículo</Text>
-                    <Text style={styles.favSub}>Registrar otro vehículo</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                </Pressable>
-
-                {/* Active vehicle applications */}
-                {myVehicleApplications
-                  .filter(a => a.status !== 'approved' && a.status !== 'rejected')
-                  .map(a => {
-                    const statusColor =
-                      a.status === 'needs_correction' ? '#ff7c2a' :
-                      a.status === 'under_review'     ? Brand.colors.blue.normal :
-                      '#f7a900';
-                    const statusLabel =
-                      a.status === 'needs_correction' ? 'Requiere corrección' :
-                      a.status === 'under_review'     ? 'En revisión' :
-                      'Pendiente';
-                    return (
-                      <Pressable
-                        key={a.id}
-                        style={[styles.favButton, { marginTop: 6, borderWidth: 1, borderColor: statusColor + '44' }]}
-                        onPress={() => router.push({ pathname: '/vehicle-application-status', params: { id: a.id } })}>
-                        <View style={[styles.favIconWrap, { backgroundColor: statusColor + '22' }]}>
-                          <Ionicons name="car-outline" size={16} color={statusColor} />
-                        </View>
-                        <View style={styles.favTextWrap}>
-                          <Text style={styles.favTitle}>{a.vehicle.brand} {a.vehicle.model}</Text>
-                          <Text style={[styles.favSub, { color: statusColor }]}>{statusLabel} · {a.vehicle.plate}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                      </Pressable>
-                    );
-                  })
-                }
-              </View>
-
-              <View style={styles.sectionWrap}>
-                <Text style={styles.sectionTitle}>Documentos</Text>
-                {(docsExpired || docsSoon) && (
-                  <View style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 8,
-                    backgroundColor: docsExpired ? Brand.colors.alerts.error + '18' : '#f7a90018',
-                    borderRadius: Brand.radius[12], borderWidth: 1,
-                    borderColor: docsExpired ? Brand.colors.alerts.error + '55' : '#f7a90055',
-                    padding: 10, marginBottom: 8,
-                  }}>
-                    <Ionicons name={docsExpired ? 'warning' : 'time-outline'} size={16} color={docsExpired ? Brand.colors.alerts.error : '#f7a900'} />
-                    <Text style={{ flex: 1, fontSize: 12, fontFamily: Fonts.sans, color: docsExpired ? Brand.colors.alerts.error : '#f7a900', lineHeight: 17 }}>
-                      {docsExpired
-                        ? 'Tenés documentos vencidos. Actualizalos para seguir usando el modo conductor.'
-                        : 'Algunos documentos vencen pronto. Actualizalos antes de que expiren.'}
-                    </Text>
-                  </View>
-                )}
-                <GlassCard style={styles.sectionCard}>
-                  <Pressable style={[styles.sectionItem, styles.sectionItemBorder]} onPress={() => router.push('/driver-documents')}>
-                    <View style={styles.itemIconWrap}>
-                      <Ionicons name="id-card-outline" size={16} color={Brand.colors.green.darkActive} />
-                    </View>
-                    <View style={styles.itemTextWrap}>
-                      <Text style={styles.itemLabel}>Licencia de conducir</Text>
-                      <Text style={[styles.itemDesc, { color: expiryIconColor(licenseState) }]}>
-                        {expiryLabel(user?.licenseExpiryMonth ?? null, user?.licenseExpiryYear ?? null)}
-                      </Text>
-                    </View>
-                    <Ionicons name={expiryIconName(licenseState)} size={16} color={expiryIconColor(licenseState)} />
-                  </Pressable>
-                  <Pressable style={styles.sectionItem} onPress={() => router.push('/driver-documents')}>
-                    <View style={styles.itemIconWrap}>
-                      <Ionicons name="car-sport-outline" size={16} color={Brand.colors.green.darkActive} />
-                    </View>
-                    <View style={styles.itemTextWrap}>
-                      <Text style={styles.itemLabel}>Revisión técnica Dekra</Text>
-                      <Text style={[styles.itemDesc, { color: expiryIconColor(dekraState) }]}>
-                        {expiryLabel(user?.dekraExpiryMonth ?? null, user?.dekraExpiryYear ?? null)}
-                      </Text>
-                    </View>
-                    <Ionicons name={expiryIconName(dekraState)} size={16} color={expiryIconColor(dekraState)} />
-                  </Pressable>
-                  <Pressable style={[styles.sectionItem, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSubtle }]} onPress={() => router.push('/driver-documents')}>
-                    <View style={[styles.itemIconWrap, profileStaticStyles.updateDocIconWrap]}>
-                      <Ionicons name="refresh-outline" size={16} color={Brand.colors.green.normal} />
-                    </View>
-                    <View style={styles.itemTextWrap}>
-                      <Text style={[styles.itemLabel, profileStaticStyles.updateDocLabel]}>Actualizar documentos</Text>
-                      <Text style={styles.itemDesc}>Renovar licencia o Dekra</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
-                  </Pressable>
-                </GlassCard>
-              </View>
-            </>
+            <DriverSections
+              user={user}
+              vehicles={vehicles}
+              vehiclesLoading={vehiclesLoading}
+              deletingId={deletingId}
+              onDeleteVehicle={handleDeleteVehicle}
+              vehicleApplications={myVehicleApplications}
+              onAddVehicle={() => router.push('/add-vehicle')}
+              onOpenDocuments={() => router.push('/driver-documents')}
+              onOpenVehicleApp={(id) => router.push({ pathname: '/vehicle-application-status', params: { id } })}
+              styles={styles}
+              colors={colors}
+            />
           )}
 
-          {/* QR Code section — visible to all non-admin users */}
+          {/* QR section — visible to all non-admin users */}
           {!isAdmin && qrToken && (
-            <View style={styles.sectionWrap}>
-              <Text style={styles.sectionTitle}>Mi QR de abordaje</Text>
-              <GlassCard style={[styles.sectionCard, profileStaticStyles.qrSectionCard]}>
-                <Text style={[styles.itemDesc, profileStaticStyles.qrItemDescCentered]}>
-                  Muestra este código al conductor para registrarte en el vehículo. Es único e intransferible.
-                </Text>
-                {showQr ? (
-                  <QrDisplay
-                    qrToken={qrToken}
-                    size={180}
-                    label="Tu identificación de abordaje"
-                  />
-                ) : null}
-                <Pressable
-                  style={profileStaticStyles.qrToggleBtn}
-                  onPress={() => setShowQr(v => !v)}
-                >
-                  <Ionicons name={showQr ? 'eye-off-outline' : 'qr-code-outline'} size={16} color="#fff" />
-                  <Text style={profileStaticStyles.qrToggleBtnText}>
-                    {showQr ? 'Ocultar QR' : 'Mostrar mi QR'}
-                  </Text>
-                </Pressable>
-
-                {/* Email me my QR — 5-minute cooldown enforced by the backend */}
-                <Pressable
-                  style={[
-                    styles.sendQrBtn,
-                    (sendingQr || qrCooldown > 0) && profileStaticStyles.sendQrBtnDisabled,
-                  ]}
-                  onPress={handleSendQrEmail}
-                  disabled={sendingQr || qrCooldown > 0}
-                >
-                  {sendingQr ? (
-                    <ActivityIndicator size="small" color={Brand.colors.green.normal} />
-                  ) : (
-                    <Ionicons name="mail-outline" size={16} color={Brand.colors.green.normal} />
-                  )}
-                  <Text style={styles.sendQrBtnText}>
-                    {qrCooldown > 0
-                      ? `Reenviar en ${Math.floor(qrCooldown / 60)}:${String(qrCooldown % 60).padStart(2, '0')}`
-                      : 'Enviar QR a mi correo'}
-                  </Text>
-                </Pressable>
-              </GlassCard>
-            </View>
+            <QrSection
+              qrToken={qrToken}
+              showQr={showQr}
+              onToggleQr={() => setShowQr((v) => !v)}
+              sendingQr={sendingQr}
+              qrCooldown={qrCooldown}
+              onSendQr={handleSendQrEmail}
+              styles={styles}
+              colors={colors}
+            />
           )}
 
           {/* Always visible: Preferencias + Soporte */}
-          {preferencesSections.map(section => (
+          {preferencesSections.map((section) => (
             <View key={section.title} style={styles.sectionWrap}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
               <GlassCard style={styles.sectionCard}>
                 {section.items.map((item, index) => (
                   <Pressable
                     key={item.label}
-                    onPress={() => item.route ? router.push(item.route as any) : undefined}
-                    style={[styles.sectionItem, index !== section.items.length - 1 && styles.sectionItemBorder]}>
+                    onPress={() => (item.route ? router.push(item.route as any) : undefined)}
+                    style={[styles.sectionItem, index !== section.items.length - 1 && styles.sectionItemBorder]}
+                  >
                     <View style={styles.itemIconWrap}>
                       <Ionicons name={item.icon} size={16} color={Brand.colors.green.darkActive} />
                     </View>
@@ -856,7 +359,6 @@ export default function ProfileScreen() {
             <Ionicons name="log-out-outline" size={16} color="#c6443d" />
             <Text style={styles.logoutText}>Cerrar sesión</Text>
           </Pressable>
-
         </View>
       </ScrollView>
 
