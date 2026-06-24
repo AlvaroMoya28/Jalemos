@@ -386,6 +386,7 @@ describe('FrontEnd contexts/auth — AuthProvider', () => {
       secureMock.getItemAsync
         .mockResolvedValueOnce(null)   // session restore: no token
         .mockResolvedValueOnce(null)   // session restore: no activation
+        .mockResolvedValueOnce(null)   // login: mode read for passenger+driver
         .mockResolvedValueOnce('1');   // login: reads activation flag for passenger+driver
       apiMock.post.mockResolvedValue(makeAuthResponse({ token: 'tok', role: 'passenger+driver' }));
 
@@ -400,6 +401,7 @@ describe('FrontEnd contexts/auth — AuthProvider', () => {
       secureMock.getItemAsync
         .mockResolvedValueOnce(null)   // session restore: no token
         .mockResolvedValueOnce(null)   // session restore: no activation
+        .mockResolvedValueOnce(null)   // login: mode read for passenger+driver
         .mockResolvedValueOnce(null);  // login: no activation flag
       apiMock.post.mockResolvedValue(makeAuthResponse({ token: 'tok', role: 'passenger+driver' }));
 

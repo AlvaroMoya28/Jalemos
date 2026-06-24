@@ -65,7 +65,7 @@ export function UserModeProvider({ children }: { children: ReactNode }) {
       setDriverRegistered(true);
       // resolvedMode is pre-loaded in AuthProvider alongside setUser, so it arrives
       // in the same render batch — no async SecureStore read needed here.
-      if (resolvedMode !== null) {
+      if (resolvedMode != null) {
         setModeState(resolvedMode);
         setModeLoaded(true);
       }

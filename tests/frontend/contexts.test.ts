@@ -266,24 +266,22 @@ describe('FrontEnd contexts/user-mode — UserModeProvider', () => {
   });
 
   it('sets isDriverRegistered=true for passenger+driver role and defaults to passenger', async () => {
-    secureMock.getItemAsync.mockResolvedValue(null);
-    authCtxMock.useAuth.mockReturnValue({ user: { id: 'u1', role: 'passenger+driver' } });
+    authCtxMock.useAuth.mockReturnValue({ user: { id: 'u1', role: 'passenger+driver' }, resolvedMode: 'passenger' });
     const { result } = renderHook(() => useUserMode(), { wrapper });
     await act(async () => {});
     expect(result.current.isDriverRegistered).toBe(true);
     expect(result.current.mode).toBe('passenger');
   });
 
-  it('restores driver mode from SecureStore for passenger+driver', async () => {
-    secureMock.getItemAsync.mockResolvedValue('driver');
-    authCtxMock.useAuth.mockReturnValue({ user: { id: 'u1', role: 'passenger+driver' } });
+  it('restores driver mode via resolvedMode for passenger+driver', async () => {
+    authCtxMock.useAuth.mockReturnValue({ user: { id: 'u1', role: 'passenger+driver' }, resolvedMode: 'driver' });
     const { result } = renderHook(() => useUserMode(), { wrapper });
     await act(async () => {});
     expect(result.current.mode).toBe('driver');
   });
 
   it('setMode updates state and persists to SecureStore', async () => {
-    authCtxMock.useAuth.mockReturnValue({ user: { id: 'u1', role: 'passenger+driver' } });
+    authCtxMock.useAuth.mockReturnValue({ user: { id: 'u1', role: 'passenger+driver' }, resolvedMode: 'passenger' });
     const { result } = renderHook(() => useUserMode(), { wrapper });
     await act(async () => {});
 
