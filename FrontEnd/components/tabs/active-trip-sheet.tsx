@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -66,9 +67,13 @@ export default function ActiveTripSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill}>
-        <View style={styles.modalBg}>
-          <View style={[styles.sheet, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}>
+      {Platform.OS === 'android' ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.4)' }]} />
+      ) : (
+        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+      )}
+      <View style={styles.modalBg}>
+        <View style={[styles.sheet, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}>
             <Pressable onPress={onClose} style={styles.handleWrap}>
               <View style={styles.handle} />
             </Pressable>
@@ -221,7 +226,6 @@ export default function ActiveTripSheet({
             </ScrollView>
           </View>
         </View>
-      </BlurView>
     </Modal>
   );
 }

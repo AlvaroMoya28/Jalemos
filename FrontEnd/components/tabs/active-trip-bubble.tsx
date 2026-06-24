@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, Text, View } from 'react-native';
+import { Alert, Animated, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
@@ -137,16 +137,29 @@ export default function ActiveTripBubble() {
       {isActive && passengerTrip && (
         <Animated.View style={[styles.bubble, { bottom: insets.bottom + 84, transform: [{ scale: pulse }] }]}>
           <Pressable onPress={() => setExpanded(true)}>
-            <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={styles.bubbleInner}>
-              <View style={[styles.dot, { backgroundColor: stateColor }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.bubbleState, { color: stateColor }]}>{headlineLabel}</Text>
-                <Text style={[styles.bubbleRoute, { color: colors.textPrimary }]} numberOfLines={1}>
-                  {subtitleHint}
-                </Text>
+            {Platform.OS === 'android' ? (
+              <View style={[styles.bubbleInner, { backgroundColor: isDark ? '#1e1e22' : '#ffffff' }]}>
+                <View style={[styles.dot, { backgroundColor: stateColor }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.bubbleState, { color: stateColor }]}>{headlineLabel}</Text>
+                  <Text style={[styles.bubbleRoute, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {subtitleHint}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-up" size={16} color={colors.textMuted} />
               </View>
-              <Ionicons name="chevron-up" size={16} color={colors.textMuted} />
-            </BlurView>
+            ) : (
+              <BlurView intensity={65} tint={isDark ? 'dark' : 'light'} style={styles.bubbleInner}>
+                <View style={[styles.dot, { backgroundColor: stateColor }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.bubbleState, { color: stateColor }]}>{headlineLabel}</Text>
+                  <Text style={[styles.bubbleRoute, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {subtitleHint}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-up" size={16} color={colors.textMuted} />
+              </BlurView>
+            )}
           </Pressable>
         </Animated.View>
       )}
