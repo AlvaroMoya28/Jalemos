@@ -19,6 +19,7 @@ export type UserMode = 'passenger' | 'driver';
 
 interface UserModeContextType {
   mode: UserMode;
+  modeLoaded: boolean;
   isDriverRegistered: boolean;
   profilePhoto: string | null;
   setMode: (mode: UserMode) => void;
@@ -28,6 +29,7 @@ interface UserModeContextType {
 
 const UserModeContext = createContext<UserModeContextType>({
   mode: 'passenger',
+  modeLoaded: false,
   isDriverRegistered: false,
   profilePhoto: null,
   setMode: () => {},
@@ -36,8 +38,9 @@ const UserModeContext = createContext<UserModeContextType>({
 });
 
 export function UserModeProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, resolvedMode } = useAuth();
   const [mode, setModeState] = useState<UserMode>('passenger');
+  const [modeLoaded, setModeLoaded] = useState(false);
   const [isDriverRegistered, setDriverRegistered] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
@@ -45,6 +48,7 @@ export function UserModeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       setModeState('passenger');
+      setModeLoaded(false);
       setDriverRegistered(false);
       setProfilePhoto(null);
       return;
@@ -53,17 +57,20 @@ export function UserModeProvider({ children }: { children: ReactNode }) {
     if (user.role === 'admin' || user.role === 'passenger') {
       setModeState('passenger');
       setDriverRegistered(false);
+      setModeLoaded(true);
       return;
     }
 
     if (user.role === 'passenger+driver') {
       setDriverRegistered(true);
-      // Restore the mode this account last used, defaulting to 'passenger'
-      SecureStore.getItemAsync(`jalemos_mode_${user.id}`)
-        .then(stored => setModeState(stored === 'driver' ? 'driver' : 'passenger'))
-        .catch(() => setModeState('passenger'));
+      // resolvedMode is pre-loaded in AuthProvider alongside setUser, so it arrives
+      // in the same render batch — no async SecureStore read needed here.
+      if (resolvedMode !== null) {
+        setModeState(resolvedMode);
+        setModeLoaded(true);
+      }
     }
-  }, [user?.id, user?.role]);
+  }, [user, resolvedMode]);
 
   const setMode = (m: UserMode) => {
     setModeState(m);
@@ -74,7 +81,7 @@ export function UserModeProvider({ children }: { children: ReactNode }) {
 
   return (
     <UserModeContext.Provider value={{
-      mode, isDriverRegistered, profilePhoto,
+      mode, modeLoaded, isDriverRegistered, profilePhoto,
       setMode, setDriverRegistered, setProfilePhoto,
     }}>
       {children}

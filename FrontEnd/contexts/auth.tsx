@@ -69,6 +69,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   driverActivated: boolean;
+  resolvedMode: 'passenger' | 'driver' | null;
   login: (
     identifier: string,
     password: string,
@@ -102,6 +103,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   isLoading: true,
   driverActivated: false,
+  resolvedMode: null,
   login: async () => ({ success: false }),
   logout: async () => {},
   register: async () => ({ success: false }),
@@ -139,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [driverActivated, _setDriverActivated] = useState(false);
+  const [resolvedMode, setResolvedMode] = useState<'passenger' | 'driver' | null>(null);
 
   // Restore session on startup — refresh the JWT to get the current user profile and role
   useEffect(() => {
@@ -151,6 +154,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const res = await get<AuthResponse>("/api/auth/refresh", stored);
           await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+          // Resolve mode alongside user so UserModeProvider gets both in one render
+          if (res.role === "passenger+driver") {
+            const modeStored = await SecureStore.getItemAsync(`jalemos_mode_${res.id}`);
+            setResolvedMode(modeStored === "driver" ? "driver" : "passenger");
+          } else {
+            setResolvedMode("passenger");
+          }
           setToken(res.token);
           setUser(mapResponse(res));
           // Sync driverActivated with actual role from server
@@ -163,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           // Server unavailable — restore flag from SecureStore and keep token
           if (activated === "1") _setDriverActivated(true);
+          setResolvedMode("passenger");
           setToken(stored);
         }
       })
@@ -177,6 +188,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       await SecureStore.setItemAsync(TOKEN_KEY, res.token);
       const u = mapResponse(res);
+      // Resolve mode before setting user so both land in the same render
+      if (u.role === "passenger+driver") {
+        const modeStored = await SecureStore.getItemAsync(`jalemos_mode_${u.id}`);
+        setResolvedMode(modeStored === "driver" ? "driver" : "passenger");
+      } else {
+        setResolvedMode("passenger");
+      }
       setToken(res.token);
       setUser(u);
       // Sync driverActivated with SecureStore + actual role
@@ -212,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    setResolvedMode(null);
     _setDriverActivated(false);
     // driverActivated NOT cleared from SecureStore on logout — it survives sessions
     // so the onboarding pipeline doesn't repeat. It only clears if the admin
@@ -307,6 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         driverActivated,
+        resolvedMode,
         login,
         logout,
         register,

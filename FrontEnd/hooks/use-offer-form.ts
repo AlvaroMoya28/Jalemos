@@ -134,7 +134,7 @@ export function useOfferForm() {
   const applyToCoords   = (c: PlaceCoords | null) => { toCoordsRef.current = c;   setToCoords(c); };
 
   const [vehicles, setVehicles]               = useState<VehicleOption[]>([]);
-  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [offerAlert, setOfferAlert]           = useState<OfferAlert | null>(null);
 
   const showError   = (title: string, body: string) =>
