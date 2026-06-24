@@ -11,8 +11,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,14 +26,26 @@ import { styles } from '../../styles/tabs/_layout.styles';
 export default function TabLayout() {
   const { colors } = useAppTheme();
   const { user } = useAuth();
-  const { mode } = useUserMode();
+  const { mode, modeLoaded } = useUserMode();
   const { showLoader, hideLoader } = useLoading();
   const { bottom } = useSafeAreaInsets();
+  const router = useRouter();
 
   const isAdmin = user?.role === 'admin';
   // Only a passenger+driver account in driver mode can see driver screens.
   // A pure passenger with a stale mode value must never see the offer tab.
   const isDriver = mode === 'driver' && user?.role === 'passenger+driver';
+
+  const [navReady, setNavReady] = useState(false);
+  const didInitialNav = useRef(false);
+  useEffect(() => {
+    if (!modeLoaded || didInitialNav.current) return;
+    didInitialNav.current = true;
+    if (isAdmin) router.replace('/(tabs)/admin-applications');
+    else if (isDriver) router.replace('/(tabs)/offer');
+    else router.replace('/(tabs)/search');
+    setNavReady(true);
+  }, [isAdmin, isDriver, modeLoaded, router]);
 
   const tabBarStyle = {
     height: 74 + bottom,
@@ -42,6 +55,8 @@ export default function TabLayout() {
     borderTopColor: colors.tabBarBorder,
     ...withElevation(200),
   };
+
+  if (!modeLoaded || !navReady) return <View style={{ flex: 1, backgroundColor: colors.screenBg }} />;
 
   if (Platform.OS === 'ios') {
     return (
