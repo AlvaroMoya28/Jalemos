@@ -34,6 +34,7 @@ export default function ActiveTripBubble() {
   const [showCancel, setShowCancel]                   = useState(false);
   const [showEmergencyReport, setShowEmergencyReport] = useState(false);
   const [submittingRating, setSubmittingRating]       = useState(false);
+  const [completedTrip, setCompletedTrip]             = useState<typeof passengerTrip>(null);
   const pulse = useRef(new Animated.Value(1)).current;
 
   const alerts  = usePassengerTripAlerts(passengerTrip, () => setShowQr(false));
@@ -57,6 +58,11 @@ export default function ActiveTripBubble() {
     return () => anim.stop();
   }, [pulse]);
 
+  // Snapshot the trip when it completes so the payment sheet survives polling clearing passengerTrip
+  useEffect(() => {
+    if (passengerTrip?.tripState === 'completed') setCompletedTrip(passengerTrip);
+  }, [passengerTrip]);
+
   // Fetch QR token lazily when there's an active trip
   useEffect(() => {
     if (!token || !passengerTrip) { setQrToken(null); return; }
@@ -69,8 +75,10 @@ export default function ActiveTripBubble() {
   if (!token || !user) return null;
   // lateCancelDriver keeps the component mounted during the gap between the cancel alert
   // closing and the late-cancel rating modal opening.
-  if (!passengerTrip && !alerts.showSeatbelt && !alerts.showRating && !alerts.showLateCancelRating
+  if (!passengerTrip && !completedTrip && !alerts.showSeatbelt && !alerts.showRating && !alerts.showLateCancelRating
       && !alerts.showCancelledAlert && !alerts.showBoardedAlert && !alerts.lateCancelDriver) return null;
+
+  const activeOrCompletedTrip = passengerTrip ?? completedTrip;
 
   const isActive  = passengerTrip?.tripState === 'boarding' || passengerTrip?.tripState === 'in_progress';
   const isBoarded = passengerTrip?.bookingState === 'boarded';
@@ -165,13 +173,13 @@ export default function ActiveTripBubble() {
       )}
 
       {/* ── Expanded sheet ── */}
-      {passengerTrip && (
+      {activeOrCompletedTrip && (
         <ActiveTripSheet
-          trip={passengerTrip}
+          trip={activeOrCompletedTrip}
           colors={colors}
           isDark={isDark}
           visible={expanded}
-          onClose={() => setExpanded(false)}
+          onClose={() => { setExpanded(false); setCompletedTrip(null); }}
           headlineLabel={headlineLabel}
           stateColor={stateColor}
           isActive={!!isActive}
