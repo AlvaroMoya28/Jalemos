@@ -105,16 +105,17 @@ export function useTripsData() {
     setError(null);
     try {
       const tripsResponse = await get<TripResponse[]>('/api/trips', token);
-      const mappedTrips: Trip[] = [];
-      for (const t of tripsResponse) {
-        let vehicle: VehicleResponse | null = null;
-        try {
-          vehicle = await get<VehicleResponse>(`/api/vehicles/${t.vehicleId}`, token);
-        } catch {
-          // vehicle info is non-critical — proceed without it
-        }
-        mappedTrips.push(mapTripResponse(t, vehicle));
-      }
+      const mappedTrips = await Promise.all(
+        tripsResponse.map(async (t) => {
+          let vehicle: VehicleResponse | null = null;
+          try {
+            vehicle = await get<VehicleResponse>(`/api/vehicles/${t.vehicleId}`, token);
+          } catch {
+            // vehicle info is non-critical — proceed without it
+          }
+          return mapTripResponse(t, vehicle);
+        }),
+      );
       setTrips(mappedTrips);
     } catch (err) {
       console.error('Error fetching trips:', err);
