@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { BackButton } from '@/components/shared/back-button';
 import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { makeStyles, stepStyles } from '../styles/app/driver-status.styles';
@@ -172,9 +173,7 @@ export default function DriverStatusScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }} hitSlop={8}>
-          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-        </Pressable>
+        <BackButton />
         <Text style={styles.headerTitle}>Solicitud de conductor</Text>
         <View style={{ width: 38 }} />
       </View>

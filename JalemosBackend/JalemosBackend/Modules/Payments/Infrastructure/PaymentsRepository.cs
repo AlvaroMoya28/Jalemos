@@ -49,7 +49,6 @@ public sealed class PaymentsRepository
     {
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        // Clear existing favorites for this user.
         var all = await _db.PaymentMethods.Where(m => m.UserId == userId && m.Active).ToListAsync(ct);
         foreach (var m in all) m.IsFavorite = false;
 
@@ -69,21 +68,13 @@ public sealed class PaymentsRepository
         await _db.SaveChangesAsync(ct);
     }
 
-    // ── User stripe info ──────────────────────────────────────────────────
+    // ── User payment info ─────────────────────────────────────────────────
 
-    public async Task<(string? StripeCustomerId, Guid? LastUsedMethodId)> GetUserPaymentInfoAsync(Guid userId, CancellationToken ct = default)
+    public async Task<Guid?> GetLastUsedMethodIdAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == userId, ct)
             ?? throw new KeyNotFoundException("Usuario no encontrado.");
-        return (user.StripeCustomerId, user.LastUsedPaymentMethodId);
-    }
-
-    public async Task UpdateUserStripeCustomerIdAsync(Guid userId, string stripeCustomerId, CancellationToken ct = default)
-    {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId, ct)
-            ?? throw new KeyNotFoundException("Usuario no encontrado.");
-        user.StripeCustomerId = stripeCustomerId;
-        await _db.SaveChangesAsync(ct);
+        return user.LastUsedPaymentMethodId;
     }
 
     public async Task UpdateLastUsedMethodAsync(Guid userId, Guid methodId, CancellationToken ct = default)
@@ -127,12 +118,11 @@ public sealed class PaymentsRepository
         return e is null ? null : MapPaymentToDomain(e);
     }
 
-    public async Task UpdatePaymentStatusAsync(Guid paymentId, PaymentStatus status, string? stripeIntentId, CancellationToken ct = default)
+    public async Task UpdatePaymentStatusAsync(Guid paymentId, PaymentStatus status, CancellationToken ct = default)
     {
         var entity = await _db.Payments.FirstOrDefaultAsync(p => p.PaymentId == paymentId, ct)
             ?? throw new KeyNotFoundException("Pago no encontrado.");
         entity.Status = status;
-        if (stripeIntentId is not null) entity.StripePaymentIntentId = stripeIntentId;
         entity.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
     }
@@ -158,61 +148,59 @@ public sealed class PaymentsRepository
 
     private static PaymentMethod MapMethodToDomain(PaymentMethodEntity e) => new()
     {
-        Id = e.PaymentId,
-        UserId = e.UserId,
-        Type = e.Type.ToString().ToLower(),
-        Alias = e.Alias,
+        Id             = e.PaymentId,
+        UserId         = e.UserId,
+        Type           = e.Type.ToString().ToLower(),
+        Alias          = e.Alias,
         LastFourDigits = e.LastFourDigits,
-        Brand = e.Brand,
-        ExpiryMonth = e.ExpiryMonth,
-        ExpiryYear = e.ExpiryYear,
-        IsFavorite = e.IsFavorite,
-        StripePaymentMethodId = e.StripePaymentMethodId,
-        Active = e.Active,
-        CreatedAt = e.CreatedAt
+        Brand          = e.Brand,
+        ExpiryMonth    = e.ExpiryMonth,
+        ExpiryYear     = e.ExpiryYear,
+        IsFavorite     = e.IsFavorite,
+        SimBehavior    = e.SimBehavior,
+        Active         = e.Active,
+        CreatedAt      = e.CreatedAt
     };
 
     private static PaymentMethodEntity MapMethodToEntity(PaymentMethod d) => new()
     {
-        PaymentId = d.Id == Guid.Empty ? Guid.NewGuid() : d.Id,
-        UserId = d.UserId,
-        Type = Enum.Parse<PaymentType>(d.Type, ignoreCase: true),
-        Alias = d.Alias,
+        PaymentId      = d.Id == Guid.Empty ? Guid.NewGuid() : d.Id,
+        UserId         = d.UserId,
+        Type           = Enum.Parse<PaymentType>(d.Type, ignoreCase: true),
+        Alias          = d.Alias,
         LastFourDigits = d.LastFourDigits,
-        Brand = d.Brand,
-        ExpiryMonth = d.ExpiryMonth,
-        ExpiryYear = d.ExpiryYear,
-        IsFavorite = d.IsFavorite,
-        StripePaymentMethodId = d.StripePaymentMethodId,
-        Active = d.Active,
-        CreatedAt = d.CreatedAt == default ? DateTime.UtcNow : d.CreatedAt
+        Brand          = d.Brand,
+        ExpiryMonth    = d.ExpiryMonth,
+        ExpiryYear     = d.ExpiryYear,
+        IsFavorite     = d.IsFavorite,
+        SimBehavior    = d.SimBehavior,
+        Active         = d.Active,
+        CreatedAt      = d.CreatedAt == default ? DateTime.UtcNow : d.CreatedAt
     };
 
     private static Payment MapPaymentToDomain(PaymentEntity e) => new()
     {
-        Id = e.PaymentId,
-        BookingId = e.BookingId,
-        PayerId = e.PayerId,
-        Amount = e.Amount,
-        Method = e.Method.ToString().ToLower(),
-        Status = e.Status.ToString().ToLower(),
-        StripePaymentIntentId = e.StripePaymentIntentId,
+        Id              = e.PaymentId,
+        BookingId       = e.BookingId,
+        PayerId         = e.PayerId,
+        Amount          = e.Amount,
+        Method          = e.Method.ToString().ToLower(),
+        Status          = e.Status.ToString().ToLower(),
         PaymentMethodId = e.PaymentMethodId,
-        CreatedAt = e.CreatedAt,
-        UpdatedAt = e.UpdatedAt
+        CreatedAt       = e.CreatedAt,
+        UpdatedAt       = e.UpdatedAt
     };
 
     private static PaymentEntity MapPaymentToEntity(Payment d) => new()
     {
-        PaymentId = d.Id == Guid.Empty ? Guid.NewGuid() : d.Id,
-        BookingId = d.BookingId,
-        PayerId = d.PayerId,
-        Amount = d.Amount,
-        Method = Enum.Parse<PaymentType>(d.Method, ignoreCase: true),
-        Status = Enum.Parse<PaymentStatus>(d.Status, ignoreCase: true),
-        StripePaymentIntentId = d.StripePaymentIntentId,
+        PaymentId       = d.Id == Guid.Empty ? Guid.NewGuid() : d.Id,
+        BookingId       = d.BookingId,
+        PayerId         = d.PayerId,
+        Amount          = d.Amount,
+        Method          = Enum.Parse<PaymentType>(d.Method, ignoreCase: true),
+        Status          = Enum.Parse<PaymentStatus>(d.Status, ignoreCase: true),
         PaymentMethodId = d.PaymentMethodId,
-        CreatedAt = d.CreatedAt == default ? DateTime.UtcNow : d.CreatedAt,
-        UpdatedAt = d.UpdatedAt == default ? DateTime.UtcNow : d.UpdatedAt
+        CreatedAt       = d.CreatedAt == default ? DateTime.UtcNow : d.CreatedAt,
+        UpdatedAt       = d.UpdatedAt == default ? DateTime.UtcNow : d.UpdatedAt
     };
 }

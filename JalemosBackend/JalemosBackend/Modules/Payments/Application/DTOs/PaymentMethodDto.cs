@@ -10,5 +10,6 @@ public class PaymentMethodDto
     public short? ExpiryMonth { get; set; }
     public short? ExpiryYear { get; set; }
     public bool IsFavorite { get; set; }
+    public string? SimBehavior { get; set; }
     public DateTime CreatedAt { get; set; }
 }

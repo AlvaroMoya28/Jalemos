@@ -260,7 +260,11 @@ export default function MyRidesScreen() {
                 const driverFirst = item.driverFirstName ?? '';
                 const driverLast  = item.driverLastName  ?? '';
                 const driverName  = `${driverFirst} ${driverLast}`.trim() || item.driverName || 'Conductor';
-                const seats       = item.seatsReserved ?? item.availableSeats ?? 1;
+                // Passenger cards show how many seats THEY reserved; driver cards show
+                // how many seats of the vehicle's capacity have been taken by passengers.
+                const seats = tab === 'driver'
+                  ? (item.totalSeats ?? 0) - (item.availableSeats ?? 0)
+                  : (item.seatsReserved ?? 1);
                 const tripId      = item.tripId ?? item.id;
                 const tripState    = (item.tripState ?? item.state ?? '').toLowerCase();
                 const bookingState = (item.bookingState ?? '').toLowerCase();
@@ -295,6 +299,7 @@ export default function MyRidesScreen() {
                   time: dep.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                   price: rate,
                   seats,
+                  totalSeats: tab === 'driver' ? item.totalSeats : undefined,
                   driver: driverName,
                   rating: item.driverRating ?? item.driverMeanRating ?? 0,
                   avatar,
@@ -306,7 +311,7 @@ export default function MyRidesScreen() {
                   <View key={item.bookingId ?? item.id} style={myRidesInline.tripCardWrapper}>
                     <RideCard
                       ride={ride}
-                      mode="my-rides"
+                      mode={tab === 'driver' ? 'my-rides-driver' : 'my-rides-passenger'}
                       onPress={() => {
                         // Format memberSince from whichever date field is available
                         const rawCreated = item.driverCreatedAt ?? item.driverMemberSince ?? null;

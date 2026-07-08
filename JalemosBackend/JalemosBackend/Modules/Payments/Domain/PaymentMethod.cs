@@ -11,7 +11,7 @@ public class PaymentMethod
     public short? ExpiryMonth { get; set; }
     public short? ExpiryYear { get; set; }
     public bool IsFavorite { get; set; }
-    public string? StripePaymentMethodId { get; set; }
+    public string? SimBehavior { get; set; }
     public bool Active { get; set; }
     public DateTime CreatedAt { get; set; }
 }

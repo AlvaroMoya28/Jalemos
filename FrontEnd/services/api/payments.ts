@@ -1,5 +1,7 @@
 import { get, post, patch, del } from './client';
 
+export type SimBehavior = 'declined' | 'insufficient_funds' | 'expired' | 'incorrect_cvv' | null;
+
 export interface PaymentMethodDto {
   id: string;
   type: 'card' | 'sinpe' | 'cash';
@@ -9,7 +11,27 @@ export interface PaymentMethodDto {
   expiryMonth: number | null;
   expiryYear: number | null;
   isFavorite: boolean;
+  simBehavior: SimBehavior;
   createdAt: string;
+}
+
+export function paymentMethodLabel(method: string): string {
+  switch (method) {
+    case 'card':  return 'Tarjeta';
+    case 'sinpe': return 'SINPE Móvil';
+    case 'cash':  return 'Efectivo';
+    default:      return method;
+  }
+}
+
+export function simBehaviorLabel(b: SimBehavior): { text: string; color: string } | null {
+  switch (b) {
+    case 'declined':           return { text: 'Rechazada', color: '#e53e3e' };
+    case 'insufficient_funds': return { text: 'Fondos insuficientes', color: '#e53e3e' };
+    case 'expired':            return { text: 'Expirada', color: '#e53e3e' };
+    case 'incorrect_cvv':      return { text: 'CVV incorrecto', color: '#dd6b20' };
+    default:                   return null;
+  }
 }
 
 export interface LastUsedPaymentMethodDto {
@@ -31,12 +53,20 @@ export interface PaymentDto {
   updatedAt: string;
 }
 
+export interface AddCardDto {
+  cardNumber: string;
+  expiryMonth: number;
+  expiryYear: number;
+  cardholderName: string;
+  alias?: string;
+}
+
 export const paymentsApi = {
   getMethods: (token: string) =>
     get<PaymentMethodDto[]>('/api/payments/methods', token),
 
-  addCard: (stripePaymentMethodId: string, alias: string | undefined, token: string) =>
-    post<PaymentMethodDto>('/api/payments/methods/card', { stripePaymentMethodId, alias }, token),
+  addCard: (data: AddCardDto, token: string) =>
+    post<PaymentMethodDto>('/api/payments/methods/card', data, token),
 
   addSimple: (type: 'sinpe' | 'cash', alias: string, token: string) =>
     post<PaymentMethodDto>('/api/payments/methods/simple', { type, alias }, token),

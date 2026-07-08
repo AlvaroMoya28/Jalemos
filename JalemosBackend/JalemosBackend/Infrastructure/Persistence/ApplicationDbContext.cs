@@ -99,7 +99,6 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.QrToken).HasColumnName("qr_token").HasDefaultValueSql("gen_random_uuid()");
                 e.Property(x => x.ExpoPushToken).HasColumnName("expo_push_token");
                 e.Property(x => x.NotificationPrefs).HasColumnName("notification_prefs").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
-                e.Property(x => x.StripeCustomerId).HasColumnName("stripe_customer_id");
                 e.Property(x => x.LastUsedPaymentMethodId).HasColumnName("last_used_payment_method_id");
                 e.Property(x => x.EmailVerificationCode).HasColumnName("email_verification_code");
                 e.Property(x => x.EmailVerificationExpiresAt).HasColumnName("email_verification_expires_at");
@@ -241,7 +240,7 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.ExpiryMonth).HasColumnName("expiry_month");
                 e.Property(x => x.ExpiryYear).HasColumnName("expiry_year");
                 e.Property(x => x.IsFavorite).HasColumnName("is_favorite").HasDefaultValue(false);
-                e.Property(x => x.StripePaymentMethodId).HasColumnName("stripe_payment_method_id");
+                e.Property(x => x.SimBehavior).HasColumnName("sim_behavior");
                 e.Property(x => x.Active).HasColumnName("active").HasDefaultValue(true);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.HasIndex(x => x.UserId).HasDatabaseName("idx_payment_user");
@@ -259,7 +258,6 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.Amount).HasColumnName("amount").HasColumnType("numeric(10,2)").IsRequired();
                 e.Property(x => x.Method).HasColumnName("method").HasColumnType("payment_type").IsRequired();
                 e.Property(x => x.Status).HasColumnName("status").HasColumnType("payment_status").HasDefaultValue(PaymentStatus.pending);
-                e.Property(x => x.StripePaymentIntentId).HasColumnName("stripe_payment_intent_id");
                 e.Property(x => x.PaymentMethodId).HasColumnName("payment_method_id");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("NOW()");
@@ -403,7 +401,7 @@ namespace JalemosBackend.Infrastructure.Persistence
         public short? ExpiryMonth { get; set; }
         public short? ExpiryYear { get; set; }
         public bool IsFavorite { get; set; }
-        public string? StripePaymentMethodId { get; set; }
+        public string? SimBehavior { get; set; }
         public bool Active { get; set; }
         public DateTime CreatedAt { get; set; }
     }

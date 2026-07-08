@@ -8,7 +8,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useActiveTrip } from '@/contexts/active-trip';
 import { useAuth } from '@/contexts/auth';
 import { Brand } from '@/constants/theme';
-import { PaymentDto, TripStatusResponse, paymentsApi, ratingsApi, tripLifecycleApi } from '@/services/api';
+import { TripStatusResponse, paymentsApi, ratingsApi, tripLifecycleApi } from '@/services/api';
+
+export interface TripSummaryRow {
+  bookingId: string;
+  paymentId: string | null;
+  passengerName: string;
+  amount: number | null;
+  method: string | null;
+  status: 'confirmed' | 'failed' | 'pending' | 'unverified';
+}
 
 export function useBoardingScreen(
   trip: TripStatusResponse,
@@ -30,11 +39,14 @@ export function useBoardingScreen(
   const [noShowConfirm, setNoShowConfirm]       = useState<{ bookingId: string; name: string } | null>(null);
   const [errorMsg, setErrorMsg]                 = useState<{ title: string; body: string } | null>(null);
 
-  // Payment confirmation step (after rating flow)
-  const [showPayments, setShowPayments]         = useState(false);
-  const [pendingPayments, setPendingPayments]   = useState<(PaymentDto & { passengerName: string })[]>([]);
-  const [loadingPayments, setLoadingPayments]   = useState(false);
-  const [confirmingId, setConfirmingId]         = useState<string | null>(null);
+  // Combined payment-confirmation + trip-finished summary (shown after rating, right
+  // before the driver leaves the trip screen). One screen for every payment mix —
+  // already-resolved payments (card) just show their status, SINPE/cash payments still
+  // pending get an inline confirm action, and everything ends with one Finalizar/Aceptar.
+  const [showPaymentSummary, setShowPaymentSummary] = useState(false);
+  const [loadingSummary, setLoadingSummary]         = useState(false);
+  const [summaryRows, setSummaryRows]               = useState<TripSummaryRow[]>([]);
+  const [confirmingId, setConfirmingId]             = useState<string | null>(null);
 
   const boardedPassengers = trip.passengers.filter(p => p.bookingState === 'boarded');
   const pendingPassengers = trip.passengers.filter(p => p.bookingState === 'confirmed' || p.bookingState === 'pending');
@@ -135,41 +147,45 @@ export function useBoardingScreen(
     } finally { setSubmitting(false); }
   };
 
-  const loadPendingPayments = async () => {
+  const loadPaymentSummary = async () => {
     if (!token) { onTripEnded(); return; }
-    setLoadingPayments(true);
-    setShowPayments(true);
+    setLoadingSummary(true);
+    setShowPaymentSummary(true);
     try {
       // The passenger's app creates the payment when it polls and detects the trip
       // as completed. That poll may take a few seconds after the driver ends the trip,
-      // so we retry up to ~12 s before giving up.
+      // so we retry up to ~12 s before giving up on any passenger still unverified.
       const DEADLINE = Date.now() + 12_000;
-      let results: (PaymentDto & { passengerName: string })[] = [];
+      let rows: TripSummaryRow[] = [];
 
       do {
-        results = [];
+        rows = [];
         for (const p of boardedPassengers) {
+          const name = `${p.firstName} ${p.lastName}`;
           try {
             const pay = await paymentsApi.getByBooking(p.bookingId, token);
-            if (pay.status === 'pending')
-              results.push({ ...pay, passengerName: `${p.firstName} ${p.lastName}` });
-          } catch { }
+            rows.push({ bookingId: p.bookingId, paymentId: pay.id, passengerName: name, amount: pay.amount, method: pay.method, status: pay.status });
+          } catch {
+            rows.push({ bookingId: p.bookingId, paymentId: null, passengerName: name, amount: null, method: null, status: 'unverified' });
+          }
         }
-        if (results.length > 0 || Date.now() >= DEADLINE) break;
+        if (!rows.some(r => r.status === 'unverified') || Date.now() >= DEADLINE) break;
         await new Promise(r => setTimeout(r, 3_000));
       } while (true);
 
-      setPendingPayments(results);
-      if (results.length === 0) {
-        setShowPayments(false);
-        onTripEnded();
-      }
+      setSummaryRows(rows);
     } catch {
-      setShowPayments(false);
-      onTripEnded();
+      setSummaryRows(boardedPassengers.map(p => ({
+        bookingId: p.bookingId, paymentId: null, passengerName: `${p.firstName} ${p.lastName}`, amount: null, method: null, status: 'unverified',
+      })));
     } finally {
-      setLoadingPayments(false);
+      setLoadingSummary(false);
     }
+  };
+
+  const dismissPaymentSummary = () => {
+    setShowPaymentSummary(false);
+    onTripEnded();
   };
 
   // Rating flow for each boarded passenger
@@ -184,14 +200,14 @@ export function useBoardingScreen(
       setCurrentRatingIdx(next);
     } else {
       setShowRating(false);
-      loadPendingPayments();
+      loadPaymentSummary();
     }
   };
 
   const skipRating = () => {
     const next = currentRatingIdx + 1;
     if (next < boardedPassengers.length) setCurrentRatingIdx(next);
-    else { setShowRating(false); loadPendingPayments(); }
+    else { setShowRating(false); loadPaymentSummary(); }
   };
 
   const handleConfirmPayment = async (paymentId: string) => {
@@ -199,7 +215,7 @@ export function useBoardingScreen(
     setConfirmingId(paymentId);
     try {
       await paymentsApi.confirmPayment(paymentId, token);
-      setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
+      setSummaryRows(prev => prev.map(r => r.paymentId === paymentId ? { ...r, status: 'confirmed' } : r));
     } catch (e: any) {
       setErrorMsg({ title: 'Error', body: e.message ?? 'No se pudo confirmar el pago.' });
     } finally {
@@ -227,6 +243,7 @@ export function useBoardingScreen(
     // rating
     showRating, currentRatingIdx, handleRatingSubmit, skipRating,
     // payments
-    showPayments, pendingPayments, loadingPayments, confirmingId, handleConfirmPayment,
+    showPaymentSummary, loadingSummary, summaryRows, confirmingId, handleConfirmPayment,
+    dismissPaymentSummary,
   };
 }

@@ -31,7 +31,7 @@ export default function SearchScreen() {
     from, setFrom, to, setTo, seats, setSeats,
     selectedDate, setSelectedDate, hasSearched,
     filteredRides, noTripsExist,
-    refreshTrips, handleSearch, handleRidePress, clearSearch, applyQuickRoute,
+    handleSearch, handleRefresh, handleRidePress, clearSearch, applyQuickRoute,
   } = useTripSearch();
 
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function SearchScreen() {
           noTripsExist={noTripsExist}
           onRidePress={handleRidePress}
           onClear={clearSearch}
-          onRefresh={refreshTrips}
+          onRefresh={handleRefresh}
           applyQuickRoute={applyQuickRoute}
           styles={styles}
           colors={colors}
