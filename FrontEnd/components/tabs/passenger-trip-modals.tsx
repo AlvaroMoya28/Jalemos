@@ -13,6 +13,7 @@ export default function PassengerTripModals({
   trip,
   alerts,
   onSubmitRating,
+  onSkipRating,
   submittingRating,
   showCancel,
   onCancelClose,
@@ -23,6 +24,7 @@ export default function PassengerTripModals({
   trip: ActivePassengerTrip | null;
   alerts: ReturnType<typeof usePassengerTripAlerts>;
   onSubmitRating: (score: number, comment: string | null) => void;
+  onSkipRating: () => void;
   submittingRating: boolean;
   showCancel: boolean;
   onCancelClose: () => void;
@@ -76,7 +78,7 @@ export default function PassengerTripModals({
             role: 'driver',
           }}
           onSubmit={onSubmitRating}
-          onSkip={() => { alerts.setShowRating(false); alerts.markRatingShown(trip.tripId); }}
+          onSkip={onSkipRating}
           loading={submittingRating}
         />
       )}

@@ -5,6 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +28,7 @@ export default function ActiveTripBubble() {
   const { token, user }            = useAuth();
   const { colors, isDark }         = useAppTheme();
   const insets                     = useSafeAreaInsets();
+  const router                     = useRouter();
 
   const [expanded, setExpanded]                       = useState(false);
   const [showQr, setShowQr]                           = useState(false);
@@ -134,8 +136,24 @@ export default function ActiveTripBubble() {
       alerts.setShowLateCancelRating(false);
       alerts.setLateCancelDriver(null);
       // Don't refresh on completed trips — the payment screen needs to stay visible.
-      if (passengerTrip?.tripState !== 'completed') refresh();
+      if (passengerTrip?.tripState === 'completed') setExpanded(true);
+      else refresh();
     }
+  };
+
+  // Skipping the rating still lands on the trip-completed / payment summary screen.
+  const handleSkipRating = () => {
+    if (passengerTrip) alerts.markRatingShown(passengerTrip.tripId);
+    alerts.setShowRating(false);
+    if (passengerTrip?.tripState === 'completed') setExpanded(true);
+  };
+
+  // Closes the trip-completed summary and sends the passenger back to Buscar,
+  // same as the driver's finished screen returns to its own tab.
+  const handleAcceptFinished = () => {
+    setExpanded(false);
+    setCompletedTrip(null);
+    router.replace('/(tabs)/search');
   };
 
   // ── JSX ──────────────────────────────────────────────────────────────────
@@ -196,6 +214,9 @@ export default function ActiveTripBubble() {
           onSelectMethod={m => { pay.setSelectedMethod(m); pay.setShowMethodPicker(false); }}
           payment={pay.payment}
           paymentCreating={pay.paymentCreating}
+          paymentError={pay.paymentError}
+          onRetryPayment={pay.retryPayment}
+          onAcceptFinished={handleAcceptFinished}
           onEmergency={() => { setExpanded(false); setTimeout(() => setShowEmergencyReport(true), 350); }}
           onCancelBooking={() => setShowCancel(true)}
         />
@@ -206,6 +227,7 @@ export default function ActiveTripBubble() {
         trip={passengerTrip}
         alerts={alerts}
         onSubmitRating={handleSubmitRating}
+        onSkipRating={handleSkipRating}
         submittingRating={submittingRating}
         showCancel={showCancel}
         onCancelClose={() => setShowCancel(false)}

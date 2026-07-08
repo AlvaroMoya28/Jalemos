@@ -24,7 +24,7 @@ import RatingModal from '../shared/rating-modal';
 import { SlideToAction } from '../shared/slide-to-action';
 import BoardingMap from './boarding-map';
 import { PassengerRow } from './passenger-row';
-import { PaymentConfirmationStep } from './payment-confirmation-step';
+import { TripPaymentSummaryScreen } from './trip-payment-summary-screen';
 import QrScanner from './qr-scanner';
 import { styles } from './styles/boarding-screen.styles';
 
@@ -229,16 +229,16 @@ export default function BoardingScreen({ trip, onTripEnded, onTripCompleted }: P
         onSkip={b.skipRating}
       />
 
-      {/* Payment confirmation step after ratings */}
-      {b.showPayments && (
-        <PaymentConfirmationStep
+      {/* Payment confirmation + trip-finished summary — one screen after ratings */}
+      {b.showPaymentSummary && (
+        <TripPaymentSummaryScreen
           colors={colors}
           insets={insets}
-          loadingPayments={b.loadingPayments}
-          pendingPayments={b.pendingPayments}
+          loading={b.loadingSummary}
+          rows={b.summaryRows}
           confirmingId={b.confirmingId}
           onConfirmPayment={b.handleConfirmPayment}
-          onFinish={onTripEnded}
+          onFinish={b.dismissPaymentSummary}
         />
       )}
     </View>
