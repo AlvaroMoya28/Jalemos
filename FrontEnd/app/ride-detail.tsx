@@ -9,7 +9,7 @@ import { useLoading } from "@/contexts/loading";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from '@/contexts/auth';
-import { bookingsApi, ratingsApi, tripLifecycleApi, get, RatingDTO } from '@/services/api';
+import { bookingsApi, ratingsApi, tripLifecycleApi, get, RatingDTO, paymentsApi, simBehaviorLabel } from '@/services/api';
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -388,6 +388,30 @@ export default function RideDetailScreen() {
     if (user?.id === scheduledTrip?.driverId) {
       Alert.alert('No permitido', 'No puedes reservar un espacio en tu propio viaje.');
       return;
+    }
+
+    // Validate that the user has at least one valid payment method
+    try {
+      const methods = await paymentsApi.getMethods(token);
+      const hasValid = methods.some(m => simBehaviorLabel(m.simBehavior) === null);
+      if (methods.length === 0) {
+        Alert.alert(
+          'Sin método de pago',
+          'Necesitás agregar un método de pago antes de reservar. Ve a tu perfil para agregar uno.',
+          [{ text: 'Entendido' }],
+        );
+        return;
+      }
+      if (!hasValid) {
+        Alert.alert(
+          'Sin método válido',
+          'Todos tus métodos de pago tienen un problema. Agregá un método válido desde tu perfil antes de reservar.',
+          [{ text: 'Entendido' }],
+        );
+        return;
+      }
+    } catch {
+      // If the check fails, let the booking proceed — don't block on network errors
     }
 
     setBookingLoading(true);
