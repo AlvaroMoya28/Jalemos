@@ -3,6 +3,7 @@
 // main tab group on success. Social sign-up (Google / Apple) mirrors the login flow.
 // Card entrance animation and floating logo match the login screen for visual consistency.
 
+import { BackButton } from '@/components/shared/back-button';
 import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
@@ -104,6 +105,8 @@ export default function RegisterScreen() {
       <View style={styles.overlay} />
       <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+
+          <BackButton dark />
 
           <View style={styles.logoBlock}>
             <Animated.View style={{ transform: [{ translateY: logoY }] }}>

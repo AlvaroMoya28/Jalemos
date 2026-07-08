@@ -1,6 +1,7 @@
 // Pantalla de estado para el conductor — muestra el pipeline de su solicitud
 // de vehículo adicional (pending → under_review → approved / rejected / needs_correction).
 
+import { BackButton } from '@/components/shared/back-button';
 import GlassCard from '@/components/shared/glass-card';
 import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
@@ -112,9 +113,7 @@ export default function VehicleApplicationStatusScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }} hitSlop={8}>
-          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-        </Pressable>
+        <BackButton />
         <Text style={styles.headerTitle}>Estado del vehículo</Text>
         <View style={stepStyles.spacerRight} />
       </View>

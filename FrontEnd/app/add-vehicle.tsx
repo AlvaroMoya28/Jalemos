@@ -3,6 +3,7 @@
 // Al aprobarse se crea el vehículo directo en la tabla vehicles sin cambiar el rol del usuario.
 // Updated by Claude Sonnet 4.6: make/model/year dropdowns, ABC123 plate format enforcement.
 
+import { BackButton } from '@/components/shared/back-button';
 import GlassCard from '@/components/shared/glass-card';
 import SelectModal from '@/components/shared/select-modal';
 import { VEHICLE_MAKES, VEHICLE_MODELS, VEHICLE_YEARS } from '@/constants/vehicle-data';
@@ -146,6 +147,9 @@ export default function AddVehicleScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <BackButton dark />
+        </View>
         <Text style={styles.headerMini}>Modo conductor</Text>
         <Text style={styles.headerTitle}>Agregar vehículo</Text>
       </View>

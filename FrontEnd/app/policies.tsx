@@ -1,13 +1,12 @@
 // Políticas de uso de Jalemos — pantalla de lectura completa.
 // Accesible desde el registro (antes de aceptar) y desde Perfil > Soporte.
 
+import { BackButton } from '@/components/shared/back-button';
 import { Brand } from '@/constants/theme';
-import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { makeStyles } from '../styles/app/policies.styles';
 
 const SECTIONS = [
@@ -137,14 +136,11 @@ const SECTIONS = [
 export default function PoliciesScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { showLoader, hideLoader } = useLoading();
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
-          <Ionicons name="arrow-back" size={18} color="#ecfff9" />
-        </Pressable>
+        <BackButton dark />
         <View style={styles.headerText}>
           <Text style={styles.heroMini}>Términos y condiciones</Text>
           <Text style={styles.heroTitle}>Políticas de uso</Text>

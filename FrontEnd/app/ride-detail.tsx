@@ -31,6 +31,7 @@ import TripInfoCards from "@/components/ride-detail/trip-info-cards";
 import { RideDetail, RideReview } from "@/components/ride-detail/types";
 import { dateLabel, timeLabel } from "@/utils/datetime";
 import { buildMapUrl, fetchRoutePolyline } from "@/utils/ride-map";
+import { BackButton } from "@/components/shared/back-button";
 import EmergencyReportModal from "@/components/shared/emergency-report-modal";
 import GlassAlert from "@/components/shared/glass-alert";
 import RatingModal from "@/components/shared/rating-modal";
@@ -443,13 +444,7 @@ export default function RideDetailScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          style={styles.backBtn}
-          onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}
-          hitSlop={8}
-        >
-          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-        </Pressable>
+        <BackButton />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {ride.from} → {ride.to}
         </Text>

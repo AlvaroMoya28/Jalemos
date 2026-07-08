@@ -10,6 +10,7 @@ export function makeStyles(c: ReturnType<typeof useAppTheme>['colors']) {
   return StyleSheet.create({
     container:   { flex: 1, backgroundColor: c.screenBg },
     header:      { paddingHorizontal: Brand.grid.margin, paddingTop: 58, paddingBottom: 14, backgroundColor: '#0a3f39' },
+    headerTop:   { marginBottom: 10 },
     headerMini:  { color: Brand.colors.green.light, fontSize: 13, fontFamily: Fonts.heading },
     headerTitle: { color: Brand.colors.black.b1, fontSize: 28, fontFamily: Fonts.headingHeavy },
     surface:     {

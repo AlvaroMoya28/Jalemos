@@ -2,6 +2,7 @@
 // notification categories. Critical safety alerts (cancellations, no-show) are
 // always delivered and shown as read-only. Saved to the backend per user.
 
+import { BackButton } from '@/components/shared/back-button';
 import { Brand, Fonts } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -72,9 +73,7 @@ export default function NotificationPreferencesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
+        <BackButton />
         <Text style={styles.headerTitle}>Notificaciones</Text>
         <View style={{ width: 24 }} />
       </View>
