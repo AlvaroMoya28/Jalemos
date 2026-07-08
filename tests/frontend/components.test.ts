@@ -289,14 +289,14 @@ describe('FrontEnd components/RideCard — RideCard', () => {
 
   it('shows "lugares reservados" in my-rides mode', () => {
     const { getByText } = render(
-      createElement(RideCard, { ride: makeRide({ seats: 2 }), mode: 'my-rides' }),
+      createElement(RideCard, { ride: makeRide({ seats: 2 }), mode: 'my-rides-passenger' }),
     );
     expect(getByText('2 lugares reservados')).toBeTruthy();
   });
 
   it('shows singular "lugar reservado" for 1 seat in my-rides mode', () => {
     const { getByText } = render(
-      createElement(RideCard, { ride: makeRide({ seats: 1 }), mode: 'my-rides' }),
+      createElement(RideCard, { ride: makeRide({ seats: 1 }), mode: 'my-rides-passenger' }),
     );
     expect(getByText('1 lugar reservado')).toBeTruthy();
   });
