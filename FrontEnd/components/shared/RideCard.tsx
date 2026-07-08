@@ -20,6 +20,8 @@ export interface Ride {
   time: string;
   price: number;
   seats: number;
+  /** Vehicle's total seat capacity — only used for the driver's my-rides label. */
+  totalSeats?: number;
   driver: string;
   rating: number;
   /** Two-letter avatar initials derived from the driver's name. */
@@ -36,7 +38,7 @@ interface RideCardProps {
   ride: Ride;
   onPress?: () => void;
   /** Context where the card is rendered: affects the seats label */
-  mode?: 'search' | 'my-rides';
+  mode?: 'search' | 'my-rides-passenger' | 'my-rides-driver';
 }
 
 export default function RideCard({ ride, onPress, mode = 'search' }: RideCardProps) {
@@ -44,9 +46,11 @@ export default function RideCard({ ride, onPress, mode = 'search' }: RideCardPro
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // Construct the seats label based on the mode and number of seats, with proper pluralization
   const seatsLabel =
-    mode === 'my-rides'
+    mode === 'my-rides-passenger'
       ? `${ride.seats} ${ride.seats === 1 ? 'lugar reservado' : 'lugares reservados'}`
-      : `${ride.seats} ${ride.seats === 1 ? 'lugar disponible' : 'lugares disponibles'}`;
+      : mode === 'my-rides-driver'
+        ? `${ride.seats} de ${ride.totalSeats ?? ride.seats} ocupados`
+        : `${ride.seats} ${ride.seats === 1 ? 'lugar disponible' : 'lugares disponibles'}`;
 
   return (
     <AnimatedPressable pressedScale={0.992} onPress={onPress}>
