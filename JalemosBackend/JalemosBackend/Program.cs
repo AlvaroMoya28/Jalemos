@@ -24,7 +24,6 @@ using JalemosBackend.Modules.Payments.Infrastructure;
 using JalemosBackend.Modules.TripReports.Application;
 using JalemosBackend.Modules.TripReports.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Stripe;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -145,7 +144,6 @@ builder.Services.AddScoped<IDriverApplicationsService, DriverApplicationsService
 builder.Services.AddScoped<DriverApplicationsRepository>();
 
 // Payments module
-StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddScoped<IPaymentsService, PaymentsService>();
 builder.Services.AddScoped<PaymentsRepository>();
 
