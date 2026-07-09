@@ -3,6 +3,6 @@ builder = "dockerfile"
 dockerfilePath = "./JalemosBackend/JalemosBackend/Dockerfile"
 
 [Deploy]
-startCommand = "./JalemosBackend"
+startCommand = "dotnet JalemosBackend.dll"
 restartPolicyType = "always"
 healthcheckPath = "/health"
