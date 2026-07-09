@@ -4,7 +4,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -14,6 +14,7 @@ import ApplicationInfoCards from '@/components/admin/application-info-cards';
 import ApplicationPhotoViewer from '@/components/admin/application-photo-viewer';
 import ApplicationReviewForm from '@/components/admin/application-review-form';
 import AnimatedPressable from '@/components/shared/animated-pressable';
+import { BackButton } from '@/components/shared/back-button';
 import { Brand, Fonts } from '@/constants/theme';
 import { REVIEW_ISSUES } from '@/constants/mock-applications';
 import { ApplicationStatus } from '@/contexts/applications';
@@ -56,9 +57,7 @@ export default function ApplicationDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={goBack} hitSlop={8}>
-          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-        </Pressable>
+        <BackButton onPress={goBack} />
         <Text style={styles.headerTitle} numberOfLines={1}>{app.applicantName}</Text>
         <View style={{ gap: 4, alignItems: 'flex-end' }}>
           <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '22', borderColor: statusCfg.color + '55' }]}>

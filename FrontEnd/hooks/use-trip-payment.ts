@@ -1,8 +1,5 @@
-// Passenger-side payment lifecycle for the active trip: loads payment methods,
-// auto-creates the payment when the trip completes, and polls until it's
-// confirmed. Extracted from the active-trip bubble.
-
 import { useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 
 import { PaymentDto, PaymentMethodDto, paymentsApi } from '@/services/api';
 
@@ -19,45 +16,86 @@ export function useTripPayment(passengerTrip: ActiveTripLike | null, token: stri
   const [showMethodPicker, setShowMethodPicker] = useState(false);
   const [payment, setPayment]                   = useState<PaymentDto | null>(null);
   const [paymentCreating, setPaymentCreating]   = useState(false);
+  const [paymentError, setPaymentError]         = useState<string | null>(null);
+  const [retryTick, setRetryTick]               = useState(0);
   const paymentCreatedFor                       = useRef<string | null>(null);
+  const methodsLoadedFor                        = useRef<string | null>(null);
 
   // Load payment methods + pre-select favorite for any active or completed trip.
-  // Runs on boarding/in_progress/completed so a fresh app open during any of those
-  // states still has a selectedMethod ready when the payment needs to be created.
+  // Keyed by tripId (not by whether state is already populated) so each new trip
+  // re-syncs to the passenger's CURRENT favorite instead of reusing whatever method
+  // was selected on a previous trip.
   useEffect(() => {
     if (!token || !passengerTrip) return;
     const s = passengerTrip.tripState;
     if (s !== 'boarding' && s !== 'in_progress' && s !== 'completed') return;
-    if (paymentMethods.length > 0 && selectedMethod) return; // already loaded
+    if (methodsLoadedFor.current === passengerTrip.tripId) return;
+    methodsLoadedFor.current = passengerTrip.tripId;
     paymentsApi.getMethods(token).then(methods => {
       setPaymentMethods(methods);
-      if (!selectedMethod && methods.length > 0) {
-        const fav = methods.find(m => m.isFavorite) ?? methods[0];
-        setSelectedMethod(fav);
-      }
-    }).catch(() => {});
+      const fav = methods.find(m => m.isFavorite) ?? methods[0] ?? null;
+      setSelectedMethod(fav);
+    }).catch(() => { methodsLoadedFor.current = null; });
   }, [token, passengerTrip?.tripId, passengerTrip?.tripState]);
 
   // Auto-create payment when trip completes.
-  // Depends on selectedMethod so it re-runs once the method finishes loading
-  // (handles the case where the app was opened fresh during a completed trip).
   useEffect(() => {
     if (!token || !passengerTrip || passengerTrip.tripState !== 'completed') return;
     if (paymentCreatedFor.current === passengerTrip.bookingId) return;
-    if (!selectedMethod) return; // wait for the methods-load effect above to set this
+    if (!selectedMethod) return;
 
     paymentCreatedFor.current = passengerTrip.bookingId;
     setPaymentCreating(true);
-    paymentsApi.createPayment({
-      bookingId: passengerTrip.bookingId,
-      amount: passengerTrip.rate,
-      method: selectedMethod.type,
-      paymentMethodId: selectedMethod.type === 'card' ? selectedMethod.id : undefined,
-    }, token)
+    setPaymentError(null);
+    // Check for a payment that already exists for this booking first — e.g. the app was
+    // closed and reopened after the payment was already created (and possibly confirmed).
+    // Without this check we'd create a duplicate payment every time the app remounts.
+    paymentsApi.getByBooking(passengerTrip.bookingId, token)
       .then(setPayment)
-      .catch(() => { paymentCreatedFor.current = null; })
+      .catch(() =>
+        paymentsApi.createPayment({
+          bookingId: passengerTrip.bookingId,
+          amount: passengerTrip.rate,
+          method: selectedMethod.type,
+          paymentMethodId: selectedMethod.type === 'card' ? selectedMethod.id : undefined,
+        }, token)
+          .then(setPayment)
+          .catch((e: any) => {
+            // Reset so retryPayment (or a future deps change) can try again — otherwise
+            // this fails silently forever with an empty payment card.
+            paymentCreatedFor.current = null;
+            setPaymentError(e.message ?? 'No se pudo procesar el pago.');
+          }),
+      )
       .finally(() => setPaymentCreating(false));
-  }, [passengerTrip?.tripState, passengerTrip?.bookingId, token, selectedMethod]);
+  }, [passengerTrip?.tripState, passengerTrip?.bookingId, token, selectedMethod, retryTick]);
+
+  const retryPayment = () => {
+    paymentCreatedFor.current = null;
+    setPaymentError(null);
+    setRetryTick(t => t + 1);
+  };
+
+  // Alert when payment fails — offer to retry with another method.
+  useEffect(() => {
+    if (!payment || payment.status !== 'failed') return;
+    Alert.alert(
+      'Pago fallido',
+      'No se pudo procesar el pago con este método. ¿Querés intentar con otro?',
+      [
+        {
+          text: 'Cambiar método',
+          onPress: () => {
+            // Reset so the creation effect can fire again with the new method.
+            setPayment(null);
+            paymentCreatedFor.current = null;
+            setShowMethodPicker(true);
+          },
+        },
+        { text: 'Cerrar', style: 'cancel' },
+      ],
+    );
+  }, [payment?.status, payment]);
 
   // Poll payment status while pending so the passenger sees 'confirmed' when the driver confirms.
   useEffect(() => {
@@ -78,6 +116,6 @@ export function useTripPayment(passengerTrip: ActiveTripLike | null, token: stri
     paymentMethods,
     selectedMethod, setSelectedMethod,
     showMethodPicker, setShowMethodPicker,
-    payment, paymentCreating,
+    payment, paymentCreating, paymentError, retryPayment,
   };
 }

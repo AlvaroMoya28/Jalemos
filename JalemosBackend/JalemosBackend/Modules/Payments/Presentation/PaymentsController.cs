@@ -48,7 +48,7 @@ public sealed class PaymentsController : ControllerBase
         }
     }
 
-    /// <summary>POST /api/payments/methods/card — add a card via Stripe PaymentMethod ID.</summary>
+    /// <summary>POST /api/payments/methods/card — add a simulated card.</summary>
     [HttpPost("methods/card")]
     public async Task<IActionResult> AddCard([FromBody] CreateCardPaymentMethodDto dto, CancellationToken ct)
     {

@@ -9,7 +9,7 @@ import { useLoading } from "@/contexts/loading";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from '@/contexts/auth';
-import { bookingsApi, ratingsApi, tripLifecycleApi, get, RatingDTO } from '@/services/api';
+import { bookingsApi, ratingsApi, tripLifecycleApi, get, RatingDTO, paymentsApi, simBehaviorLabel } from '@/services/api';
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -31,6 +31,7 @@ import TripInfoCards from "@/components/ride-detail/trip-info-cards";
 import { RideDetail, RideReview } from "@/components/ride-detail/types";
 import { dateLabel, timeLabel } from "@/utils/datetime";
 import { buildMapUrl, fetchRoutePolyline } from "@/utils/ride-map";
+import { BackButton } from "@/components/shared/back-button";
 import EmergencyReportModal from "@/components/shared/emergency-report-modal";
 import GlassAlert from "@/components/shared/glass-alert";
 import RatingModal from "@/components/shared/rating-modal";
@@ -390,6 +391,30 @@ export default function RideDetailScreen() {
       return;
     }
 
+    // Validate that the user has at least one valid payment method
+    try {
+      const methods = await paymentsApi.getMethods(token);
+      const hasValid = methods.some(m => simBehaviorLabel(m.simBehavior) === null);
+      if (methods.length === 0) {
+        Alert.alert(
+          'Sin método de pago',
+          'Necesitás agregar un método de pago antes de reservar. Ve a tu perfil para agregar uno.',
+          [{ text: 'Entendido' }],
+        );
+        return;
+      }
+      if (!hasValid) {
+        Alert.alert(
+          'Sin método válido',
+          'Todos tus métodos de pago tienen un problema. Agregá un método válido desde tu perfil antes de reservar.',
+          [{ text: 'Entendido' }],
+        );
+        return;
+      }
+    } catch {
+      // If the check fails, let the booking proceed — don't block on network errors
+    }
+
     setBookingLoading(true);
     showLoader("Reservando viaje...");
     try {
@@ -419,13 +444,7 @@ export default function RideDetailScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          style={styles.backBtn}
-          onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}
-          hitSlop={8}
-        >
-          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-        </Pressable>
+        <BackButton />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {ride.from} → {ride.to}
         </Text>

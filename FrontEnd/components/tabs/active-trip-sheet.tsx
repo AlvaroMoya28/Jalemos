@@ -32,7 +32,8 @@ export default function ActiveTripSheet({
   showQr, onToggleQr, qrToken,
   mapUrl, mapError, onMapError,
   paymentMethods, selectedMethod, showMethodPicker, onToggleMethodPicker, onSelectMethod,
-  payment, paymentCreating,
+  payment, paymentCreating, paymentError, onRetryPayment,
+  onAcceptFinished,
   onEmergency, onCancelBooking,
 }: {
   trip: ActivePassengerTrip;
@@ -56,6 +57,9 @@ export default function ActiveTripSheet({
   onSelectMethod: (m: PaymentMethodDto) => void;
   payment: PaymentDto | null;
   paymentCreating: boolean;
+  paymentError: string | null;
+  onRetryPayment: () => void;
+  onAcceptFinished: () => void;
   onEmergency: () => void;
   onCancelBooking: () => void;
 }) {
@@ -195,8 +199,34 @@ export default function ActiveTripSheet({
                         </Text>
                       )}
                     </>
+                  ) : paymentError ? (
+                    <>
+                      <Ionicons name="alert-circle" size={28} color="#e53e3e" />
+                      <Text style={{ fontFamily: Fonts.headingBold, fontSize: 14, color: colors.textPrimary, marginTop: 6, textAlign: 'center' }}>
+                        No se pudo procesar el pago
+                      </Text>
+                      <Text style={{ fontFamily: Fonts.sans, fontSize: 12, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>
+                        {paymentError}
+                      </Text>
+                      <Pressable
+                        onPress={onRetryPayment}
+                        style={{ marginTop: 14, alignSelf: 'stretch', backgroundColor: Brand.colors.green.normal, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
+                      >
+                        <Text style={{ fontFamily: Fonts.headingBold, fontSize: 14, color: '#fff' }}>Reintentar</Text>
+                      </Pressable>
+                    </>
                   ) : null}
                 </View>
+              )}
+
+              {/* Trip finished — always available, regardless of payment verification state */}
+              {trip.tripState === 'completed' && (
+                <Pressable
+                  onPress={onAcceptFinished}
+                  style={{ backgroundColor: Brand.colors.green.normal, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+                >
+                  <Text style={{ fontFamily: Fonts.headingBold, fontSize: 15, color: '#fff' }}>Aceptar</Text>
+                </Pressable>
               )}
 
               {/* Cancellation reason (when cancelled) */}

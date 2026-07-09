@@ -73,6 +73,15 @@ export function useTripSearch() {
     }
   }, [showLoader, hideLoader, refreshTrips]);
 
+  const handleRefresh = useCallback(async () => {
+    showLoader('Actualizando...');
+    try {
+      await refreshTrips();
+    } finally {
+      hideLoader();
+    }
+  }, [showLoader, hideLoader, refreshTrips]);
+
   const handleRidePress = useCallback(async (id: string) => {
     showLoader('Cargando viaje...');
     await new Promise<void>((resolve) => setTimeout(resolve, 400));
@@ -98,6 +107,6 @@ export function useTripSearch() {
     from, setFrom, to, setTo, seats, setSeats,
     selectedDate, setSelectedDate, hasSearched,
     rides, filteredRides, noTripsExist,
-    refreshTrips, handleSearch, handleRidePress, clearSearch, applyQuickRoute,
+    refreshTrips, handleSearch, handleRefresh, handleRidePress, clearSearch, applyQuickRoute,
   };
 }

@@ -4,7 +4,6 @@
 // Form state + validation live in useDriverRegistrationForm; sections render it.
 
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useMemo } from 'react';
 import {
   ImageBackground,
@@ -17,13 +16,13 @@ import {
 } from 'react-native';
 
 import DocumentCameraModal from '@/components/shared/document-camera-modal';
+import { BackButton } from '@/components/shared/back-button';
 import DekraSection from '@/components/driver-registration/dekra-section';
 import LicenseSection from '@/components/driver-registration/license-section';
 import PersonalInfoSection from '@/components/driver-registration/personal-info-section';
 import ProfilePhotoSection from '@/components/driver-registration/profile-photo-section';
 import VehicleSection from '@/components/driver-registration/vehicle-section';
 import { Brand } from '@/constants/theme';
-import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { CAMERA_CONFIG, useDriverRegistrationForm } from '@/hooks/use-driver-registration-form';
 import { makeStyles } from '../styles/app/driver-registration.styles';
@@ -31,7 +30,6 @@ import { makeStyles } from '../styles/app/driver-registration.styles';
 export default function DriverRegistrationScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { showLoader, hideLoader } = useLoading();
   const form = useDriverRegistrationForm();
 
   return (
@@ -44,10 +42,7 @@ export default function DriverRegistrationScreen() {
       <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
-          <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
-            <Ionicons name="arrow-back" size={18} color="#ffffff" />
-            <Text style={styles.backText}>Volver</Text>
-          </Pressable>
+          <BackButton dark />
 
           <View style={styles.header}>
             <Text style={styles.title}>Registro de conductor</Text>

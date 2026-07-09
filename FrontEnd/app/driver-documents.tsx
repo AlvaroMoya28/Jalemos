@@ -2,6 +2,7 @@
 // and expiry dates. Submits a renewal application (is_renewal: true) that goes through
 // the same admin review queue as the original application.
 
+import { BackButton } from '@/components/shared/back-button';
 import DocumentCameraModal from '@/components/shared/document-camera-modal';
 import ExpiryInput, { parseExpiry } from '@/components/shared/expiry-input';
 import GlassCard from '@/components/shared/glass-card';
@@ -159,10 +160,7 @@ export default function DriverDocumentsScreen() {
       <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
-          <Pressable style={styles.backBtn} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
-            <Ionicons name="arrow-back" size={18} color="#ffffff" />
-            <Text style={styles.backText}>Volver</Text>
-          </Pressable>
+          <BackButton dark />
 
           <View>
             <Text style={styles.title}>Actualizar documentos</Text>

@@ -2,6 +2,7 @@
 // The user enters the 6-digit code sent to their email address.
 // On success the backend returns a JWT and the user is logged in automatically.
 
+import { BackButton } from '@/components/shared/back-button';
 import GlassCard from '@/components/shared/glass-card';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
@@ -140,6 +141,8 @@ export default function VerifyEmailScreen() {
       <View style={styles.overlay} />
       <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+
+          <BackButton dark />
 
           <View style={styles.logoBlock}>
             <Animated.View style={{ transform: [{ translateY: logoY }] }}>

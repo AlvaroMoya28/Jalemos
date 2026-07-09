@@ -10,7 +10,6 @@ public class PaymentEntity
     public decimal Amount { get; set; }
     public PaymentType Method { get; set; }
     public PaymentStatus Status { get; set; }
-    public string? StripePaymentIntentId { get; set; }
     public Guid? PaymentMethodId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
