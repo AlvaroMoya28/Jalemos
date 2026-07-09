@@ -333,7 +333,7 @@ describe('FrontEnd services/api', () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ applicationId: 'a1' }) });
     const api = await import('../../FrontEnd/services/api');
     const payload = {
-      facePhoto: null, licensePhotoFront: null, licensePhotoBack: null, dekraPhoto: null,
+      facePhoto: null, licensePhotoFront: null, dekraPhoto: null,
       licenseExpiryMonth: null, licenseExpiryYear: null, dekraExpiryMonth: null, dekraExpiryYear: null,
     };
     await api.applicationsApi.submit(payload, 'tok');
@@ -348,7 +348,7 @@ describe('FrontEnd services/api', () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ applicationId: 'a1' }) });
     const api = await import('../../FrontEnd/services/api');
     await api.applicationsApi.resubmit('a1', {
-      facePhoto: null, licensePhotoFront: null, licensePhotoBack: null, dekraPhoto: null,
+      facePhoto: null, licensePhotoFront: null, dekraPhoto: null,
       licenseExpiryMonth: null, licenseExpiryYear: null, dekraExpiryMonth: null, dekraExpiryYear: null,
     }, 'tok');
     expect(fetchMock).toHaveBeenCalledWith(

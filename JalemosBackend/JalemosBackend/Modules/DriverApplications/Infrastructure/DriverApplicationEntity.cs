@@ -17,7 +17,6 @@ public class DriverApplicationEntity
     public string VehicleColor { get; set; } = null!;
     public string? FacePhoto { get; set; }
     public string? LicensePhotoFront { get; set; }
-    public string? LicensePhotoBack { get; set; }
     public string? DekraPhoto { get; set; }
     public short? LicenseExpiryMonth { get; set; }
     public short? LicenseExpiryYear { get; set; }

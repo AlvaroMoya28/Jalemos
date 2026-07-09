@@ -10,7 +10,6 @@ public sealed record SubmitApplicationRequest(
     string? VehicleColor,
     string? FacePhoto,
     string? LicensePhotoFront,
-    string? LicensePhotoBack,
     string? DekraPhoto,
     short?  LicenseExpiryMonth,
     short?  LicenseExpiryYear,

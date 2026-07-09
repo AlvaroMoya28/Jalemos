@@ -30,7 +30,6 @@ export interface DriverApplicationDTO {
   vehicleColor: string;
   facePhoto: string | null;
   licensePhotoFront: string | null;
-  licensePhotoBack: string | null;
   dekraPhoto: string | null;
   licenseExpiryMonth: number | null;
   licenseExpiryYear: number | null;
@@ -58,7 +57,6 @@ export interface SubmitApplicationPayload {
   vehicleColor?: string;
   facePhoto: string | null;
   licensePhotoFront: string | null;
-  licensePhotoBack: string | null;
   dekraPhoto: string | null;
   licenseExpiryMonth: number | null;
   licenseExpiryYear: number | null;

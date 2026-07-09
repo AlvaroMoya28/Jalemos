@@ -98,7 +98,7 @@ const makeDTO = (overrides = {}) => ({
   cedula: '11111111', address: 'San José',
   vehicleBrand: 'Toyota', vehicleModel: 'Corolla', vehicleYear: 2020,
   vehiclePlate: 'ABC-123', vehicleColor: 'Blanco',
-  facePhoto: null, licensePhotoFront: null, licensePhotoBack: null, dekraPhoto: null,
+  facePhoto: null, licensePhotoFront: null, dekraPhoto: null,
   licenseExpiryMonth: null, licenseExpiryYear: null,
   dekraExpiryMonth: null, dekraExpiryYear: null,
   isRenewal: false, adminIssueIds: null, adminNotes: null, reviewedAt: null,
@@ -357,7 +357,7 @@ describe('FrontEnd contexts/applications — ApplicationsProvider', () => {
     let app: any;
     await act(async () => {
       app = await result.current.submitApplication({
-        facePhoto: null, licensePhotoFront: null, licensePhotoBack: null,
+        facePhoto: null, licensePhotoFront: null,
         dekraPhoto: null, licenseExpiryMonth: null, licenseExpiryYear: null,
         dekraExpiryMonth: null, dekraExpiryYear: null,
       });
@@ -374,7 +374,7 @@ describe('FrontEnd contexts/applications — ApplicationsProvider', () => {
     const { result } = renderHook(() => useApplications(), { wrapper });
     await act(async () => {
       await result.current.resubmitApplication('app-1', {
-        facePhoto: null, licensePhotoFront: null, licensePhotoBack: null,
+        facePhoto: null, licensePhotoFront: null,
         dekraPhoto: null, licenseExpiryMonth: null, licenseExpiryYear: null,
         dekraExpiryMonth: null, dekraExpiryYear: null,
       });

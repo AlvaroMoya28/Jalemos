@@ -102,7 +102,7 @@ public sealed class DriverApplicationsRepository
 
     // Updates only the document photos and expiry dates (used when admin approves a renewal)
     public async Task UpdateDocumentsAsync(Guid userId,
-        string? licensePhotoFront, string? licensePhotoBack, string? dekraPhoto,
+        string? licensePhotoFront, string? dekraPhoto,
         short? licenseMonth, short? licenseYear, short? dekraMonth, short? dekraYear,
         CancellationToken ct)
     {

@@ -1,4 +1,4 @@
-// Driver's licence card: front/back photos + expiry (MM/AA).
+// Driver's licence card: front photo + expiry (MM/AA).
 
 import { Text, View } from 'react-native';
 
@@ -13,7 +13,7 @@ export default function LicenseSection({ form, styles }: {
   form: ReturnType<typeof useDriverRegistrationForm>;
   styles: ReturnType<typeof makeStyles>;
 }) {
-  const { licenciaFront, licenciaBack, licenseExpiry, setLicenseExpiry, openPhotoOptions, err } = form;
+  const { licenciaFront, licenseExpiry, setLicenseExpiry, openPhotoOptions, err } = form;
   return (
     <View style={styles.cardWrap}>
       <GlassCard style={styles.card} intensity={48}>
@@ -22,17 +22,10 @@ export default function LicenseSection({ form, styles }: {
         <View style={styles.photoRow}>
           <PhotoPickerBtn
             photo={licenciaFront}
-            label="Lado frontal *"
-            sublabel="Toca para adjuntar"
+            label="Foto de licencia *"
+            sublabel="Toca para adjuntar el frente"
             onPress={() => openPhotoOptions('licenciaFront')}
             error={err('licenciaFront')}
-          />
-          <PhotoPickerBtn
-            photo={licenciaBack}
-            label="Lado trasero *"
-            sublabel="Toca para adjuntar"
-            onPress={() => openPhotoOptions('licenciaBack')}
-            error={err('licenciaBack')}
           />
         </View>
 
