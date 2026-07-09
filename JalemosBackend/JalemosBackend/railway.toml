@@ -1,8 +1,8 @@
 [Build]
 builder = "dockerfile"
-dockerfilePath = "./JalemosBackend/Dockerfile"
+dockerfilePath = "./JalemosBackend/JalemosBackend/Dockerfile"
 
 [Deploy]
 startCommand = "./JalemosBackend"
 restartPolicyType = "always"
-healthcheckpath = "/health"
+healthcheckPath = "/health"
