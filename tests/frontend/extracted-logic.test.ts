@@ -133,7 +133,6 @@ describe('computeFieldErrors / collectMissing', () => {
     vehicleColor: 'Rojo',
     placa: 'ABC123',
     licenciaFront: { uri: 'front' },
-    licenciaBack: { uri: 'back' },
     licenseExpiry: { month: 12, year: 2030 },
     dekraPhoto: { uri: 'dekra' },
     dekraExpiry: { month: 6, year: 2030 },
@@ -165,11 +164,11 @@ describe('computeFieldErrors / collectMissing', () => {
   it('collectMissing lists every invalid field in form order with human labels', () => {
     const allInvalid = {
       cedula: '', address: '', facePhoto: null, marca: '', modelo: '', año: '', vehicleColor: '', placa: '',
-      licenciaFront: null, licenciaBack: null, licenseExpiry: { month: null, year: null },
+      licenciaFront: null, licenseExpiry: { month: null, year: null },
       dekraPhoto: null, dekraExpiry: { month: null, year: null },
     };
     const missing = collectMissing(computeFieldErrors(allInvalid));
-    expect(missing).toHaveLength(13);
+    expect(missing).toHaveLength(12);
     expect(missing[0]).toBe('Número de cédula');
     expect(missing).toContain('Placa (formato ABC123 o 123456)');
     expect(missing[missing.length - 1]).toBe('Fecha de vencimiento Dekra');

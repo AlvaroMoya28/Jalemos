@@ -9,10 +9,12 @@ import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
 import { useUserMode } from '@/contexts/user-mode';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Image,
@@ -38,6 +40,8 @@ export default function LoginScreen() {
   const [user, setUser] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  const google = useGoogleSignIn(setError);
 
   const handleLogin = async () => {
     if (!user.trim() || !password) {
@@ -179,9 +183,19 @@ export default function LoginScreen() {
                 <View style={styles.divider} />
               </View>
 
-              <Pressable style={styles.socialBtn}>
-                <Ionicons name="logo-google" size={18} color={Brand.colors.green.dark} />
-                <Text style={styles.socialText}>Google</Text>
+              <Pressable
+                style={[styles.socialBtn, (!google.ready || google.submitting) && { opacity: 0.6 }]}
+                onPress={google.signIn}
+                disabled={!google.ready || google.submitting}
+              >
+                {google.submitting ? (
+                  <ActivityIndicator size="small" color={Brand.colors.green.dark} />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={18} color={Brand.colors.green.dark} />
+                    <Text style={styles.socialText}>Google</Text>
+                  </>
+                )}
               </Pressable>
 
               <Pressable style={styles.socialBtn}>

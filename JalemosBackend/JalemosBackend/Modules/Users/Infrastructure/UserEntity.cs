@@ -8,7 +8,10 @@ namespace JalemosBackend.Modules.Users.Infrastructure
         public Guid UserId { get; set; }
         public string Username { get; set; } = null!;
         public string Email { get; set; } = null!;
-        public string PasswordHash { get; set; } = null!;
+        // Null for accounts created via Google Sign-In (they authenticate through Google, not a password).
+        public string? PasswordHash { get; set; }
+        // Google's stable user id (the "sub" claim). Null for local email/password accounts.
+        public string? GoogleId { get; set; }
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
         public UserRole Role { get; set; }

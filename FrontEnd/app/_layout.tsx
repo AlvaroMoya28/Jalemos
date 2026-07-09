@@ -108,6 +108,11 @@ export default function RootLayout() {
                         name="register"
                         options={{ headerShown: false }}
                       />
+                      {/* Complete-your-profile screen after Google Sign-In (new users) */}
+                      <Stack.Screen
+                        name="complete-google-profile"
+                        options={{ headerShown: false }}
+                      />
                       {/* Driver registration */}
                       <Stack.Screen
                         name="driver-registration"

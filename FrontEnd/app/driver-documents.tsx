@@ -74,23 +74,20 @@ export default function DriverDocumentsScreen() {
   const { showLoader, hideLoader } = useLoading();
 
   const [licenciaFront, setLicenciaFront] = useState<PhotoSlot>(null);
-  const [licenciaBack,  setLicenciaBack]  = useState<PhotoSlot>(null);
   const [dekraPhoto,    setDekraPhoto]    = useState<PhotoSlot>(null);
   const [licenseExpiry, setLicenseExpiry] = useState('');
   const [dekraExpiry,   setDekraExpiry]   = useState('');
 
-  type CameraTarget = 'licenciaFront' | 'licenciaBack' | 'dekra';
+  type CameraTarget = 'licenciaFront' | 'dekra';
   const [cameraOpen, setCameraOpen] = useState<CameraTarget | null>(null);
 
   const cameraConfig: Record<CameraTarget, { label: string; type: 'license' | 'document' }> = {
     licenciaFront: { label: 'Licencia — Lado frontal', type: 'license' },
-    licenciaBack:  { label: 'Licencia — Lado trasero', type: 'license' },
     dekra:         { label: 'Revisión técnica Dekra',  type: 'document' },
   };
 
   const setPhoto = (target: CameraTarget, uri: string) => {
     if (target === 'licenciaFront') setLicenciaFront({ uri });
-    else if (target === 'licenciaBack') setLicenciaBack({ uri });
     else setDekraPhoto({ uri });
   };
 
@@ -119,15 +116,14 @@ export default function DriverDocumentsScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!licenciaFront && !licenciaBack && !dekraPhoto) {
+    if (!licenciaFront && !dekraPhoto) {
       Alert.alert('Sin fotos', 'Adjuntá al menos una foto para renovar.');
       return;
     }
     showLoader('Subiendo imágenes...');
     try {
-      const [frontB64, backB64, dekraB64] = await Promise.all([
+      const [frontB64, dekraB64] = await Promise.all([
         toBase64(licenciaFront?.uri ?? null),
-        toBase64(licenciaBack?.uri  ?? null),
         toBase64(dekraPhoto?.uri    ?? null),
       ]);
       showLoader('Enviando renovación...');
@@ -136,7 +132,6 @@ export default function DriverDocumentsScreen() {
       await submitApplication({
         facePhoto:          null,
         licensePhotoFront:  frontB64,
-        licensePhotoBack:   backB64,
         dekraPhoto:         dekraB64,
         licenseExpiryMonth: licM,
         licenseExpiryYear:  licY,
@@ -186,15 +181,9 @@ export default function DriverDocumentsScreen() {
               <View style={styles.photoRow}>
                 <PhotoPickerBtn
                   photo={licenciaFront}
-                  label="Lado frontal"
+                  label="Foto de licencia"
                   sublabel="Opcional si no cambió"
                   onPress={() => openPhotoOptions('licenciaFront')}
-                />
-                <PhotoPickerBtn
-                  photo={licenciaBack}
-                  label="Lado trasero"
-                  sublabel="Opcional si no cambió"
-                  onPress={() => openPhotoOptions('licenciaBack')}
                 />
               </View>
               <Text style={[styles.photoSublabel, { marginBottom: 4 }]}>Nueva fecha de vencimiento (MM/AA)</Text>

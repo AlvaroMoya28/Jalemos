@@ -18,8 +18,7 @@ export default function ApplicationDocumentsCard({ app, styles, colors, onView }
 }) {
   const docs: { label: string; url: string | null }[] = [
     { label: 'Foto de cara',      url: app.facePhoto },
-    { label: 'Licencia frontal',  url: app.licensePhotoFront },
-    { label: 'Licencia trasera',  url: app.licensePhotoBack },
+    { label: 'Licencia',          url: app.licensePhotoFront },
     { label: 'Dekra',             url: app.dekraPhoto },
   ];
   const hasAny = docs.some((d) => d.url);

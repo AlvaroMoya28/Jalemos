@@ -64,6 +64,22 @@ export interface RegisterData {
   password: string;
 }
 
+// Data pulled from the Google account to pre-fill the "complete your profile" screen.
+export interface GoogleProfilePrefill {
+  email: string;
+  firstName: string;
+  lastName: string;
+  suggestedUsername: string;
+  photoUrl: string | null;
+}
+
+// Shape returned by POST /api/auth/google.
+interface GoogleSignInApiResult {
+  needsProfile: boolean;
+  session: AuthResponse | null;
+  prefill: GoogleProfilePrefill | null;
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -92,6 +108,24 @@ interface AuthContextType {
   resendVerification: (
     userId: string,
   ) => Promise<{ success: boolean; error?: string; retryAfterSeconds?: number }>;
+  // Google Sign-In, step 1. Either logs the user in (existing account) or returns the
+  // Google profile so the caller can route to the "complete your profile" screen.
+  loginWithGoogle: (
+    idToken: string,
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    user?: User;
+    needsProfile?: boolean;
+    prefill?: GoogleProfilePrefill;
+  }>;
+  // Google Sign-In, step 2. Creates the account with the chosen username.
+  completeGoogleProfile: (
+    idToken: string,
+    username: string,
+    firstName?: string,
+    lastName?: string,
+  ) => Promise<{ success: boolean; error?: string; user?: User }>;
   upgradeToDriver: () => Promise<string>;
   setDriverActivated: (v: boolean) => Promise<void>;
   /** Updates the in-memory user's profile photo URL after a successful upload. */
@@ -109,6 +143,8 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => ({ success: false }),
   verifyEmail: async () => ({ success: false }),
   resendVerification: async () => ({ success: false }),
+  loginWithGoogle: async () => ({ success: false }),
+  completeGoogleProfile: async () => ({ success: false }),
   upgradeToDriver: async () => "passenger",
   setDriverActivated: async () => {},
   setProfilePhotoUrl: () => {},
@@ -180,31 +216,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
+  // Persists a JWT session and syncs local state (token, user, resolved mode, driver flag).
+  // Shared by password login, email verification, and Google Sign-In.
+  const applyAuthResponse = async (res: AuthResponse): Promise<User> => {
+    await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+    const u = mapResponse(res);
+    // Resolve mode before setting user so both land in the same render
+    if (u.role === "passenger+driver") {
+      const modeStored = await SecureStore.getItemAsync(`jalemos_mode_${u.id}`);
+      setResolvedMode(modeStored === "driver" ? "driver" : "passenger");
+    } else {
+      setResolvedMode("passenger");
+    }
+    setToken(res.token);
+    setUser(u);
+    // Sync driverActivated with SecureStore + actual role
+    if (u.role !== "passenger+driver") {
+      await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
+      _setDriverActivated(false);
+    } else {
+      const activated = await SecureStore.getItemAsync(DRIVER_ACTIVATED_KEY);
+      _setDriverActivated(activated === "1");
+    }
+    return u;
+  };
+
   const login = async (identifier: string, password: string) => {
     try {
       const res = await post<AuthResponse>("/api/auth/login", {
         identifier,
         password,
       });
-      await SecureStore.setItemAsync(TOKEN_KEY, res.token);
-      const u = mapResponse(res);
-      // Resolve mode before setting user so both land in the same render
-      if (u.role === "passenger+driver") {
-        const modeStored = await SecureStore.getItemAsync(`jalemos_mode_${u.id}`);
-        setResolvedMode(modeStored === "driver" ? "driver" : "passenger");
-      } else {
-        setResolvedMode("passenger");
-      }
-      setToken(res.token);
-      setUser(u);
-      // Sync driverActivated with SecureStore + actual role
-      if (u.role !== "passenger+driver") {
-        await SecureStore.deleteItemAsync(DRIVER_ACTIVATED_KEY);
-        _setDriverActivated(false);
-      } else {
-        const activated = await SecureStore.getItemAsync(DRIVER_ACTIVATED_KEY);
-        _setDriverActivated(activated === "1");
-      }
+      const u = await applyAuthResponse(res);
       return { success: true, user: u };
     } catch (err) {
       // Credentials are valid but the email isn't verified — surface the ids so the
@@ -298,6 +341,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Google Sign-In, step 1. Sends the id_token to the backend, which either returns a
+  // session (existing account) or asks us to complete the profile (new account).
+  const loginWithGoogle = async (idToken: string) => {
+    try {
+      const res = await post<GoogleSignInApiResult>("/api/auth/google", { idToken });
+      if (res.needsProfile && res.prefill) {
+        return { success: false, needsProfile: true, prefill: res.prefill };
+      }
+      if (res.session) {
+        const u = await applyAuthResponse(res.session);
+        return { success: true, user: u };
+      }
+      return { success: false, error: "Respuesta inesperada del servidor." };
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Error de conexión con el servidor";
+      return { success: false, error: msg };
+    }
+  };
+
+  // Google Sign-In, step 2. Creates the account with the chosen username and logs in.
+  const completeGoogleProfile = async (
+    idToken: string,
+    username: string,
+    firstName?: string,
+    lastName?: string,
+  ) => {
+    try {
+      const res = await post<AuthResponse>("/api/auth/google/complete", {
+        idToken,
+        username,
+        firstName,
+        lastName,
+      });
+      const u = await applyAuthResponse(res);
+      return { success: true, user: u };
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Error de conexión con el servidor";
+      return { success: false, error: msg };
+    }
+  };
+
   // Fetches a fresh JWT from the server (role may have changed to 'driver' after admin approval)
   // then updates local state. Navigates to offer tab on success.
   const upgradeToDriver = async (): Promise<string> => {
@@ -332,6 +418,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         verifyEmail,
         resendVerification,
+        loginWithGoogle,
+        completeGoogleProfile,
         upgradeToDriver,
         setDriverActivated,
         setProfilePhotoUrl,

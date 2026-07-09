@@ -29,7 +29,6 @@ export interface DriverApplication {
   vehicle: { brand: string; model: string; year: string; plate: string; color: string };
   facePhoto: string | null;
   licensePhotoFront: string | null;
-  licensePhotoBack: string | null;
   dekraPhoto: string | null;
   licenseExpiryMonth: number | null;
   licenseExpiryYear: number | null;
@@ -46,7 +45,6 @@ export interface SubmitData {
   vehicle?: DriverApplication['vehicle'];
   facePhoto: string | null;
   licensePhotoFront: string | null;
-  licensePhotoBack: string | null;
   dekraPhoto: string | null;
   licenseExpiryMonth: number | null;
   licenseExpiryYear: number | null;
@@ -80,7 +78,6 @@ function fromDTO(dto: DriverApplicationDTO): DriverApplication {
     },
     facePhoto:           dto.facePhoto,
     licensePhotoFront:   dto.licensePhotoFront,
-    licensePhotoBack:    dto.licensePhotoBack,
     dekraPhoto:          dto.dekraPhoto,
     licenseExpiryMonth:  dto.licenseExpiryMonth ?? null,
     licenseExpiryYear:   dto.licenseExpiryYear ?? null,
@@ -179,7 +176,6 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
         vehicleColor:       data.vehicle?.color,
         facePhoto:          data.facePhoto,
         licensePhotoFront:  data.licensePhotoFront,
-        licensePhotoBack:   data.licensePhotoBack,
         dekraPhoto:         data.dekraPhoto,
         licenseExpiryMonth: data.licenseExpiryMonth,
         licenseExpiryYear:  data.licenseExpiryYear,
@@ -217,7 +213,6 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
         vehicleColor:       data.vehicle?.color,
         facePhoto:          data.facePhoto,
         licensePhotoFront:  data.licensePhotoFront,
-        licensePhotoBack:   data.licensePhotoBack,
         dekraPhoto:         data.dekraPhoto,
         licenseExpiryMonth: data.licenseExpiryMonth,
         licenseExpiryYear:  data.licenseExpiryYear,

@@ -80,7 +80,8 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.UserId).HasColumnName("user_id").HasDefaultValueSql("gen_random_uuid()");
                 e.Property(x => x.Username).HasColumnName("username").HasMaxLength(50).IsRequired();
                 e.Property(x => x.Email).HasColumnName("email").HasMaxLength(150).IsRequired();
-                e.Property(x => x.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
+                e.Property(x => x.PasswordHash).HasColumnName("password_hash").HasMaxLength(255);
+                e.Property(x => x.GoogleId).HasColumnName("google_id").HasMaxLength(255);
                 e.Property(x => x.FirstName).HasColumnName("first_name").HasMaxLength(100).IsRequired();
                 e.Property(x => x.LastName).HasColumnName("last_name").HasMaxLength(100).IsRequired();
                 e.Property(x => x.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(20).HasDefaultValueSql("'passenger'");
@@ -109,6 +110,9 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.HasIndex(x => x.Email).IsUnique();
                 e.HasIndex(x => x.Username).IsUnique();
                 e.HasIndex(x => x.QrToken).IsUnique().HasDatabaseName("idx_users_qr_token");
+                // google_id is unique only when present (local accounts leave it NULL).
+                e.HasIndex(x => x.GoogleId).IsUnique().HasDatabaseName("ux_users_google_id")
+                    .HasFilter("google_id IS NOT NULL");
             });
 
             // Vehicles
@@ -309,7 +313,6 @@ namespace JalemosBackend.Infrastructure.Persistence
                 e.Property(x => x.VehicleColor).HasColumnName("vehicle_color").HasMaxLength(50).IsRequired();
                 e.Property(x => x.FacePhoto).HasColumnName("face_photo");
                 e.Property(x => x.LicensePhotoFront).HasColumnName("license_photo_front");
-                e.Property(x => x.LicensePhotoBack).HasColumnName("license_photo_back");
                 e.Property(x => x.DekraPhoto).HasColumnName("dekra_photo");
                 e.Property(x => x.LicenseExpiryMonth).HasColumnName("license_expiry_month");
                 e.Property(x => x.LicenseExpiryYear).HasColumnName("license_expiry_year");

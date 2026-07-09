@@ -90,7 +90,6 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
 
         var faceUrl  = await _storage.UploadBase64Async(dto.FacePhoto,         "user-profiles",               ct);
         var frontUrl = await _storage.UploadBase64Async(dto.LicensePhotoFront, "driver-applications/licenses", ct);
-        var backUrl  = await _storage.UploadBase64Async(dto.LicensePhotoBack,  "driver-applications/licenses", ct);
         var dekraUrl = await _storage.UploadBase64Async(dto.DekraPhoto,        "driver-applications/dekra",    ct);
 
         var entity = new DriverApplicationEntity
@@ -108,7 +107,6 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
             VehicleColor      = vehicleColor,
             FacePhoto         = faceUrl,
             LicensePhotoFront = frontUrl,
-            LicensePhotoBack  = backUrl,
             DekraPhoto        = dekraUrl,
             LicenseExpiryMonth = dto.LicenseExpiryMonth,
             LicenseExpiryYear  = dto.LicenseExpiryYear,
@@ -136,7 +134,6 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
 
         var faceUrl  = await _storage.UploadBase64Async(dto.FacePhoto,         "user-profiles",               ct);
         var frontUrl = await _storage.UploadBase64Async(dto.LicensePhotoFront, "driver-applications/licenses", ct);
-        var backUrl  = await _storage.UploadBase64Async(dto.LicensePhotoBack,  "driver-applications/licenses", ct);
         var dekraUrl = await _storage.UploadBase64Async(dto.DekraPhoto,        "driver-applications/dekra",    ct);
 
         var tracked = new DriverApplicationEntity
@@ -154,7 +151,6 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
             VehicleColor       = dto.VehicleColor?.Trim() ?? entity.VehicleColor,
             FacePhoto          = faceUrl  ?? entity.FacePhoto,
             LicensePhotoFront  = frontUrl ?? entity.LicensePhotoFront,
-            LicensePhotoBack   = backUrl  ?? entity.LicensePhotoBack,
             DekraPhoto         = dekraUrl ?? entity.DekraPhoto,
             LicenseExpiryMonth = dto.LicenseExpiryMonth ?? entity.LicenseExpiryMonth,
             LicenseExpiryYear  = dto.LicenseExpiryYear  ?? entity.LicenseExpiryYear,
@@ -253,7 +249,7 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
             // Solo actualiza documentos y fechas de vencimiento
             await _repo.UpdateDocumentsAsync(
                 entity.UserId,
-                entity.LicensePhotoFront, entity.LicensePhotoBack, entity.DekraPhoto,
+                entity.LicensePhotoFront, entity.DekraPhoto,
                 entity.LicenseExpiryMonth, entity.LicenseExpiryYear,
                 entity.DekraExpiryMonth,   entity.DekraExpiryYear,
                 ct);
@@ -335,7 +331,6 @@ public sealed class DriverApplicationsService : IDriverApplicationsService
             VehicleColor:       e.VehicleColor,
             FacePhoto:          e.FacePhoto,
             LicensePhotoFront:  e.LicensePhotoFront,
-            LicensePhotoBack:   e.LicensePhotoBack,
             DekraPhoto:         e.DekraPhoto,
             LicenseExpiryMonth: e.LicenseExpiryMonth,
             LicenseExpiryYear:  e.LicenseExpiryYear,

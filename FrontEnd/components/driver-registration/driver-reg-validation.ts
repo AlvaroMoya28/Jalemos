@@ -42,7 +42,6 @@ export interface DriverRegValues {
   vehicleColor: string;
   placa: string;
   licenciaFront: PhotoSlot;
-  licenciaBack: PhotoSlot;
   licenseExpiry: { month: number | null; year: number | null };
   dekraPhoto: PhotoSlot;
   dekraExpiry: { month: number | null; year: number | null };
@@ -62,7 +61,6 @@ export function computeFieldErrors(v: DriverRegValues) {
     vehicleColor:  !v.vehicleColor.trim(),
     placa:         v.placa.length !== 6,
     licenciaFront: !v.licenciaFront,
-    licenciaBack:  !v.licenciaBack,
     licenseExpiry: !v.licenseExpiry.month || !v.licenseExpiry.year,
     dekraPhoto:    !v.dekraPhoto,
     dekraExpiry:   !v.dekraExpiry.month || !v.dekraExpiry.year,
@@ -78,8 +76,7 @@ const FIELD_LABELS: Record<DriverRegField, string> = {
   año:           'Año del vehículo',
   vehicleColor:  'Color del vehículo',
   placa:         'Placa (formato ABC123 o 123456)',
-  licenciaFront: 'Foto frontal de licencia',
-  licenciaBack:  'Foto trasera de licencia',
+  licenciaFront: 'Foto de licencia',
   licenseExpiry: 'Fecha de vencimiento de licencia',
   dekraPhoto:    'Foto de revisión técnica Dekra',
   dekraExpiry:   'Fecha de vencimiento Dekra',

@@ -21,12 +21,11 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActionSheetIOS, Alert, Platform } from 'react-native';
 
-export type CameraTarget = 'face' | 'licenciaFront' | 'licenciaBack' | 'dekra';
+export type CameraTarget = 'face' | 'licenciaFront' | 'dekra';
 
 export const CAMERA_CONFIG: Record<CameraTarget, { label: string; type: 'face' | 'license' | 'document' }> = {
   face:          { label: 'Foto de perfil',          type: 'face'     },
   licenciaFront: { label: 'Licencia — Lado frontal', type: 'license'  },
-  licenciaBack:  { label: 'Licencia — Lado trasero', type: 'license'  },
   dekra:         { label: 'Revisión técnica Dekra',  type: 'document' },
 };
 
@@ -92,7 +91,6 @@ export function useDriverRegistrationForm() {
   // Photos
   const [facePhoto, setFacePhoto]         = useState<PhotoSlot>(null);
   const [licenciaFront, setLicenciaFront] = useState<PhotoSlot>(null);
-  const [licenciaBack, setLicenciaBack]   = useState<PhotoSlot>(null);
   const [dekraPhoto, setDekraPhoto]       = useState<PhotoSlot>(null);
   const [cameraOpen, setCameraOpen]       = useState<CameraTarget | null>(null);
   const [submitted, setSubmitted]         = useState(false);
@@ -100,7 +98,6 @@ export function useDriverRegistrationForm() {
   const setPhoto = (target: CameraTarget, uri: string) => {
     if (target === 'face')               setFacePhoto({ uri });
     else if (target === 'licenciaFront') setLicenciaFront({ uri });
-    else if (target === 'licenciaBack')  setLicenciaBack({ uri });
     else                                 setDekraPhoto({ uri });
   };
 
@@ -123,9 +120,9 @@ export function useDriverRegistrationForm() {
 
   const fieldErrors = useMemo(() => computeFieldErrors({
     cedula, address, facePhoto, marca, modelo, año, vehicleColor, placa,
-    licenciaFront, licenciaBack, licenseExpiry: licenseExpiryParsed, dekraPhoto, dekraExpiry: dekraExpiryParsed,
+    licenciaFront, licenseExpiry: licenseExpiryParsed, dekraPhoto, dekraExpiry: dekraExpiryParsed,
   }), [cedula, address, facePhoto, marca, modelo, año, vehicleColor, placa,
-       licenciaFront, licenciaBack, licenseExpiryParsed, dekraPhoto, dekraExpiryParsed]);
+       licenciaFront, licenseExpiryParsed, dekraPhoto, dekraExpiryParsed]);
 
   const err = (field: keyof typeof fieldErrors) => submitted && fieldErrors[field];
 
@@ -139,10 +136,9 @@ export function useDriverRegistrationForm() {
 
     showLoader('Subiendo imágenes...');
     try {
-      const [faceB64, frontB64, backB64, dekraB64] = await Promise.all([
+      const [faceB64, frontB64, dekraB64] = await Promise.all([
         toBase64(facePhoto?.uri ?? null),
         toBase64(licenciaFront?.uri ?? null),
-        toBase64(licenciaBack?.uri ?? null),
         toBase64(dekraPhoto?.uri ?? null),
       ]);
 
@@ -153,7 +149,6 @@ export function useDriverRegistrationForm() {
         vehicle:            { brand: marca, model: modelo, year: año, plate: placa, color: vehicleColor },
         facePhoto:          faceB64,
         licensePhotoFront:  frontB64,
-        licensePhotoBack:   backB64,
         dekraPhoto:         dekraB64,
         licenseExpiryMonth: licenseExpiryParsed.month,
         licenseExpiryYear:  licenseExpiryParsed.year,
@@ -178,7 +173,7 @@ export function useDriverRegistrationForm() {
     openPicker, setOpenPicker, modelOptions,
     handleMarcaSelect, handleModeloSelect, handleAñoSelect, handlePlacaChange,
     licenseExpiry, setLicenseExpiry, dekraExpiry, setDekraExpiry,
-    facePhoto, licenciaFront, licenciaBack, dekraPhoto,
+    facePhoto, licenciaFront, dekraPhoto,
     cameraOpen, setCameraOpen, setPhoto, openPhotoOptions,
     err, handleRegister,
   };

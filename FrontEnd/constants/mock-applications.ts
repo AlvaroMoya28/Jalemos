@@ -46,7 +46,6 @@ export interface DriverApplication {
   };
   // null = mock placeholder (real app would store URIs or S3 keys)
   licensePhotoFront: string | null;
-  licensePhotoBack: string | null;
   dekraPhoto: string | null;
   adminFeedback?: {
     issueIds: string[];
@@ -68,7 +67,6 @@ export const SEED_APPLICATIONS: DriverApplication[] = [
     attempts: 1,
     vehicle: { brand: 'Toyota', model: 'Corolla', year: '2020', plate: 'CR-8821', color: 'Gris' },
     licensePhotoFront: null,
-    licensePhotoBack: null,
     dekraPhoto: null,
   },
   {
@@ -83,7 +81,6 @@ export const SEED_APPLICATIONS: DriverApplication[] = [
     attempts: 1,
     vehicle: { brand: 'Hyundai', model: 'Tucson', year: '2021', plate: 'CR-4456', color: 'Azul' },
     licensePhotoFront: null,
-    licensePhotoBack: null,
     dekraPhoto: null,
   },
   {
@@ -98,7 +95,6 @@ export const SEED_APPLICATIONS: DriverApplication[] = [
     attempts: 1,
     vehicle: { brand: 'Kia', model: 'Sportage', year: '2019', plate: 'CR-2290', color: 'Rojo' },
     licensePhotoFront: null,
-    licensePhotoBack: null,
     dekraPhoto: null,
     adminFeedback: {
       issueIds: ['license_expired', 'dekra_expired'],
@@ -118,7 +114,6 @@ export const SEED_APPLICATIONS: DriverApplication[] = [
     attempts: 1,
     vehicle: { brand: 'Mazda', model: 'CX-5', year: '2022', plate: 'CR-6614', color: 'Blanco' },
     licensePhotoFront: null,
-    licensePhotoBack: null,
     dekraPhoto: null,
   },
   {
@@ -133,7 +128,6 @@ export const SEED_APPLICATIONS: DriverApplication[] = [
     attempts: 2,
     vehicle: { brand: 'Suzuki', model: 'Swift', year: '2017', plate: 'CR-0033', color: 'Negro' },
     licensePhotoFront: null,
-    licensePhotoBack: null,
     dekraPhoto: null,
     adminFeedback: {
       issueIds: ['dekra_failed', 'vehicle_info_mismatch'],
