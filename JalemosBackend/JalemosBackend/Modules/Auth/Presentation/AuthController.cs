@@ -103,6 +103,45 @@ namespace JalemosBackend.Modules.Auth.Presentation
             }
         }
 
+        // POST /api/auth/google — step 1 of Google Sign-In.
+        // Returns either a session (existing account) or a profile-completion prefill (new account).
+        [HttpPost("google")]
+        public async Task<IActionResult> Google([FromBody] GoogleSignInRequestDto dto, CancellationToken ct)
+        {
+            try
+            {
+                var result = await _authService.GoogleSignInAsync(dto.IdToken, ct);
+                return Ok(result);
+            }
+            catch (AccountBlockedException ex)
+            {
+                var message = ex.IsDeactivated
+                    ? "Tu cuenta fue desactivada. Contactá al equipo de soporte."
+                    : $"Tu cuenta está suspendida hasta el {ex.SuspendedUntil!.Value.ToLocalTime():dd/MM/yyyy 'a las' HH:mm}.";
+                return StatusCode(403, new { error = message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+        }
+
+        // POST /api/auth/google/complete — step 2: creates the account for a new Google user
+        // once they choose a username. Returns a JWT session on success.
+        [HttpPost("google/complete")]
+        public async Task<IActionResult> GoogleComplete([FromBody] GoogleCompleteRequestDto dto, CancellationToken ct)
+        {
+            try
+            {
+                var result = await _authService.GoogleCompleteAsync(dto, ct);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+        }
+
         // GET /api/auth/refresh — devuelve un JWT nuevo con los datos más recientes del usuario.
         // Se llama cuando el admin aprueba la solicitud de conductor y el usuario necesita un token con role=driver.
         [HttpGet("refresh")]

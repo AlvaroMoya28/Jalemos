@@ -13,5 +13,13 @@ namespace JalemosBackend.Modules.Auth.Application
         // if requested again before the cooldown elapses.
         Task<DateTime> ResendVerificationAsync(ResendVerificationRequestDto dto, CancellationToken ct = default);
         Task<AuthResponseDto?> RefreshAsync(Guid userId, CancellationToken ct = default);
+
+        // Step 1 of Google Sign-In: validates the id_token and either logs the user in
+        // (existing account) or reports that a profile must be completed (new account).
+        Task<GoogleSignInResultDto> GoogleSignInAsync(string idToken, CancellationToken ct = default);
+
+        // Step 2: creates the account for a new Google user once they pick a username.
+        // Throws InvalidOperationException if the username/email is already taken.
+        Task<AuthResponseDto> GoogleCompleteAsync(GoogleCompleteRequestDto dto, CancellationToken ct = default);
     }
 }

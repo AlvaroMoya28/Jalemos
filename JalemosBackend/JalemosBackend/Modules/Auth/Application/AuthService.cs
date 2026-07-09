@@ -22,13 +22,15 @@ namespace JalemosBackend.Modules.Auth.Application
         private readonly ApplicationDbContext _db;
         private readonly IConfiguration _config;
         private readonly IEmailService _emailService;
+        private readonly GoogleTokenValidator _google;
         private readonly ILogger<AuthService> _logger;
 
-        public AuthService(ApplicationDbContext db, IConfiguration config, IEmailService emailService, ILogger<AuthService> logger)
+        public AuthService(ApplicationDbContext db, IConfiguration config, IEmailService emailService, GoogleTokenValidator google, ILogger<AuthService> logger)
         {
             _db = db;
             _config = config;
             _emailService = emailService;
+            _google = google;
             _logger = logger;
         }
 
@@ -39,7 +41,8 @@ namespace JalemosBackend.Modules.Auth.Application
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == lower || u.Username.ToLower() == lower, ct);
 
-            if (user is null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            // Google-only accounts have no password hash — they can't log in this way.
+            if (user is null || user.PasswordHash is null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 return null;
 
             if (!user.IsActive)
@@ -184,6 +187,116 @@ namespace JalemosBackend.Modules.Auth.Application
                 throw new AccountBlockedException(isDeactivated: false, suspendedUntil: user.SuspendedUntil.Value);
 
             return BuildResponse(user);
+        }
+
+        // --- Google Sign-In, step 1: validate the token and route the user ---
+        public async Task<GoogleSignInResultDto> GoogleSignInAsync(string idToken, CancellationToken ct = default)
+        {
+            var profile = await _google.ValidateAsync(idToken, ct)
+                ?? throw new InvalidOperationException("El token de Google no es válido.");
+
+            var emailLower = profile.Email.Trim().ToLower();
+
+            // Returning Google user (matched by the stable Google id) → log in.
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.GoogleId == profile.Sub, ct);
+            if (user is not null)
+            {
+                if (!user.IsActive)
+                    throw new AccountBlockedException(isDeactivated: true);
+                if (user.SuspendedUntil.HasValue && user.SuspendedUntil.Value > DateTime.UtcNow)
+                    throw new AccountBlockedException(isDeactivated: false, suspendedUntil: user.SuspendedUntil.Value);
+
+                return new GoogleSignInResultDto(false, BuildResponse(user), null);
+            }
+
+            // A local (password) account already owns this email → don't silently take it over.
+            if (await _db.Users.AnyAsync(u => u.Email.ToLower() == emailLower, ct))
+                throw new InvalidOperationException("Ese correo ya está registrado con contraseña. Iniciá sesión con tu contraseña.");
+
+            // Brand-new Google user → tell the app to collect a username.
+            var suggested = await SuggestUsernameAsync(emailLower, ct);
+            var prefill = new GoogleProfilePrefillDto(
+                Email:             emailLower,
+                FirstName:         profile.FirstName,
+                LastName:          profile.LastName,
+                SuggestedUsername: suggested,
+                PhotoUrl:          profile.Picture);
+
+            return new GoogleSignInResultDto(true, null, prefill);
+        }
+
+        // --- Google Sign-In, step 2: create the account with the chosen username ---
+        public async Task<AuthResponseDto> GoogleCompleteAsync(GoogleCompleteRequestDto dto, CancellationToken ct = default)
+        {
+            var profile = await _google.ValidateAsync(dto.IdToken, ct)
+                ?? throw new InvalidOperationException("El token de Google no es válido.");
+
+            var emailLower    = profile.Email.Trim().ToLower();
+            var usernameLower = dto.Username.Trim().ToLower();
+
+            // If the account was created in the meantime (double-tap, retry), just log in.
+            var existing = await _db.Users.FirstOrDefaultAsync(u => u.GoogleId == profile.Sub, ct);
+            if (existing is not null)
+                return BuildResponse(existing);
+
+            if (await _db.Users.AnyAsync(u => u.Email.ToLower() == emailLower, ct))
+                throw new InvalidOperationException("Ese correo ya está registrado con contraseña. Iniciá sesión con tu contraseña.");
+
+            if (await _db.Users.AnyAsync(u => u.Username.ToLower() == usernameLower, ct))
+                throw new InvalidOperationException("Ese nombre de usuario ya está en uso.");
+
+            var firstName = string.IsNullOrWhiteSpace(dto.FirstName) ? profile.FirstName : dto.FirstName.Trim();
+            var lastName  = string.IsNullOrWhiteSpace(dto.LastName) ? profile.LastName : dto.LastName.Trim();
+
+            var entity = new UserEntity
+            {
+                UserId          = Guid.NewGuid(),
+                Username        = dto.Username.Trim(),
+                Email           = emailLower,
+                PasswordHash    = null,               // Google accounts authenticate through Google.
+                GoogleId        = profile.Sub,
+                FirstName       = firstName,
+                LastName        = lastName,
+                Role            = UserRole.passenger,
+                IsActive        = true,
+                IsEmailVerified = true,               // Google already verified the email.
+                ProfilePhotoUrl = profile.Picture,
+                CreatedAt       = DateTime.UtcNow,
+                UpdatedAt       = DateTime.UtcNow,
+            };
+
+            _db.Users.Add(entity);
+            await _db.SaveChangesAsync(ct);
+
+            // Welcome email with the boarding QR — best-effort, never blocks signup.
+            try
+            {
+                await _emailService.SendWelcomeWithQrAsync(entity.Email, entity.FirstName, entity.QrToken.ToString(), ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send welcome email to {Email}", entity.Email);
+            }
+
+            return BuildResponse(entity);
+        }
+
+        // Derives a free username from the email local-part, appending a number on collisions.
+        private async Task<string> SuggestUsernameAsync(string email, CancellationToken ct)
+        {
+            var baseName = new string(email.Split('@')[0]
+                .Where(c => char.IsLetterOrDigit(c) || c is '_' or '.').ToArray());
+            if (baseName.Length < 3) baseName = $"user{baseName}";
+            if (baseName.Length > 40) baseName = baseName[..40];
+
+            var candidate = baseName;
+            var suffix = 0;
+            while (await _db.Users.AnyAsync(u => u.Username.ToLower() == candidate.ToLower(), ct))
+            {
+                suffix++;
+                candidate = $"{baseName}{suffix}";
+            }
+            return candidate;
         }
 
         private AuthResponseDto BuildResponse(UserEntity user)

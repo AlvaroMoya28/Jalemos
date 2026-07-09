@@ -1,19 +1,17 @@
-// Registration screen — shown when a new user taps "Regístrate aquí" on the login screen.
-// Collects name, surname, email, password and confirm-password, then navigates to the
-// main tab group on success. Social sign-up (Google / Apple) mirrors the login flow.
-// Card entrance animation and floating logo match the login screen for visual consistency.
+// Complete-your-profile screen — shown after a NEW user signs in with Google.
+// Google gives us the email, name and photo, but Jalemos also needs a unique username,
+// so we collect it here (name is pre-filled and editable). On submit the backend creates
+// the account and returns a JWT, and the user lands on the search tab.
 
 import GlassCard from '@/components/shared/glass-card';
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth';
 import { useLoading } from '@/contexts/loading';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Easing,
   Image,
@@ -28,55 +26,58 @@ import {
 } from 'react-native';
 import { makeStyles } from '../styles/app/register.styles';
 
-export default function RegisterScreen() {
+export default function CompleteGoogleProfileScreen() {
   const { isDark, colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { register } = useAuth();
+  const { completeGoogleProfile } = useAuth();
   const { showLoader, hideLoader } = useLoading();
 
-  const [nombre, setNombre] = useState('');
-  const [apellido, setApellido] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const params = useLocalSearchParams<{
+    idToken: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    suggestedUsername: string;
+    photoUrl: string;
+  }>();
+
+  const [nombre, setNombre] = useState(params.firstName ?? '');
+  const [apellido, setApellido] = useState(params.lastName ?? '');
+  const [username, setUsername] = useState(params.suggestedUsername ?? '');
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const [error, setError] = useState('');
 
-  const google = useGoogleSignIn(setError);
-
-  const handleRegister = async () => {
-    if (!nombre.trim() || !apellido.trim() || !username.trim() || !email.trim() || !password) {
+  const handleSubmit = async () => {
+    if (!nombre.trim() || !apellido.trim() || !username.trim()) {
       setError('Completá todos los campos');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('Ingresá un correo válido');
-      return;
-    }
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-    if (password !== confirm) {
-      setError('Las contraseñas no coinciden');
+    if (username.trim().length < 3) {
+      setError('El nombre de usuario debe tener al menos 3 caracteres');
       return;
     }
     if (!acceptedPolicies) {
       setError('Debés aceptar las políticas de uso para continuar');
       return;
     }
+    if (!params.idToken) {
+      setError('Sesión de Google expirada. Intentá de nuevo.');
+      return;
+    }
     showLoader('Creando tu cuenta...');
     try {
-      const result = await register({ username, email, firstName: nombre, lastName: apellido, password });
+      const result = await completeGoogleProfile(
+        params.idToken,
+        username.trim(),
+        nombre.trim(),
+        apellido.trim(),
+      );
       if (!result.success) {
         setError(result.error ?? 'Error al crear la cuenta');
         return;
       }
       setError('');
-      router.replace({ pathname: '/verify-email', params: { userId: result.userId, email: result.email } });
+      router.replace('/(tabs)/search');
     } finally {
       hideLoader();
     }
@@ -122,9 +123,21 @@ export default function RegisterScreen() {
           <Animated.View style={[styles.cardWrap, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
             <GlassCard style={styles.card} intensity={48}>
               <View style={styles.cardHeader}>
-                <Text style={styles.title}>¡Bienvenido!</Text>
-                <Text style={styles.subtitle}>Crea tu cuenta gratis</Text>
+                <Text style={styles.title}>Ya casi estás</Text>
+                <Text style={styles.subtitle}>Completá tu perfil para terminar</Text>
               </View>
+
+              {params.email ? (
+                <View style={styles.inputWrap}>
+                  <Ionicons name="mail-outline" size={18} color={Brand.colors.green.normal} />
+                  <TextInput
+                    value={params.email}
+                    editable={false}
+                    style={[styles.input, { opacity: 0.7 }]}
+                  />
+                  <Ionicons name="logo-google" size={16} color={Brand.colors.green.dark} />
+                </View>
+              ) : null}
 
               <View style={styles.row}>
                 <View style={styles.inputWrapFlex}>
@@ -162,59 +175,13 @@ export default function RegisterScreen() {
                 />
               </View>
 
-              <View style={styles.inputWrap}>
-                <Ionicons name="mail-outline" size={18} color={Brand.colors.green.normal} />
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Correo electrónico *"
-                  placeholderTextColor={colors.textPlaceholder}
-                  style={styles.input}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.inputWrap}>
-                <Ionicons name="lock-closed-outline" size={18} color={Brand.colors.green.normal} />
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Contraseña *"
-                  placeholderTextColor={colors.textPlaceholder}
-                  style={styles.input}
-                  secureTextEntry={!showPassword}
-                />
-                <Pressable onPress={() => setShowPassword(p => !p)}>
-                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={Brand.colors.green.normal} />
-                </Pressable>
-              </View>
-
-              <View style={styles.inputWrap}>
-                <Ionicons name="lock-closed-outline" size={18} color={Brand.colors.green.normal} />
-                <TextInput
-                  value={confirm}
-                  onChangeText={setConfirm}
-                  placeholder="Confirmar contraseña *"
-                  placeholderTextColor={colors.textPlaceholder}
-                  style={styles.input}
-                  secureTextEntry={!showConfirm}
-                />
-                <Pressable onPress={() => setShowConfirm(p => !p)}>
-                  <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={18} color={Brand.colors.green.normal} />
-                </Pressable>
-              </View>
-
-              {/* Aceptar políticas */}
               <Pressable style={styles.policiesRow} onPress={() => setAcceptedPolicies(v => !v)}>
                 <View style={[styles.checkbox, acceptedPolicies && styles.checkboxChecked]}>
                   {acceptedPolicies && <Ionicons name="checkmark" size={14} color={Brand.colors.black.b1} />}
                 </View>
                 <Text style={styles.policiesText}>
                   He leído y acepto las{' '}
-                  <Text
-                    style={styles.policiesLink}
-                    onPress={() => router.push('/policies')}>
+                  <Text style={styles.policiesLink} onPress={() => router.push('/policies')}>
                     Políticas de uso
                   </Text>
                 </Text>
@@ -227,40 +194,13 @@ export default function RegisterScreen() {
                 </View>
               ) : null}
 
-              <Pressable style={styles.cta} onPress={handleRegister}>
+              <Pressable style={styles.cta} onPress={handleSubmit}>
                 <Text style={styles.ctaText}>Crear cuenta</Text>
               </Pressable>
 
-              <View style={styles.dividerRow}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerLabel}>o regístrate con</Text>
-                <View style={styles.divider} />
-              </View>
-
-              <Pressable
-                style={[styles.socialBtn, (!google.ready || google.submitting) && { opacity: 0.6 }]}
-                onPress={google.signIn}
-                disabled={!google.ready || google.submitting}
-              >
-                {google.submitting ? (
-                  <ActivityIndicator size="small" color={Brand.colors.green.dark} />
-                ) : (
-                  <>
-                    <Ionicons name="logo-google" size={18} color={Brand.colors.green.dark} />
-                    <Text style={styles.socialText}>Google</Text>
-                  </>
-                )}
-              </Pressable>
-
-              <Pressable style={styles.socialBtn}>
-                <Ionicons name="logo-apple" size={18} color={Brand.colors.green.dark} />
-                <Text style={styles.socialText}>Apple</Text>
-              </Pressable>
-
               <Text style={styles.loginText}>
-                ¿Ya tienes cuenta?{' '}
-                <Text style={styles.loginLink} onPress={() => { showLoader(); router.back(); setTimeout(() => hideLoader(), 300); }}>
-                  Ingresa aquí
+                <Text style={styles.loginLink} onPress={() => router.back()}>
+                  Cancelar
                 </Text>
               </Text>
             </GlassCard>

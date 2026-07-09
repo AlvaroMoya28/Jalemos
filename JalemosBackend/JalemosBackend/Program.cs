@@ -113,6 +113,8 @@ builder.Services.AddSingleton<IStorageService, S3StorageService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Auth module
+builder.Services.AddHttpClient(); // default client used by GoogleTokenValidator
+builder.Services.AddScoped<GoogleTokenValidator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Trips module — scoped per request so each request gets its own service and repository
