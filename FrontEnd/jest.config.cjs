@@ -34,6 +34,8 @@ module.exports = {
     '^expo-haptics$':                         '<rootDir>/__stubs__/expo-haptics.js',
     '^expo-router$':                          '<rootDir>/__stubs__/expo-router.js',
     '^expo-web-browser$':                     '<rootDir>/__stubs__/expo-web-browser.js',
+    '^expo-auth-session/providers/google$':   '<rootDir>/__stubs__/expo-auth-session-google.js',
+    '^expo-auth-session$':                     '<rootDir>/__stubs__/expo-auth-session-google.js',
     '^expo-symbols$':                         '<rootDir>/__stubs__/expo-symbols.js',
     '^@expo/vector-icons/(.*)$':              '<rootDir>/__stubs__/expo-vector-icons.js',
     '^@expo/vector-icons$':                   '<rootDir>/__stubs__/expo-vector-icons.js',
