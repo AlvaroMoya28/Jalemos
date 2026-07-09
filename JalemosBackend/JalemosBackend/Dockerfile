@@ -16,7 +16,7 @@ FROM build AS publish
 ARG configuration=Development
 RUN dotnet publish "JalemosBackend.csproj" -c $configuration -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/runtime-aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 EXPOSE 5000
 COPY --from=publish /app/publish .
